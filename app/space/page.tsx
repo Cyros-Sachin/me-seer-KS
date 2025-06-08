@@ -288,11 +288,28 @@ export default function SpacePage() {
   const dropdownRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const dropdownVariants = {
     hidden: { opacity: 0, y: -10 },
     visible: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: -10 },
   };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setShowSidebar(false);
+      }
+    };
+
+    if (showSidebar) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSidebar]);
+
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
@@ -761,7 +778,7 @@ export default function SpacePage() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white text-black">
       {/* Left Panel */}
-      
+
       {isMobile ?
         (<>
           <SideBar />
@@ -770,6 +787,7 @@ export default function SpacePage() {
             onClick={() => setShowSidebar(!showSidebar)}
           />
           <div
+            ref={sidebarRef}
             className={`fixed top-15 left-0 z-100  h-full transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'
               }`}
           >
@@ -817,7 +835,7 @@ export default function SpacePage() {
           dropdownRef={dropdownRef}
           refreshTypes={refreshTypes}
           handleCreateTodoWithType={handleCreateTodoWithType}
-          handleCreateWordpad={handleCreateWordpad} 
+          handleCreateWordpad={handleCreateWordpad}
           dropdownVariants={dropdownRef}
         />
       }
