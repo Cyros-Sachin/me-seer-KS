@@ -24,10 +24,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const router = useRouter();
-  useEffect(() => {
-    console.log("Client ID:", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-    console.log("Origin:", window.location.origin);
-  }, []);
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -134,7 +131,7 @@ export default function LoginPage() {
               width={16}
               height={16}
             />
-            <span className="text-[14px] ml-20 font-medium text-black">
+            <span className="text-[14px] sm:ml-20 ml-5 font-medium text-black">
               Continue with Google
             </span>
           </div>
@@ -176,10 +173,10 @@ export default function LoginPage() {
             )}
             {isSignup && (
               <>
-                <input name="name" onChange={handleChange} value={formData.name} placeholder="Name" className="input w-full border border-gray-300 p-2 rounded" />
-                <input name="phone" onChange={handleChange} value={formData.phone} placeholder="Phone" className="input w-full border border-gray-300 p-2 rounded" />
-                <input name="payment_type" onChange={handleChange} value={formData.payment_type} placeholder="Payment Type" className="input w-full border border-gray-300 p-2 rounded" />
-                <input name="payment_details" onChange={handleChange} value={formData.payment_details} placeholder="Payment Details" className="input w-full border border-gray-300 p-2 rounded" />
+                <input name="name" onChange={handleChange} value={formData.name} placeholder="Name" className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400" />
+                <input name="phone" onChange={handleChange} value={formData.phone} placeholder="Phone" className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400" />
+                <input name="payment_type" onChange={handleChange} value={formData.payment_type} placeholder="Payment Type" className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400" />
+                <input name="payment_details" onChange={handleChange} value={formData.payment_details} placeholder="Payment Details" className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400" />
               </>
             )}
           </div>

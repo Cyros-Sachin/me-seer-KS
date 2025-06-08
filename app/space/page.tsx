@@ -1,11 +1,13 @@
 'use client';
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
+import SidebarPanel from "../components/SpaceSidebar"
 import { WordpadEditor } from "../components/WordpadEditor"
 // API Base URL
+import SideBar from "../components/SideBar";
 const API_BASE_URL = 'https://meseer.com/dog';
 type SubspaceAction = 'create' | 'edit' | 'delete' | null;
 type UserInfo = {
@@ -18,14 +20,6 @@ type UserInfo = {
   phone: string;
   user_id: string;
 };
-type SpeechRecognitionEvent = {
-  results: { [key: number]: { [key: number]: { transcript: string } } };
-};
-
-type SpeechRecognitionErrorEvent = {
-  error: string;
-};
-
 type Todo = {
   todo_id: string;
   name: string;
@@ -85,7 +79,6 @@ const SpaceService = {
     }
 
     const data = await response.json();
-    console.log('API Response:', data);
     // The API returns the spaces array directly in the response
     // (based on the sample you provided earlier)
     if (Array.isArray(data)) {
@@ -134,7 +127,6 @@ const SpaceService = {
         todos.push(...todoArray);
       });
     });
-    console.log(todos)
     return todos;
   },
   getWordpadsBySubspace: async (subspaceId: string, userId: string): Promise<Wordpad[]> => {
@@ -293,11 +285,23 @@ export default function SpacePage() {
   const [showWordpadMenu, setShowWordpadMenu] = useState(false);
   const [editingContentWordpadId, setEditingContentWordpadId] = useState<string | null>(null);
   const dropdownRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const dropdownVariants = {
     hidden: { opacity: 0, y: -10 },
     visible: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: -10 },
   };
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 786);   // Mobile nav if <786px
+    };
+
+    handleResize(); // Initial check
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -441,7 +445,6 @@ export default function SpacePage() {
       last_state: false,
     };
 
-    console.log("Sending todo:", todoData);
 
     try {
       await SpaceService.createTodo(todoData);
@@ -754,190 +757,72 @@ export default function SpacePage() {
     }
   };
 
-  const handleMicInput = (wordpadId: string): void => {
-    setWordpadContentMap(prev => {
-      const currentContent = prev[wordpadId] || wordpads.find(w => w.wordpad_id === wordpadId)?.contents?.[0]?.content || '';
-      return {
-        ...prev,
-        [wordpadId]: currentContent + ' ', // Add space before new content
-      };
-    });
-    setEditingContentWordpadId(wordpadId);
-  };
-
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white text-black">
       {/* Left Panel */}
-      <div className="w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4">
-        <h2 className="text-xl font-semibold mb-2 mt-2">
-          <ChevronRight className="w-6 h-6 rotate-180 transform inline-flex mr-15 mb-1" onClick={() => router.push('/')} />
-          SPACE</h2>
-        {!mounted ? (
-          <div className="text-center py-4">Loading user data...</div>
-        ) : error ? (
-          <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
-        ) : (
-          <>
-            {/* Spaces Section */}
-            <div className='p-2'>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Spaces</h3>
-              <hr />
-              {loading.spaces ? (
-                <div className="mt-2 text-sm text-gray-500">Loading...</div>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {spaces.map((space) => (
-                    <li
-                      key={space.space_id}
-                      className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${activeSpace?.space_id === space.space_id ? 'bg-gray-100' : ''}`}
-                      onClick={() => setActiveSpace(space)}
-                    >
-                      <span className="truncate">{space.name}</span>
-                      <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Subspaces Section */}
-            <div className='p-2'>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-500">Subspaces</h3>
-                <button
-                  onClick={() => {
-                    setShowSubspaceModal(true);
-                    setSubspaceAction(null);
-                  }}
-                  className="text-gray-500 hover:text-black"
-                  title="Manage subspaces"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </div>
-              <hr />
-              {loading.subspaces ? (
-                <div className="mt-2 text-sm text-gray-500">Loading...</div>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {(() => {
-                    const seen = new Set<string>();
-                    const filtered = subspaces.filter((s) => {
-                      const key = s.name.toLowerCase() === "default" ? "default" : s.subspace_id;
-                      if (seen.has(key)) return false;
-                      seen.add(key);
-                      return true;
-                    });
-                    return filtered.map((subspace) => (
-                      <li
-                        key={subspace.subspace_id}
-                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${activeSubspace?.subspace_id === subspace.subspace_id ? "bg-gray-100" : ""
-                          }`}
-                        onClick={() => setActiveSubspace(subspace)}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="truncate">{subspace.name}</span>
-                        </div>
-                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                      </li>
-                    ));
-                  })()}
-                </ul>
-              )}
-            </div>
-
-            {/* Add Section */}
-            <div className='p-2'>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Add</h3>
-              <hr />
-              <div className="mt-2 space-y-2">
-
-                {/* Todo Button with Dropdown */}
-                <div className="relative space-y-3">
-                  {/* Todo Button */}
-                  <button
-                    className="flex items-center justify-between w-full hover:bg-gray-100 px-2 py-1 rounded text-left"
-                    onClick={() => setShowTodoMenu((prev) => !prev)}
-                  >
-                    <span>Todo</span>
-                    <Plus className="w-4 h-4" />
-                  </button>
-
-                  {/* Todo Dropdown */}
-                  <AnimatePresence>
-                    {showTodoMenu && (
-                      <motion.div
-                        key="todo-menu"
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        variants={dropdownVariants}
-                        transition={{ duration: 0.2 }}
-                        className="absolute left-0 mt-1 w-full bg-white border rounded shadow z-10"
-                      >
-                        {refreshTypes.map((type) => (
-                          <button
-                            key={type}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 capitalize inline-flex justify-between"
-                            onClick={() => handleCreateTodoWithType(type)}
-                          >
-                            {type}
-                            <ChevronRight />
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Wordpad Button */}
-                  <button
-                    className="flex items-center justify-between w-full hover:bg-gray-100 px-2 py-1 rounded text-left"
-                    onClick={() => setShowWordpadMenu((prev) => !prev)}
-                  >
-                    <span>Wordpad</span>
-                    <Plus className="w-4 h-4" />
-                  </button>
-
-                  {/* Wordpad Dropdown */}
-                  <AnimatePresence>
-                    {showWordpadMenu && (
-                      <motion.div
-                        key="wordpad-menu"
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        variants={dropdownVariants}
-                        transition={{ duration: 0.2 }}
-                        ref={dropdownRef}
-                        className="absolute left-0 mt-1 w-full bg-white border rounded shadow z-10"
-                      >
-                        <div className="py-1">
-                          {refreshTypes.map((type) => (
-                            <button
-                              key={type}
-                              className="w-full text-left px-4 py-2 hover:bg-gray-100 capitalize inline-flex justify-between"
-                              onClick={() => {
-                                handleCreateWordpad(type);
-                                setShowWordpadMenu(false);
-                              }}
-                            >
-                              {type}
-                              <ChevronRight />
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+      
+      {isMobile ?
+        (<>
+          <SideBar />
+          <AlignLeft
+            className="absolute top-12 left-4 z-500 w-6 h-6 cursor-pointer text-black"
+            onClick={() => setShowSidebar(!showSidebar)}
+          />
+          <div
+            className={`fixed top-15 left-0 z-100  h-full transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'
+              }`}
+          >
+            <SidebarPanel
+              mounted={mounted}
+              error={error}
+              loading={loading}
+              spaces={spaces}
+              subspaces={subspaces}
+              activeSpace={activeSpace}
+              setActiveSpace={setActiveSpace}
+              activeSubspace={activeSubspace}
+              setActiveSubspace={setActiveSubspace}
+              setShowSubspaceModal={setShowSubspaceModal}
+              setSubspaceAction={setSubspaceAction}
+              showTodoMenu={showTodoMenu}
+              setShowTodoMenu={setShowTodoMenu}
+              showWordpadMenu={showWordpadMenu}
+              setShowWordpadMenu={setShowWordpadMenu}
+              dropdownRef={dropdownRef}
+              refreshTypes={refreshTypes}
+              handleCreateTodoWithType={handleCreateTodoWithType}
+              handleCreateWordpad={handleCreateWordpad}
+              dropdownVariants={dropdownRef}
+            />
+          </div>
+        </>)
+        :
+        <SidebarPanel
+          mounted={mounted}
+          error={error}
+          loading={loading}
+          spaces={spaces}
+          subspaces={subspaces}
+          activeSpace={activeSpace}
+          setActiveSpace={setActiveSpace}
+          activeSubspace={activeSubspace}
+          setActiveSubspace={setActiveSubspace}
+          setShowSubspaceModal={setShowSubspaceModal}
+          setSubspaceAction={setSubspaceAction}
+          showTodoMenu={showTodoMenu}
+          setShowTodoMenu={setShowTodoMenu}
+          showWordpadMenu={showWordpadMenu}
+          setShowWordpadMenu={setShowWordpadMenu}
+          dropdownRef={dropdownRef}
+          refreshTypes={refreshTypes}
+          handleCreateTodoWithType={handleCreateTodoWithType}
+          handleCreateWordpad={handleCreateWordpad} 
+          dropdownVariants={dropdownRef}
+        />
+      }
 
       {/* Main Content */}
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="flex-2 p-6 overflow-auto mt-15">
         {error && (
           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
             <div className="flex justify-between items-center">
@@ -984,7 +869,7 @@ export default function SpacePage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {todos.length > 0 ? (
                 todos.map((todo) => {
                   const isCollapsed = collapsedTodos.includes(todo.todo_id);
@@ -994,7 +879,7 @@ export default function SpacePage() {
                       key={todo.todo_id}
                       layout
                       transition={{ duration: 0.4 }}
-                      className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-height] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "max-h-max"}`}
+                      className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between px-3 py-2 border-b group">
@@ -1051,11 +936,7 @@ export default function SpacePage() {
                             transition={{ duration: 0.4 }}
                             className="overflow-hidden"
                           >
-                            <div className="bg-black text-white text-xs font-bold px-3 py-1 uppercase">
-                              {currentView}
-                            </div>
-
-                            <div className="px-3 py-2 space-y-2 max-h-48 overflow-y-auto">
+                            <div className="px-3 py-2 space-y-2 h-80 overflow-y-auto">
                               {(() => {
                                 const filteredItems = (todo as any).contents?.filter((item: any) => {
                                   if (currentView === "unchecked") return !item.checked;
@@ -1201,6 +1082,9 @@ export default function SpacePage() {
                         <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
                           {todo.refresh_type}
                         </div>
+                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
+                          {currentView}
+                        </div>
                         <div className="flex gap-2 text-gray-600 items-center">
                           <CirclePlus
                             className="w-4 h-4 cursor-pointer"
@@ -1242,7 +1126,7 @@ export default function SpacePage() {
                 // </div>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
               {wordpads.length > 0 && activeSubspace ? (
                 wordpads.map((wordpad) => {
                   const isCollapsed = collapsedWordpads.includes(wordpad.wordpad_id);
@@ -1255,7 +1139,7 @@ export default function SpacePage() {
                       key={wordpad.wordpad_id}
                       layout
                       transition={{ duration: 0.4 }}
-                      className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-height] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "max-h-max"}`}
+                      className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[height-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between px-3 py-2 border-b group">
@@ -1314,11 +1198,7 @@ export default function SpacePage() {
                             transition={{ duration: 0.4 }}
                             className="overflow-hidden"
                           >
-                            <div className="bg-black text-white text-xs font-bold px-3 py-1 uppercase">
-                              {currentView}
-                            </div>
-
-                            <div className="px-3 py-2 space-y-2 max-h-48 overflow-y-auto">
+                            <div className="px-3 py-2 space-y-2 h-80 overflow-y-auto">
                               {currentView === 'current' ? (
                                 wordpadContentMap[wordpad.wordpad_id] !== undefined ? (
                                   <WordpadEditor
@@ -1396,8 +1276,10 @@ export default function SpacePage() {
                         <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
                           {wordpad.refresh_type}
                         </div>
+                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full uppercase">
+                          {currentView}
+                        </div>
                         <div className="flex gap-2 text-gray-600 items-center">
-                          <Mic className="w-4 h-4 text-blue-600 cursor-pointer" onClick={() => handleMicInput(wordpad.wordpad_id)} />
                           <SquareChevronLeft
                             className="w-3 h-3 cursor-pointer"
                             onClick={() => {
@@ -1449,7 +1331,7 @@ export default function SpacePage() {
       </div>
       {maximizedWordpad && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl p-6 relative h-[80vh] flex flex-col">
             <button
               onClick={() => setMaximizedWordpad(null)}
               className="absolute top-2 right-2 text-gray-500 hover:text-black"
@@ -1508,10 +1390,7 @@ export default function SpacePage() {
               />
             </div>
 
-            {/* View Label */}
-            <div className="bg-black text-white text-xs font-bold px-3 py-1 uppercase inline-block rounded mb-4">
-              {wordpadViewMap[maximizedWordpad.wordpad_id] || 'current'}
-            </div>
+
 
             {/* Content Area */}
             <div className="flex-1 overflow-auto mb-4">
@@ -1566,6 +1445,9 @@ export default function SpacePage() {
             <div className="flex justify-between items-center border-t pt-4">
               <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
                 {maximizedWordpad.refresh_type}
+              </div>
+              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full uppercase">
+                {wordpadViewMap[maximizedWordpad.wordpad_id] || 'current'}
               </div>
               <div className="flex gap-3 text-gray-600">
                 <SquareChevronLeft
@@ -1720,11 +1602,6 @@ export default function SpacePage() {
                 className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
                 onClick={() => handleDeleteTodo(maximizedTodo.todo_id)}
               />
-            </div>
-
-            {/* View Label */}
-            <div className="bg-black text-white text-xs font-bold px-3 py-1 uppercase inline-block rounded mb-4">
-              {todoViewMap[maximizedTodo.todo_id] || 'unchecked'}
             </div>
 
             {/* Filtered Todo List */}
@@ -1892,6 +1769,9 @@ export default function SpacePage() {
             <div className="flex justify-between items-center border-t pt-4">
               <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
                 {maximizedTodo.refresh_type}
+              </div>
+              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
+                {todoViewMap[maximizedTodo.todo_id] || 'unchecked'}
               </div>
               <div className="flex gap-3 text-gray-600">
                 <CirclePlus
