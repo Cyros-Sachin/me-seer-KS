@@ -1,5 +1,5 @@
 'use client';
-
+import Cookies from "js-cookie";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Footer from "../components/footer";
@@ -24,7 +24,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const router = useRouter();
-  
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -55,8 +55,8 @@ export default function LoginPage() {
 
       const res = await axios.post(url, body);
       if (!isForgot) {
-        localStorage.setItem("token", res.data.access_token);
-        localStorage.setItem("userInfo", JSON.stringify(res.data));
+        Cookies.set("token", res.data.access_token); // expires in 7 days
+        Cookies.set("userInfo", JSON.stringify(res.data));
         toast.success(`${isSignup ? "Registered" : "Logged in"} successfully`);
         router.push("/main");
       } else {
@@ -81,8 +81,8 @@ export default function LoginPage() {
         const { access_token: appToken, user } = res.data;
 
         // Save token and user info in localStorage
-        localStorage.setItem("token", appToken);
-        localStorage.setItem("userInfo", JSON.stringify(user));
+        Cookies.set("token", appToken, { expires: 7 });
+        Cookies.set("userInfo", JSON.stringify(user), { expires: 7 });
 
         toast.success("Logged in successfully");
         router.push("/main");

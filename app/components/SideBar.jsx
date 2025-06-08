@@ -1,5 +1,5 @@
 'use client';
-
+import Cookies from "js-cookie";
 import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import {
@@ -33,7 +33,7 @@ const Sidebar = () => {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const data = JSON.parse(localStorage.getItem('userInfo'));
+    const data = JSON.parse(Cookies.get("userInfo"));
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (!e.target.closest(".dropdown-profile")) {
@@ -81,8 +81,8 @@ const Sidebar = () => {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        localStorage.removeItem("token");
-                                        localStorage.removeItem("userInfo");
+                                        Cookies.remove("token");
+                                        Cookies.remove("userInfo");
                                         router.push("/login");
                                     }}
                                     className="w-full text-left px-2 py-1 text-red-600 hover:bg-red-50 rounded inline-flex"

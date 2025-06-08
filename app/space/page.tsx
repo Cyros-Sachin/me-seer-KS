@@ -1,4 +1,5 @@
 'use client';
+import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
 import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft } from 'lucide-react';
@@ -56,13 +57,13 @@ type Space = {
 const SpaceService = {
   getHeaders: () => {
     if (typeof window === 'undefined') {
-      throw new Error('Running on server, cannot access localStorage');
+      throw new Error('Running on server, cannot access cookie');
     }
 
-    const userInfo = localStorage.getItem('userInfo');
+    const userInfo = Cookies.get('userInfo');
     if (!userInfo) throw new Error('User not authenticated');
 
-    const { access_token } = JSON.parse(userInfo) as UserInfo;
+    const access_token = Cookies.get('token');
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${access_token}`
@@ -308,7 +309,7 @@ export default function SpacePage() {
   }, []);
 
   const getUserId = (): string => {
-    const userInfo = localStorage.getItem('userInfo');
+    const userInfo = Cookies.get('userInfo');
     if (!userInfo) throw new Error('User not authenticated');
     return (JSON.parse(userInfo) as UserInfo).user_id;
   };
