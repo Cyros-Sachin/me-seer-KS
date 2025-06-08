@@ -7,7 +7,7 @@ export default function MainPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = typeof window !== "undefined" && localStorage.getItem("token");
     if (!token) router.push("/login");
   }, []);
 
