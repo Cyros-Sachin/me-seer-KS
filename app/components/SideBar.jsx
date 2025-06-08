@@ -32,8 +32,16 @@ const Sidebar = () => {
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
+    let data = null;
+    try {
+        const userInfoRaw = Cookies.get("userInfo");
+        if (userInfoRaw) {
+            data = JSON.parse(userInfoRaw);
+        }
+    } catch (err) {
+        console.error("Failed to parse userInfo cookie:", err);
+    }
 
-    const data = JSON.parse(Cookies.get("userInfo"));
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (!e.target.closest(".dropdown-profile")) {
