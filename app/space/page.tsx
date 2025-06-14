@@ -775,6 +775,20 @@ export default function SpacePage() {
     }
   };
 
+  const groupByDate = (items: any[]) => {
+    return items.reduce((acc: Record<string, any[]>, item) => {
+      const dateKey = new Date(item.last_updated).toLocaleDateString("en-GB", {
+        weekday: "long",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }); // "Monday 26/06/2025"
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(item);
+      return acc;
+    }, {});
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white text-black">
       {/* Left Panel */}
@@ -955,17 +969,34 @@ export default function SpacePage() {
                             transition={{ duration: 0.4 }}
                             className="overflow-hidden"
                           >
-                            <div className="px-3 py-2 space-y-2 h-80 overflow-y-auto">
+                            <div className="px-3 py-4 space-y-2 h-60 overflow-y-auto">
                               {(() => {
-                                const filteredItems = (todo as any).contents?.filter((item: any) => {
-                                  if (currentView === "unchecked") return !item.checked;
-                                  if (currentView === "checked") return item.checked;
-                                  if (currentView === "history") return item.refresh_type === "archived";
-                                  return true;
-                                }) || [];
+                                const historyItems = (todo as any).contents || [];
+                                const grouped = groupByDate(historyItems);
 
-                                return filteredItems.length > 0 ? (
-                                  filteredItems.map((item: any) => (
+                                return currentView === "history" ? (
+                                  Object.entries(grouped).map(([date, items]) => (
+                                    <div key={date} className="mb-4 ">
+                                      <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
+                                      <ul className="mt-2 space-y-1">
+                                        {items.map((item: any) => (
+                                          <li key={item.tc_id} className="flex items-center gap-2">
+                                            <input type="checkbox" checked={item.checked} readOnly />
+                                            <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
+                                              {item.content}
+                                            </span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ))
+                                ) : (
+                                  // fallback to your existing view logic for unchecked/checked
+                                  (todo as any).contents?.filter((item: any) => {
+                                    if (currentView === "unchecked") return !item.checked;
+                                    if (currentView === "checked") return item.checked;
+                                    return true;
+                                  }).map((item: any) => (
                                     <motion.div
                                       key={`${todo.todo_id}-${item.tc_id}`}
                                       initial={{ opacity: 0, y: 5 }}
@@ -981,11 +1012,8 @@ export default function SpacePage() {
                                           onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
                                           className="accent-blue-600 w-4 h-4 rounded"
                                         />
-                                        <span className="text-sm text-gray-800 truncate w-full">
-                                          {item.content}
-                                        </span>
+                                        <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
                                       </div>
-
                                       <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
@@ -995,7 +1023,6 @@ export default function SpacePage() {
                                               method: "DELETE",
                                               headers: SpaceService.getHeaders(),
                                             });
-
                                             const userId = getUserId();
                                             if (activeSubspace) {
                                               const updatedTodos = await SpaceService.getTodoDataBySubspace(
@@ -1015,10 +1042,9 @@ export default function SpacePage() {
                                       </motion.button>
                                     </motion.div>
                                   ))
-                                ) : (
-                                  <p className="text-gray-400 italic">No tasks in this view</p>
                                 );
                               })()}
+
 
                               {/* New Task Input */}
                               {newTaskContentMap[todo.todo_id] !== undefined && (
@@ -1627,12 +1653,34 @@ export default function SpacePage() {
             <div className="space-y-2 mb-4">
               {(() => {
                 const currentView = todoViewMap[maximizedTodo.todo_id] || 'unchecked';
-                const filteredItems = (maximizedTodo as any).contents?.filter((item: any) => {
+                const items = (maximizedTodo as any).contents || [];
+
+                if (currentView === 'history') {
+                  const grouped = groupByDate(items);
+
+                  return Object.entries(grouped).map(([date, group]) => (
+                    <div key={date}>
+                      <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
+                      <ul className="mt-2 space-y-1">
+                        {group.map((item: any) => (
+                          <li key={item.tc_id} className="flex items-center gap-2">
+                            <input type="checkbox" checked={item.checked} readOnly />
+                            <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
+                              {item.content}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ));
+                }
+
+                // Default view for unchecked/checked
+                const filteredItems = items.filter((item: any) => {
                   if (currentView === 'unchecked') return !item.checked;
                   if (currentView === 'checked') return item.checked;
-                  if (currentView === 'history') return item.refresh_type === 'archived';
                   return true;
-                }) || [];
+                });
 
                 return filteredItems.length > 0 ? (
                   filteredItems.map((item: any) => (
@@ -1698,7 +1746,6 @@ export default function SpacePage() {
                   <p className="text-gray-400 italic">No tasks in this view</p>
                 );
               })()}
-
               {newTaskContentMap[maximizedTodo.todo_id] !== undefined && (
                 <input
                   type="text"
