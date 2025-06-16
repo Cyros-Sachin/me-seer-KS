@@ -51,6 +51,7 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [templateMap, setTemplateMap] = useState<Record<number, any>>({});
 
   const fetchAll = async () => {
     setLoading(true);
@@ -65,6 +66,13 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         });
         const json = await res.json();
         result[item.a_id] = json || [];
+        const templateRes = await fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        const templateJson = await templateRes.json();
+        setTemplateMap((prev) => ({ ...prev, [item.a_id]: templateJson }));
       } catch (err) {
         console.error(`Error fetching data for pa_id ${item.a_id}`, err);
         result[item.a_id] = [];
@@ -151,8 +159,18 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
 
                   return (
                     <div key={`val${i}`} className="grid grid-cols-2 gap-2">
-                      {isEditing ? (
-                        <>
+                      <div className="flex flex-col">
+                        <label className="text-xs text-gray-500 mb-1">
+                          {(
+                            templateMap[item.a_id]?.[`item_id${i}`]?.[0]?.item_description ||
+                            templateMap[item.a_id]?.[`item_id${i}`]?.[0]?.item_name ||
+                            `Field ${i}`
+                          )
+                            .replace(/^add\s+/i, "") // remove "add " prefix
+                            .replace(/\bbased on.*$/i, "") // remove "based on ..." suffix
+                            .trim()}
+                        </label>
+                        {isEditing ? (
                           <input
                             value={editedValues[`value${i}`] ?? String(value ?? "")}
                             onChange={(e) =>
@@ -160,31 +178,27 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                             }
                             className="border border-blue-400 rounded px-2 py-1 text-sm"
                           />
-                          {unit && (
-                            <input
-                              value={unit}
-                              readOnly
-                              className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
-                            />
-                          )}
-                        </>
-                      ) : (
-                        <>
+                        ) : (
                           <input
                             value={String(value ?? "")}
                             readOnly
                             className="border border-gray-300 rounded px-2 py-1 text-sm"
                           />
-                          {unit && (
-                            <input
-                              value={unit}
-                              readOnly
-                              className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
-                            />
-                          )}
-                        </>
+                        )}
+                      </div>
+
+                      {unit && (
+                        <div className="flex flex-col">
+                          <label className="text-xs text-gray-500 mb-1">Unit</label>
+                          <input
+                            value={unit}
+                            readOnly
+                            className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
+                          />
+                        </div>
                       )}
                     </div>
+
                   );
                 });
 

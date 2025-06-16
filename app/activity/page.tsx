@@ -1080,7 +1080,7 @@ function ActivityPage() {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
                         transition={{ duration: 0.4, ease: "easeInOut" }}
-                        className="fixed top-20 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
+                        className="fixed top-20 md:top-0 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
                     // 100%-sidebar (16rem) if sidebar is 64px wide
                     >
                         <div className="max-w-4xl mx-auto space-y-6 py-5">
@@ -1121,22 +1121,6 @@ function ActivityPage() {
                 )}
             </AnimatePresence>
 
-            {/* {showFoodform && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-60 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
-                        <FoodItemForm
-                            userId={getUserId()}
-                            cat_qty_id1={activeActivity?.collective_id}
-                            cat_qty_id2={348}
-                            collective_id={activeActivity?.collective_id ?? 123}
-                            onClose={() => {
-                                setshowFoodform(false);
-                                fetchFoodItems();
-                            }}
-                        />
-                    </div>
-                </div>
-            )} */}
             {showDynamicForm && dynamicItem && (
                 <DynamicActivityItemForm
                     a_id={dynamicItem.a_id}
