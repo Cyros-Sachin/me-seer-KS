@@ -2,15 +2,20 @@
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie, Sidebar, AlignLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
-import { WordpadEditor } from "../components/WordpadEditor";
 import { FoodItemForm } from "../components/FoodItem";
+import SideBar from "../components/SideBar";
+import DynamicActivityDetails from "../components/DynamicActivityDetails";
+import DynamicActivityItemForm from "../components/DynamicActivityItemForm";
 // API Base URL
 const API_BASE_URL = 'https://meseer.com/dog';
+type ExtendedActivityItem = ActivityItem & {
+    flag: string;
+    trigger: string;
+};
 
-type ActivityAction = 'create' | 'edit' | 'delete' | null;
 type UserInfo = {
     access_token: string;
     email: string;
@@ -84,6 +89,7 @@ const activityImageMap: { [key: string]: string } = {
     workout: "/images/workout.png",
     budget: "/images/budget.png",
     consume: "/images/consume.png",
+    gym: "/images/GYM.png"
 };
 
 const ActivityService = {
@@ -273,6 +279,7 @@ const ActivityService = {
         event_time: string;
         group_id: number;
         type: string; // "meal" or "workout"
+        instructions?: string | null;
     }) => {
         const response = await fetch(`${API_BASE_URL}/add-data/primary-mwb/`, {
             method: 'POST',
@@ -367,92 +374,104 @@ function ActivityPage() {
         userActivities: false,
         templateData: false
     });
+    const [showDynamicForm, setShowDynamicForm] = useState(false);
+    const [dynamicItem, setDynamicItem] = useState<ActivityItem | null>(null);
     const [foodItems, setFoodItems] = useState<any[]>([]);
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
     const [editedValues, setEditedValues] = useState<{ value2: string; value3: string }>({ value2: '', value3: '' });
     const [showMealDialog, setShowMealDialog] = useState(false);
     const [showFoodform, setshowFoodform] = useState(false);
     const [newMealName, setNewMealName] = useState('');
+    const [showWorkoutDialog, setShowWorkoutDialog] = useState(false);
+    const [newWorkoutName, setNewWorkoutName] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [activityAction, setActivityAction] = useState<ActivityAction>(null);
-    const [currentItem, setCurrentItem] = useState<any>(null);
-    const [maximizedItem, setMaximizedItem] = useState<any>(null);
-    const [contentMap, setContentMap] = useState<{ [key: string]: string }>({});
-    const [editingContentId, setEditingContentId] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const iconRef = useRef<HTMLDivElement | null>(null);
+    const sidebarRef = useRef<HTMLDivElement | null>(null);
     const getUserId = (): string => {
         const userInfo = Cookies.get("userInfo");
         if (!userInfo) throw new Error('User not authenticated');
         return (JSON.parse(userInfo) as UserInfo).user_id;
     };
-    useEffect(() => {
-        console.log("showFoodform changed →", showFoodform);
-    }, [showFoodform]);
 
-    const handleActivityItemClick = (item: ActivityItem) => {
-        switch (item.name.toLowerCase()) {
-            case 'assign meal':
-                const userId = getUserId();
-                break;
-            case 'food item':
-                console.log(item.name.toLowerCase());
-                setshowFoodform(true);
-                // setShowFoodItemModal(true);
-                break;
-            case 'exercise set':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'exercise circuit reps':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            case 'exercise circuit time':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'warmup reps':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            case 'cool down reps':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'warmup time':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            case 'cool down time':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'circuit sets':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            case 'build budget':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'budget setting':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            case 'goal metadata':
-                // setShowAssignMealModal(true);
-                console.log(item.name.toLowerCase());
-                break;
-            case 'build goal':
-                console.log(item.name.toLowerCase());
-                // setShowFoodItemModal(true);
-                break;
-            default:
-                fetchTemplateData(item.a_id);
-                break;
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            setIsMobile(width < 786);   // Mobile nav if <786px
+        };
+
+        handleResize(); // Initial check
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const clickedOutsideSidebar =
+                sidebarRef.current && !sidebarRef.current.contains(event.target as Node);
+            const clickedOnIcon =
+                iconRef.current && iconRef.current.contains(event.target as Node);
+
+            if (clickedOutsideSidebar && !clickedOnIcon) {
+                setSidebarOpen(false);
+            }
+        };
+
+        if (sidebarOpen && isMobile) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [sidebarOpen, isMobile]);
+
+    useEffect(() => {
+        fetchFoodItems();
+    }, [activeActivity]);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const handleCreateWorkout = async () => {
+        try {
+            const userId = getUserId();
+
+            if (!newWorkoutName.trim()) {
+                setError('Workout name is required');
+                return;
+            }
+
+            const now = new Date().toISOString().slice(0, 19);
+
+            await ActivityService.addPrimaryMWBData({
+                user_id: userId,
+                name: newWorkoutName.trim(),
+                event_time: now,
+                instructions: null,
+                group_id: 0,
+                type: "Flexibility", // or any type like "Strength", etc.
+                a_id: 11,
+            });
+
+            await fetchUserActivities(); // refresh data
+            setNewWorkoutName('');
+            setShowWorkoutDialog(false);
+        } catch (err) {
+            console.error('Error creating workout:', err);
+            setError('Failed to create workout');
         }
     };
+
+    const handleActivityItemClick = (item: ActivityItem) => {
+        setDynamicItem(item);
+        setShowDynamicForm(true);
+    };
+
+
     const fetchFoodItems = async () => {
         if (!activeActivity?.collective_id || !activeActivity?.a_id) return;
 
@@ -478,13 +497,6 @@ function ActivityPage() {
             setFoodItems([]); // fallback to empty
         }
     };
-    useEffect(() => {
-        fetchFoodItems();
-    }, [activeActivity]);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     // Fetch all activity data on component mount
     useEffect(() => {
@@ -640,139 +652,6 @@ function ActivityPage() {
         }
     };
 
-
-    const handleCreateFoodItem = async (meal_id: number) => {
-        try {
-            const userId = getUserId();
-            const now = new Date().toISOString();
-            await ActivityService.createFoodItemActivity({
-                user_id: userId,
-                meal_id,
-                f_id: 1, // Example food item ID
-                event_time: now
-            });
-
-            // Refresh activities
-            const activities = await ActivityService.getUserActivities(
-                userId,
-                selectedActivityType!,
-            );
-            setUserActivities(activities);
-        } catch (err) {
-            console.error('Error creating food item:', err);
-            setError('Failed to create food item');
-        }
-    };
-
-    const handleCreatePinnedActivity = async (at_id: number, a_id: number, name: string) => {
-        try {
-            const userId = getUserId();
-            const now = new Date().toISOString();
-            await ActivityService.createPinnedActivity({
-                user_id: userId,
-                at_id,
-                a_id,
-                flag: 'P',
-                trigger: name,
-                is_active: 'Y',
-                description: `Adding ${name}`,
-                event_time: now,
-                cat_qty_id2: 28, // Example category quantity ID
-                value2: name
-            });
-
-            // Refresh pinned activities
-            const pinned = await ActivityService.getPinnedActivities(userId, at_id);
-            setPinnedActivities(pinned);
-        } catch (err) {
-            console.error('Error creating pinned activity:', err);
-            setError('Failed to create pinned activity');
-        }
-    };
-
-    const renderActivityItem = (activity: UserActivity) => {
-        const contentKey = `activity-${activity.ua_id}`;
-        const isEditing = editingContentId === contentKey;
-        const content = contentMap[contentKey] ?? activity.description;
-
-        return (
-            <motion.div
-                key={activity.ua_id}
-                layout
-                className="bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden"
-            >
-                <div className="flex items-center justify-between px-3 py-2 border-b">
-                    <span className="font-semibold truncate">
-                        {activity.description}
-                    </span>
-                    <div className="flex gap-2">
-                        <Trash2Icon
-                            className="w-4 h-4 text-red-500 opacity-50 hover:opacity-100 cursor-pointer"
-                            onClick={() => console.log('Delete', activity.ua_id)}
-                        />
-                    </div>
-                </div>
-
-                <div className="px-3 py-2 space-y-2">
-                    {isEditing ? (
-                        <WordpadEditor
-                            content={content}
-                            onSave={(updatedHtml) => {
-                                // Handle save logic here
-                                setContentMap(prev => {
-                                    const updated = { ...prev };
-                                    delete updated[contentKey];
-                                    return updated;
-                                });
-                                setEditingContentId(null);
-                            }}
-                            onVoiceInput={(transcript) => {
-                                setContentMap(prev => ({
-                                    ...prev,
-                                    [contentKey]: (prev[contentKey] || content) + ' ' + transcript,
-                                }));
-                            }}
-                        />
-                    ) : (
-                        <div
-                            className="p-2 text-sm text-gray-800 cursor-text min-h-[100px]"
-                            onClick={() => {
-                                setEditingContentId(contentKey);
-                                setContentMap(prev => ({
-                                    ...prev,
-                                    [contentKey]: content || '<p></p>',
-                                }));
-                            }}
-                            dangerouslySetInnerHTML={{ __html: content || '<p class="text-gray-400 italic">Click to add content</p>' }}
-                        />
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between border-t px-3 py-2">
-                    <div className="text-xs text-gray-500">
-                        {new Date(activity.event_time).toLocaleString()}
-                    </div>
-                    <div className="flex gap-2 text-gray-600 items-center">
-                        <Mic
-                            className="w-4 h-4 text-blue-600 cursor-pointer"
-                            onClick={() => {
-                                setEditingContentId(contentKey);
-                                setContentMap(prev => ({
-                                    ...prev,
-                                    [contentKey]: content || '<p></p>',
-                                }));
-                            }}
-                        />
-                        <Maximize2
-                            className="w-4 h-4 cursor-pointer"
-                            onClick={() => setMaximizedItem(activity)}
-                        />
-                    </div>
-                </div>
-            </motion.div>
-        );
-    };
-
     const handlePinnedActivityClick = (activity: PinnedActivity) => {
         // Don't select it by default
         console.log("Pinned clicked:", activity.name.toLowerCase());
@@ -783,7 +662,7 @@ function ActivityPage() {
                 setShowMealDialog(true);
                 break;
             case 'create workout':
-                console.log('Show exercise related UI');
+                setShowWorkoutDialog(true);
                 break;
             case 'create budget':
                 console.log('Launch budget module');
@@ -862,93 +741,210 @@ function ActivityPage() {
         }
     };
 
+    const enrichedItems: ExtendedActivityItem[] = activityItems.map((item) => ({
+        ...item,
+        flag: "PN",
+        trigger: "food_item",
+    }));
+
     return (
         <div className="flex h-screen w-full overflow-hidden bg-white text-black">
             {/* Left Panel */}
-            <div className="w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4 overflow-scroll">
-                <h2 className="text-xl font-semibold mb-2 mt-2">
-                    <ChevronRight
-                        className="w-6 h-6 rotate-180 transform inline-flex mr-15 mb-1"
-                        onClick={() => router.push('/')}
-                    />
-                    ACTIVITY
-                </h2>
+            {isMobile ? (
+                <>
+                    <SideBar />
+                    <div ref={iconRef}>
+                        <AlignLeft
+                            className="absolute top-12 left-4 z-500 w-6 h-6 cursor-pointer text-black"
+                            onClick={() => setSidebarOpen((prev) => !prev)}
+                        />
+                    </div>
+                    <AnimatePresence>
+                        {(sidebarOpen) && (
+                            <motion.div
+                                ref={sidebarRef}
+                                initial={{ x: -300 }}
+                                animate={{ x: 0 }}
+                                exit={{ x: -300 }}
+                                transition={{ duration: 0.3 }}
+                                className="fixed top-20 left-0 h-full w-64 bg-white z-500 border-r border-gray-300 p-4 flex flex-col gap-4 overflow-y-auto shadow-lg"
+                            >
+                                <h2 className="text-xl font-semibold mb-2 mt-2">
+                                    {!isMobile && <ChevronRight
+                                        className="w-6 h-6 rotate-180 transform inline-flex mr-2 mb-1 cursor-pointer"
+                                        onClick={() => {
+                                            setSidebarOpen(false);
+                                            router.push('/');
+                                        }}
+                                    />}
+                                    ACTIVITY
+                                </h2>
 
-                {error && (
-                    <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
-                )}
+                                {error && (
+                                    <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
+                                )}
 
-                {/* Activity Types */}
-                <div className="p-2">
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Types</h3>
-                    <hr />
-                    {loading.activityTypes ? (
-                        <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                    ) : (
-                        <ul className="mt-2 space-y-2">
-                            {activityTypes.map((type) => (
-                                <li
-                                    key={`type-${type.at_id}`}
-                                    className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedActivityType === type.at_id ? 'bg-gray-100' : ''}`}
-                                    onClick={() => setSelectedActivityType(type.at_id)}
-                                >
-                                    <span className="truncate">{type.name}</span>
-                                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                </li>
-                            ))}
-                        </ul>
+                                {/* Activity Types */}
+                                <div className="p-2">
+                                    <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Types</h3>
+                                    <hr />
+                                    {loading.activityTypes ? (
+                                        <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                                    ) : (
+                                        <ul className="mt-2 space-y-2">
+                                            {activityTypes.map((type) => (
+                                                <li
+                                                    key={`type-${type.at_id}`}
+                                                    className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedActivityType === type.at_id ? 'bg-gray-100' : ''}`}
+                                                    onClick={() => setSelectedActivityType(type.at_id)}
+                                                >
+                                                    <span className="truncate">{type.name}</span>
+                                                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+
+                                {/* Pinned Activities */}
+                                {selectedActivityType && (
+                                    <div className="p-2">
+                                        <h3 className="text-sm font-medium text-gray-500 mb-3">Pinned Activities</h3>
+                                        <hr />
+                                        {loading.pinnedActivities ? (
+                                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                                        ) : (
+                                            <ul className="mt-2 space-y-2">
+                                                {pinnedActivities.map((activity) => (
+                                                    <li
+                                                        key={`pinned-${activity.a_id}`}
+                                                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
+                                                        onClick={() => handlePinnedActivityClick(activity)}
+                                                    >
+                                                        <span className="truncate">{activity.name}</span>
+                                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                                    </li>
+                                                ))}
+
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Activity Items */}
+                                {activeActivity && (
+                                    <div className="p-2">
+                                        <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
+                                        <hr />
+                                        {loading.activityItems ? (
+                                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                                        ) : (
+                                            <ul className="mt-2 space-y-2">
+                                                {activityItems.map((item) => (
+                                                    <li
+                                                        key={`item-${item.a_id}`}
+                                                        className="flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
+                                                        onClick={() => handleActivityItemClick(item)}
+                                                    >
+                                                        <span className="truncate">{item.name}</span>
+                                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                    <SideBar />
+                </>
+            ) :
+                (<div className="w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4 overflow-scroll">
+                    <h2 className="text-xl font-semibold mb-2 mt-2">
+                        <ChevronRight
+                            className="w-6 h-6 rotate-180 transform inline-flex mr-15 mb-1"
+                            onClick={() => router.push('/')}
+                        />
+                        ACTIVITY
+                    </h2>
+
+                    {error && (
+                        <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
                     )}
-                </div>
 
-                {/* Pinned Activities */}
-                {selectedActivityType && (
+                    {/* Activity Types */}
                     <div className="p-2">
-                        <h3 className="text-sm font-medium text-gray-500 mb-3">Pinned Activities</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Types</h3>
                         <hr />
-                        {loading.pinnedActivities ? (
+                        {loading.activityTypes ? (
                             <div className="mt-2 text-sm text-gray-500">Loading...</div>
                         ) : (
                             <ul className="mt-2 space-y-2">
-                                {pinnedActivities.map((activity) => (
+                                {activityTypes.map((type) => (
                                     <li
-                                        key={`pinned-${activity.a_id}`}
-                                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
-                                        onClick={() => handlePinnedActivityClick(activity)}
+                                        key={`type-${type.at_id}`}
+                                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedActivityType === type.at_id ? 'bg-gray-100' : ''}`}
+                                        onClick={() => setSelectedActivityType(type.at_id)}
                                     >
-                                        <span className="truncate">{activity.name}</span>
-                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                    </li>
-                                ))}
-
-                            </ul>
-                        )}
-                    </div>
-                )}
-
-                {/* Activity Items */}
-                {activeActivity && (
-                    <div className="p-2">
-                        <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
-                        <hr />
-                        {loading.activityItems ? (
-                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                        ) : (
-                            <ul className="mt-2 space-y-2">
-                                {activityItems.map((item) => (
-                                    <li
-                                        key={`item-${item.a_id}`}
-                                        className="flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
-                                        onClick={() => handleActivityItemClick(item)}
-                                    >
-                                        <span className="truncate">{item.name}</span>
+                                        <span className="truncate">{type.name}</span>
                                         <ChevronRight className="w-4 h-4 flex-shrink-0" />
                                     </li>
                                 ))}
                             </ul>
                         )}
                     </div>
-                )}
-            </div>
+
+                    {/* Pinned Activities */}
+                    {selectedActivityType && (
+                        <div className="p-2">
+                            <h3 className="text-sm font-medium text-gray-500 mb-3">Pinned Activities</h3>
+                            <hr />
+                            {loading.pinnedActivities ? (
+                                <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                            ) : (
+                                <ul className="mt-2 space-y-2">
+                                    {pinnedActivities.map((activity) => (
+                                        <li
+                                            key={`pinned-${activity.a_id}`}
+                                            className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
+                                            onClick={() => handlePinnedActivityClick(activity)}
+                                        >
+                                            <span className="truncate">{activity.name}</span>
+                                            <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                        </li>
+                                    ))}
+
+                                </ul>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Activity Items */}
+                    {activeActivity && (
+                        <div className="p-2">
+                            <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
+                            <hr />
+                            {loading.activityItems ? (
+                                <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                            ) : (
+                                <ul className="mt-2 space-y-2">
+                                    {activityItems.map((item) => (
+                                        <li
+                                            key={`item-${item.a_id}`}
+                                            className="flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
+                                            onClick={() => { handleActivityItemClick(item); }}
+                                        >
+                                            <span className="truncate">{item.name}</span>
+                                            <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+                </div>)}
+
             {/* Main Content */}
             <div className={`flex-1 p-6 overflow-auto ${activeActivity ? 'hidden' : ''}`}>
                 {/* Breadcrumbs */}
@@ -976,7 +972,7 @@ function ActivityPage() {
                             </div>
                         ) : userActivities && Array.isArray(userActivities) && userActivities.length > 0 ? (
                             // ✅ Actual content
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2 ">
                                 {userActivities.map((activity) => (
                                     <div
                                         key={activity.ua_id}
@@ -1018,46 +1014,9 @@ function ActivityPage() {
                     </div>
                 )}
             </div>
-            {/* Maximized Item Modal */}
-            {maximizedItem && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-6 relative max-h-[90vh] flex flex-col">
-                        <button
-                            onClick={() => setMaximizedItem(null)}
-                            className="absolute top-2 right-2 text-gray-500 hover:text-black"
-                        >
-                            ✕
-                        </button>
 
-                        <div className="flex items-center justify-between border-b pb-2 mb-4">
-                            <span className="text-xl font-bold truncate">
-                                {maximizedItem.description}
-                            </span>
-                        </div>
-
-                        <div className="flex-1 overflow-auto mb-4">
-                            <WordpadEditor
-                                content={maximizedItem.description}
-                                onSave={(updatedHtml) => {
-                                    // Handle save logic here
-                                    setMaximizedItem(null);
-                                }}
-                                onVoiceInput={(transcript) => {
-                                    // Handle voice input
-                                }}
-                            />
-                        </div>
-
-                        <div className="flex justify-between items-center border-t pt-4">
-                            <div className="text-sm text-gray-500">
-                                {new Date(maximizedItem.event_time).toLocaleString()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
             {showMealDialog && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
                         <h2 className="text-xl font-semibold">Create New Meal</h2>
                         <input
@@ -1084,6 +1043,36 @@ function ActivityPage() {
                     </div>
                 </div>
             )}
+
+            {showWorkoutDialog && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
+                        <h2 className="text-xl font-semibold">Create New Workout</h2>
+                        <input
+                            type="text"
+                            placeholder="Enter workout name"
+                            value={newWorkoutName}
+                            onChange={(e) => setNewWorkoutName(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button
+                                onClick={() => setShowWorkoutDialog(false)}
+                                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreateWorkout}
+                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <AnimatePresence>
                 {activeActivity && (
                     <motion.div
@@ -1091,7 +1080,7 @@ function ActivityPage() {
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
                         transition={{ duration: 0.4, ease: "easeInOut" }}
-                        className="fixed top-0 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
+                        className="fixed top-20 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
                     // 100%-sidebar (16rem) if sidebar is 64px wide
                     >
                         <div className="max-w-4xl mx-auto space-y-6 py-5">
@@ -1110,7 +1099,9 @@ function ActivityPage() {
 
                             {/* Editable Content (Meal name + Food items etc.) */}
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Meal</label>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                    {selectedActivityType === 1 ? "Meal" : "Activity Name"}
+                                </label>
                                 <input
                                     type="text"
                                     value={activeActivity.name || ""}
@@ -1119,88 +1110,18 @@ function ActivityPage() {
                                 />
                             </div>
 
-                            <div>
-                                <h3 className="text-lg font-semibold mb-2">Food items</h3>
-                                <div className="space-y-4">
-                                    {foodItems.length > 0 ? (
-                                        foodItems.map((item) => {
-                                            const selectedUnit = item.cat_qty_id3?.find((u: any) => u?.Selected)?.name || "";
+                            <DynamicActivityDetails
+                                userId={getUserId()}
+                                collectiveId={activeActivity.collective_id}
+                                activityItems={enrichedItems}
+                            />
 
-                                            const isEditing = editingItemId === item.ua_id;
-
-                                            return (
-                                                <div key={item.ua_id} className="grid grid-cols-6 gap-2 items-center">
-                                                    {isEditing ? (
-                                                        <>
-                                                            <input
-                                                                value={editedValues.value2}
-                                                                onChange={(e) => setEditedValues({ ...editedValues, value2: e.target.value })}
-                                                                className="col-span-3 border border-blue-400 rounded px-2 py-1 text-sm focus:outline-none"
-                                                            />
-                                                            <input
-                                                                value={editedValues.value3}
-                                                                onChange={(e) => setEditedValues({ ...editedValues, value3: e.target.value })}
-                                                                className="col-span-1 border border-blue-400 rounded px-2 py-1 text-sm focus:outline-none"
-                                                            />
-                                                            <input
-                                                                value={selectedUnit}
-                                                                readOnly
-                                                                className="col-span-1 border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
-                                                            />
-                                                            <button
-                                                                className="text-green-600 hover:text-green-800 text-sm"
-                                                                title="Save"
-                                                                onClick={() => handleUpdateFoodItem(item, editedValues)}
-                                                            >
-                                                                <SquareCheck className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <input
-                                                                value={item.value2 || "Unnamed"}
-                                                                readOnly
-                                                                className="col-span-3 border border-gray-300 rounded px-2 py-1 text-sm"
-                                                            />
-                                                            <input
-                                                                value={item.value3 || ""}
-                                                                readOnly
-                                                                className="col-span-1 border border-gray-300 rounded px-2 py-1 text-sm"
-                                                            />
-                                                            <input
-                                                                value={selectedUnit}
-                                                                readOnly
-                                                                className="col-span-1 border border-gray-300 rounded px-2 py-1 text-sm"
-                                                            />
-                                                            <button
-                                                                className="text-gray-500 hover:text-black text-sm"
-                                                                title="Edit"
-                                                                onClick={() => {
-                                                                    setEditingItemId(item.ua_id);
-                                                                    setEditedValues({
-                                                                        value2: item.value2 || '',
-                                                                        value3: item.value3 || '',
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <Pencil className="h-5 w-5" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="text-sm text-gray-400">No food items found.</div>
-                                    )}
-
-                                </div>
-                            </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-            {showFoodform && (
+
+            {/* {showFoodform && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-60 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
                         <FoodItemForm
@@ -1215,7 +1136,21 @@ function ActivityPage() {
                         />
                     </div>
                 </div>
+            )} */}
+            {showDynamicForm && dynamicItem && (
+                <DynamicActivityItemForm
+                    a_id={dynamicItem.a_id}
+                    at_id={selectedActivityType ?? 0} // fallback to 0
+                    trigger={dynamicItem.name}
+                    userId={getUserId()}
+                    collectiveId={activeActivity?.collective_id ?? 0} // fallback to 0
+                    isOpen={showDynamicForm}
+                    onClose={() => setShowDynamicForm(false)}
+                    onSuccess={fetchUserActivities}
+                />
+
             )}
+
         </div>
     );
 }

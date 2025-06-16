@@ -64,7 +64,7 @@ const Sidebar = () => {
         return (
             <>
                 {/* Top logo */}
-                <div className="fixed top-0 left-0 w-full bg-white border-b border-gray-200 flex justify-between p-4 py-2 z-50 space-x-3">
+                <div className="fixed top-0 left-0 w-full bg-white border-b border-gray-200 flex justify-between p-4 py-2 z-500 space-x-3">
                     <img src="/icons/logo.png" className="h-6 w-6" alt="Logo" />
                     <h2 className="text-xl font-black text-gray-800">MeSeer</h2>
                     <div className="relative dropdown-profile">
@@ -104,7 +104,7 @@ const Sidebar = () => {
                 </div>
 
                 {/* Bottom Nav */}
-                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 z-50 h-15">
+                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 z-500 h-15">
                     {items.map((item, index) => (
                         <button
                             key={index}
