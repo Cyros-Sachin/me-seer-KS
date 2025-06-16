@@ -775,19 +775,32 @@ export default function SpacePage() {
     }
   };
 
-  const groupByDate = (items: any[]) => {
+  const groupByRefreshTypeDate = (items: any[], type: 'daily' | 'weekly' | 'monthly') => {
     return items.reduce((acc: Record<string, any[]>, item) => {
-      const dateKey = new Date(item.last_updated).toLocaleDateString("en-GB", {
-        weekday: "long",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }); // "Monday 26/06/2025"
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(item);
+      const date = new Date(item.last_updated);
+
+      let key = '';
+      if (type === 'daily') {
+        key = date.toLocaleDateString("en-GB", {
+          weekday: "long",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }); // e.g., "Monday, 17/06/2025"
+      } else if (type === 'weekly') {
+        const firstDayOfWeek = new Date(date);
+        firstDayOfWeek.setDate(date.getDate() - date.getDay());
+        key = `Week of ${firstDayOfWeek.toLocaleDateString("en-GB")}`;
+      } else if (type === 'monthly') {
+        key = date.toLocaleDateString("en-GB", { year: "numeric", month: "long" });
+      }
+
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
       return acc;
     }, {});
   };
+
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white text-black">
@@ -972,7 +985,11 @@ export default function SpacePage() {
                             <div className="px-3 py-4 space-y-2 h-60 overflow-y-auto">
                               {(() => {
                                 const historyItems = (todo as any).contents || [];
-                                const grouped = groupByDate(historyItems);
+                                const validRefreshType = ['daily', 'weekly', 'monthly'].includes(todo.refresh_type || '')
+                                  ? (todo.refresh_type as 'daily' | 'weekly' | 'monthly')
+                                  : 'daily';
+
+                                const grouped = groupByRefreshTypeDate(historyItems, validRefreshType);
 
                                 return currentView === "history" ? (
                                   Object.entries(grouped).map(([date, items]) => (
@@ -993,55 +1010,76 @@ export default function SpacePage() {
                                 ) : (
                                   // fallback to your existing view logic for unchecked/checked
                                   (todo as any).contents?.filter((item: any) => {
+                                    const now = new Date();
+                                    const itemDate = new Date(item.last_updated);
+
+                                    const isCurrent = (() => {
+                                      if (todo.refresh_type === 'daily') {
+                                        return now.toDateString() === itemDate.toDateString();
+                                      } else if (todo.refresh_type === 'weekly') {
+                                        const startOfWeek = new Date(now);
+                                        startOfWeek.setDate(now.getDate() - now.getDay());
+                                        const endOfWeek = new Date(startOfWeek);
+                                        endOfWeek.setDate(startOfWeek.getDate() + 6);
+                                        return itemDate >= startOfWeek && itemDate <= endOfWeek;
+                                      } else if (todo.refresh_type === 'monthly') {
+                                        return now.getMonth() === itemDate.getMonth() &&
+                                          now.getFullYear() === itemDate.getFullYear();
+                                      }
+                                      return true;
+                                    })();
+
+                                    if (!isCurrent) return false;
                                     if (currentView === "unchecked") return !item.checked;
                                     if (currentView === "checked") return item.checked;
                                     return true;
-                                  }).map((item: any) => (
-                                    <motion.div
-                                      key={`${todo.todo_id}-${item.tc_id}`}
-                                      initial={{ opacity: 0, y: 5 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: -5 }}
-                                      transition={{ duration: 0.2 }}
-                                      className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
-                                    >
-                                      <div className="flex items-center gap-3 overflow-hidden w-full">
-                                        <input
-                                          type="checkbox"
-                                          checked={item.checked}
-                                          onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
-                                          className="accent-blue-600 w-4 h-4 rounded"
-                                        />
-                                        <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
-                                      </div>
-                                      <motion.button
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={async () => {
-                                          try {
-                                            await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
-                                              method: "DELETE",
-                                              headers: SpaceService.getHeaders(),
-                                            });
-                                            const userId = getUserId();
-                                            if (activeSubspace) {
-                                              const updatedTodos = await SpaceService.getTodoDataBySubspace(
-                                                activeSubspace.subspace_id,
-                                                userId
-                                              );
-                                              setTodos(updatedTodos);
-                                            }
-                                          } catch (err) {
-                                            console.error("Failed to delete task:", err);
-                                          }
-                                        }}
-                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
-                                        title="Delete Task"
+                                  })
+                                    .map((item: any) => (
+                                      <motion.div
+                                        key={`${todo.todo_id}-${item.tc_id}`}
+                                        initial={{ opacity: 0, y: 5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -5 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
                                       >
-                                        ❌
-                                      </motion.button>
-                                    </motion.div>
-                                  ))
+                                        <div className="flex items-center gap-3 overflow-hidden w-full">
+                                          <input
+                                            type="checkbox"
+                                            checked={item.checked}
+                                            onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
+                                            className="accent-blue-600 w-4 h-4 rounded"
+                                          />
+                                          <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
+                                        </div>
+                                        <motion.button
+                                          whileHover={{ scale: 1.1 }}
+                                          whileTap={{ scale: 0.9 }}
+                                          onClick={async () => {
+                                            try {
+                                              await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
+                                                method: "DELETE",
+                                                headers: SpaceService.getHeaders(),
+                                              });
+                                              const userId = getUserId();
+                                              if (activeSubspace) {
+                                                const updatedTodos = await SpaceService.getTodoDataBySubspace(
+                                                  activeSubspace.subspace_id,
+                                                  userId
+                                                );
+                                                setTodos(updatedTodos);
+                                              }
+                                            } catch (err) {
+                                              console.error("Failed to delete task:", err);
+                                            }
+                                          }}
+                                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
+                                          title="Delete Task"
+                                        >
+                                          ❌
+                                        </motion.button>
+                                      </motion.div>
+                                    ))
                                 );
                               })()}
 
@@ -1656,7 +1694,12 @@ export default function SpacePage() {
                 const items = (maximizedTodo as any).contents || [];
 
                 if (currentView === 'history') {
-                  const grouped = groupByDate(items);
+                  // ✅ Type-safe and scoped refresh type check
+                  const refreshType = ['daily', 'weekly', 'monthly'].includes(maximizedTodo.refresh_type ?? '')
+                    ? (maximizedTodo.refresh_type as 'daily' | 'weekly' | 'monthly')
+                    : 'daily';
+
+                  const grouped = groupByRefreshTypeDate(items, refreshType);
 
                   return Object.entries(grouped).map(([date, group]) => (
                     <div key={date}>
@@ -1675,8 +1718,27 @@ export default function SpacePage() {
                   ));
                 }
 
-                // Default view for unchecked/checked
+                // ✅ Show only current day's/week's/month's items in checked/unchecked
+                const now = new Date();
                 const filteredItems = items.filter((item: any) => {
+                  const itemDate = new Date(item.last_updated);
+
+                  const isCurrent = (() => {
+                    if (maximizedTodo.refresh_type === 'daily') {
+                      return now.toDateString() === itemDate.toDateString();
+                    } else if (maximizedTodo.refresh_type === 'weekly') {
+                      const start = new Date(now);
+                      start.setDate(now.getDate() - now.getDay());
+                      const end = new Date(start);
+                      end.setDate(start.getDate() + 6);
+                      return itemDate >= start && itemDate <= end;
+                    } else if (maximizedTodo.refresh_type === 'monthly') {
+                      return now.getMonth() === itemDate.getMonth() && now.getFullYear() === itemDate.getFullYear();
+                    }
+                    return true;
+                  })();
+
+                  if (!isCurrent) return false;
                   if (currentView === 'unchecked') return !item.checked;
                   if (currentView === 'checked') return item.checked;
                   return true;
@@ -1696,14 +1758,10 @@ export default function SpacePage() {
                         <input
                           type="checkbox"
                           checked={item.checked}
-                          onChange={() =>
-                            handleToggleCheck(maximizedTodo.todo_id, item.tc_id)
-                          }
+                          onChange={() => handleToggleCheck(maximizedTodo.todo_id, item.tc_id)}
                           className="accent-blue-600 w-4 h-4 rounded"
                         />
-                        <span className="text-sm text-gray-800 truncate w-full">
-                          {item.content}
-                        </span>
+                        <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
                       </div>
 
                       <motion.button
@@ -1746,6 +1804,7 @@ export default function SpacePage() {
                   <p className="text-gray-400 italic">No tasks in this view</p>
                 );
               })()}
+
               {newTaskContentMap[maximizedTodo.todo_id] !== undefined && (
                 <input
                   type="text"
