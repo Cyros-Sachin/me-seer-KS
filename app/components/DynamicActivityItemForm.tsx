@@ -90,31 +90,37 @@ const DynamicActivityItemForm = ({
     const label = items[0].item_description || items[0].item_name || `Field ${index}`;
 
     if (items[0]?.item_type?.includes("unit") || items.length > 1) {
+      const label = items[0].item_description || items[0].item_name || `Field ${index}`;
+      const showQuantityInput = items.some((x: any) => x.item_type?.includes("unit"));
+
       return (
         <div key={idKey} className="mb-3">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">Quantity</label>
-          <input
-            type="number"
-            className="w-full border rounded px-3 py-2 mb-2"
-            value={quantities[index] || ""}
-            onChange={(e) => handleQuantityChange(index, e.target.value)}
-          />
-
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-          <select
-            className="w-full border rounded px-3 py-2"
-            value={values[index] || ""}
-            onChange={(e) => handleChange(index, e.target.value)}
-          >
-            <option value="">Select...</option>
-            {items
-              .filter((x: any) => x.unit_id || x.name)
-              .map((opt: any, i: number) => (
-                <option key={i} value={opt.unit_id || opt.name}>
-                  {opt.name}
-                </option>
-              ))}
-          </select>
+          <div className="flex gap-3">
+            {showQuantityInput && (
+              <input
+                type="number"
+                placeholder="Quantity"
+                className="flex-1 border rounded px-3 py-2"
+                value={quantities[index] || ""}
+                onChange={(e) => handleQuantityChange(index, e.target.value)}
+              />
+            )}
+            <select
+              className={`${showQuantityInput ? "flex-1" : "w-full"} border rounded px-3 py-2`}
+              value={values[index] || ""}
+              onChange={(e) => handleChange(index, e.target.value)}
+            >
+              <option value="">Select...</option>
+              {items
+                .filter((x: any) => x.unit_id || x.name)
+                .map((opt: any, i: number) => (
+                  <option key={i} value={opt.unit_id || opt.name}>
+                    {opt.name}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
       );
     }
