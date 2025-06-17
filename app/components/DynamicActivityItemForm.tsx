@@ -84,48 +84,26 @@ const DynamicActivityItemForm = ({
 
   const renderField = (idKey: string, index: number) => {
     const items = template[idKey];
-    if (!items || items.length === 0 || items[0].item_name?.toLowerCase().includes("doesn't exist") || items[0].item_name?.toLowerCase() === "none")
+    if (
+      !items ||
+      items.length === 0 ||
+      items[0].item_name?.toLowerCase().includes("doesn't exist") ||
+      items[0].item_name?.toLowerCase() === "none"
+    )
       return null;
 
-    const label = items[0].item_description || items[0].item_name || `Field ${index}`;
+    const itemMeta = items[0];
+    const label = (itemMeta.item_description || itemMeta.item_name || `Field ${index}`)
+      .replace(/^add\s+/i, "")
+      .replace(/\bbased on.*$/i, "")
+      .trim();
 
-    if (items[0]?.item_type?.includes("unit") || items.length > 1) {
-      const label = items[0].item_description || items[0].item_name || `Field ${index}`;
-      const showQuantityInput = items.some((x: any) => x.item_type?.includes("unit"));
+    const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
+    const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
+    const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
 
-      return (
-        <div key={idKey} className="mb-3">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-          <div className="flex gap-3">
-            {showQuantityInput && (
-              <input
-                type="number"
-                placeholder="Quantity"
-                className="flex-1 border rounded px-3 py-2"
-                value={quantities[index] || ""}
-                onChange={(e) => handleQuantityChange(index, e.target.value)}
-              />
-            )}
-            <select
-              className={`${showQuantityInput ? "flex-1" : "w-full"} border rounded px-3 py-2`}
-              value={values[index] || ""}
-              onChange={(e) => handleChange(index, e.target.value)}
-            >
-              <option value="">Select...</option>
-              {items
-                .filter((x: any) => x.unit_id || x.name)
-                .map((opt: any, i: number) => (
-                  <option key={i} value={opt.unit_id || opt.name}>
-                    {opt.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-        </div>
-      );
-    }
-
-    if (items[0].item_type?.includes("Search")) {
+    // 🔍 Render Search Field
+    if (isSearch) {
       return (
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
@@ -160,6 +138,62 @@ const DynamicActivityItemForm = ({
       );
     }
 
+    // ⏱ Render Unit Field (e.g. Time, show quantity + unit)
+    if (isUnit) {
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+          <div className="flex gap-3">
+            <input
+              type="number"
+              placeholder="Quantity"
+              className="flex-1 border rounded px-3 py-2"
+              value={quantities[index] || ""}
+              onChange={(e) => handleQuantityChange(index, e.target.value)}
+            />
+            <select
+              className="flex-1 border rounded px-3 py-2"
+              value={values[index] || ""}
+              onChange={(e) => handleChange(index, e.target.value)}
+            >
+              <option value="">Select...</option>
+              {items
+                .filter((x: any) => x.unit_id || x.name)
+                .map((opt: any, i: number) => (
+                  <option key={i} value={opt.unit_id || opt.name}>
+                    {opt.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
+    // 🍽️ Render Category Dropdown (like Days, Meal Type, etc.)
+    if (isCategory || items.length > 1) {
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={values[index] || ""}
+            onChange={(e) => handleChange(index, e.target.value)}
+          >
+            <option value="">Select...</option>
+            {items
+              .filter((x: any) => x.cat_id || x.name)
+              .map((opt: any, i: number) => (
+                <option key={i} value={opt.cat_id || opt.name}>
+                  {opt.name}
+                </option>
+              ))}
+          </select>
+        </div>
+      );
+    }
+
+    // ✏️ Default text input fallback
     return (
       <div key={idKey} className="mb-3">
         <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
@@ -188,41 +222,45 @@ const DynamicActivityItemForm = ({
         event_time,
         description: selectedSearchItem?.name || trigger,
         cat_qty_id1: collectiveId,
-        cat_qty_id2: 348,
-        cat_qty_id3: 0,
-        cat_qty_id4: 0,
-        cat_qty_id5: 0,
-        cat_qty_id6: 0,
         value1: "",
         value2: "",
         value3: "",
         value4: "",
         value5: "",
         value6: "",
-        cat_qty_undefined: 0,
-        valueundefined: "",
+        cat_qty_id2: 0,
+        cat_qty_id3: 0,
+        cat_qty_id4: 0,
+        cat_qty_id5: 0,
+        cat_qty_id6: 0,
       };
 
       for (let i = 1; i <= 6; i++) {
         const itemList = template[`item_id${i}`];
+        const selected = values[i];
 
-        if (!itemList || itemList.length === 0 || itemList[0].item_name?.toLowerCase().includes("doesn't exist")) {
-          continue;
-        }
+        if (!itemList || itemList.length === 0) continue;
 
-        const isUnitType = itemList[0]?.item_type?.includes("unit") || itemList.length > 1;
+        const isSearch = itemList[0].item_type?.toLowerCase()?.includes("search");
+        const isUnit = itemList[0].item_type?.toLowerCase()?.includes("unit");
+        const isCategory = itemList[0].item_type?.toLowerCase()?.includes("category");
 
-        if (isUnitType) {
-          // Store quantity in value[i]
+        // Unit (Time) — Quantity in value, unit_id in cat_qty_id
+        if (isUnit) {
           payload[`value${i}`] = quantities[i] || "";
-          // Store unit_id in cat_qty_id[i]
-          payload[`cat_qty_id${i}`] = Number(values[i]) || 0;
-        } else if (itemList[0].item_type?.includes("Search")) {
-          // Search item (e.g., food or exercise) in value[i]
-          payload[`value${i}`] = values[i] || "";
-        } else {
-          // Generic text input
-          payload[`value${i}`] = values[i] || "";
+          payload[`cat_qty_id${i}`] = Number(selected) || 0;
+        }
+        // Search field — value only
+        else if (isSearch) {
+          payload[`value${i}`] = selected || "";
+        }
+        // Category field — store cat_id in cat_qty_id
+        else if (isCategory) {
+          payload[`cat_qty_id${i}`] = Number(selected) || 0;
+        }
+        // Fallback — value only
+        else {
+          payload[`value${i}`] = selected || "";
         }
       }
 
@@ -243,6 +281,7 @@ const DynamicActivityItemForm = ({
       setLoading(false);
     }
   };
+
 
   if (!isOpen) return null;
 

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { SquareCheck, Pencil } from "lucide-react";
 
 const API_BASE_URL = "https://meseer.com/dog";
@@ -12,6 +12,15 @@ type ActivityItem = {
   trigger: string;
 };
 
+type UnitOption = {
+  unit_id?: number;
+  cat_id?: number;
+  name: string;
+  Selected?: boolean;
+  flag?: string;
+  item_type?: string; // Add this
+};
+
 type MWBEntry = {
   ua_id: number;
   a_id: number;
@@ -20,19 +29,18 @@ type MWBEntry = {
   trigger: string;
   user_id: string;
   description: string;
-  cat_qty_id1?: any;
-  cat_qty_id2?: any;
-  cat_qty_id3?: any;
-  cat_qty_id4?: any;
-  cat_qty_id5?: any;
-  cat_qty_id6?: any;
+  cat_qty_id1?: number | "None";
+  cat_qty_id2?: number | "None";
+  cat_qty_id3?: UnitOption[];
+  cat_qty_id4?: number | "None";
+  cat_qty_id5?: number | "None";
+  cat_qty_id6?: number | "None";
   value1: string;
   value2: string;
-  value3: string;
+  value3: string | number;
   value4: string;
   value5: string;
   value6: string;
-  event_time?: string;
 };
 
 type Props = {
@@ -48,50 +56,39 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
   const [loading, setLoading] = useState(true);
   const [templateMap, setTemplateMap] = useState<Record<number, any>>({});
 
-  const fetchAll = useCallback(async () => {
-    if (!userId || !collectiveId || !activityItems?.length) return;
-
+  const fetchAll = async () => {
     setLoading(true);
-    try {
-      const requests = activityItems.map(item =>
-        Promise.all([
-          fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${collectiveId}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-          }).then(res => res.json()),
-          fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-          }).then(res => res.json())
-        ])
-      );
+    const result: Record<number, MWBEntry[]> = {};
 
-      const results = await Promise.all(requests);
+    for (const item of activityItems) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${collectiveId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        const json = await res.json();
 
-      const newDataMap: Record<number, MWBEntry[]> = {};
-      const newTemplateMap: Record<number, any> = {};
+        // Convert the object of objects to an array of objects
+        const entriesArray = json ? Object.values(json) : [];
+        result[item.a_id] = entriesArray as MWBEntry[];
 
-      results.forEach(([data, template], index) => {
-        const item = activityItems[index];
-
-        // Normalize data: array stays as-is, object gets converted to array of values
-        const normalizedData = Array.isArray(data)
-          ? data
-          : typeof data === "object" && data !== null
-            ? Object.values(data)
-            : [];
-
-        newDataMap[item.a_id] = normalizedData;
-        newTemplateMap[item.a_id] = template;
-      });
-
-      setDataMap(newDataMap);
-      setTemplateMap(newTemplateMap);
-    } catch (err) {
-      console.error("Error fetching data", err);
-    } finally {
-      setLoading(false);
+        const templateRes = await fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        const templateJson = await templateRes.json();
+        setTemplateMap((prev) => ({ ...prev, [item.a_id]: templateJson }));
+      } catch (err) {
+        console.error(`Error fetching data for pa_id ${item.a_id}`, err);
+        result[item.a_id] = [];
+      }
     }
-  }, [userId, collectiveId, activityItems]);
 
+    setDataMap(result);
+    setLoading(false);
+  };
 
   const updatePrimaryMWBData = async (payload: any) => {
     const response = await fetch(`${API_BASE_URL}/update-delete-data/primary-mwb`, {
@@ -120,7 +117,10 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         action: "UPDATE",
         cat_qty_id1: item.cat_qty_id1 ?? "None",
         cat_qty_id2: item.cat_qty_id2 ?? "None",
-        cat_qty_id3: item.cat_qty_id3 ?? "None",
+        cat_qty_id3:
+          item.a_id === 9
+            ? Number(editedValues.unit3) || item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id || "None"
+            : item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id ?? "None",
         cat_qty_id4: item.cat_qty_id4 ?? "None",
         cat_qty_id5: item.cat_qty_id5 ?? "None",
         cat_qty_id6: item.cat_qty_id6 ?? "None",
@@ -139,117 +139,159 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
     }
   };
 
-  const getFieldOptions = (fieldData: any) => {
-    if (!fieldData || !Array.isArray(fieldData)) return [];
-
-    // The first item is usually metadata, skip it
-    const isFirstItemMetadata = fieldData[0]?.item_id !== undefined;
-    return isFirstItemMetadata ? fieldData.slice(1) : fieldData;
-  };
-
-  const getSelectedOptionName = (fieldData: any) => {
-    if (!fieldData || !Array.isArray(fieldData)) return null;
-
-    // Find item with flag: "selected" or Selected: true
-    const selectedItem = fieldData.find(item => item.flag === "selected" || item.Selected);
-    return selectedItem?.name || null;
-
-  };
-  const getSelectedOption = (fieldData: any) => {
-    if (!fieldData || !Array.isArray(fieldData)) return null;
-
-    // Find item with flag: "selected" or Selected: true
-    return fieldData.find(item => item.flag === "selected" || item.Selected)?.name ||
-      fieldData[0]?.name; // Fallback to first option
-  };
-
-  const getDefaultValue = (fieldData: any) => {
-    const selected = getSelectedOption(fieldData);
-    return selected || '';
-  };
-
   useEffect(() => {
+    if (!userId || !collectiveId || !activityItems?.length) return;
     fetchAll();
-  }, [fetchAll]);
+  }, [userId, collectiveId, activityItems]);
 
   if (loading) return <div className="text-sm text-gray-400">Loading activity details...</div>;
 
   return (
     <div className="space-y-6">
       {activityItems.map((item) => {
-        const itemData = dataMap[item.a_id] || [];
+        const itemData = Array.isArray(dataMap[item.a_id]) ? dataMap[item.a_id] : [];
+        if (itemData.length === 0) return null;
 
         return (
-          <div key={`activity-${item.a_id}`}>
+          <div key={item.a_id}>
             <h3 className="text-md font-semibold text-gray-700 mb-2">{item.name}</h3>
             <div className="space-y-2">
               {itemData.map((entry) => {
                 const isEditing = editingItemId === entry.ua_id;
 
                 const renderFields = [1, 2, 3, 4, 5, 6].flatMap((i) => {
-                  const valueKey = `value${i}` as keyof MWBEntry;
-                  const catQtyKey = `cat_qty_id${i}` as keyof MWBEntry;
-                  const value = entry[valueKey];
-                  const fieldData = entry[catQtyKey];
-                  const options = getFieldOptions(fieldData);
-                  const selectedOption = getSelectedOptionName(fieldData);
+                  const value = entry[`value${i}` as keyof MWBEntry];
+                  const unitList = entry[`cat_qty_id${i}` as keyof MWBEntry];
 
-                  if (!isEditing && !value && !selectedOption) return null;
+                  // Special handling for food items (a_id === 9)
+                  const isFoodItem = entry.a_id === 9;
 
-                  const fieldName = (
-                    templateMap[item.a_id]?.[`item_id${i}`]?.[0]?.item_description ||
-                    templateMap[item.a_id]?.[`item_id${i}`]?.[0]?.item_name ||
-                    `Field ${i}`
-                  )
-                    .replace(/^add\s+/i, "")
-                    .replace(/\bbased on.*$/i, "")
-                    .trim();
+                  // For food items, we have special field handling:
+                  if (isFoodItem) {
+                    if (i === 2) {
+                      // Food name field
+                      return (
+                        <div key={`val${i}`} className="grid grid-cols-1 gap-2">
+                          <div className="flex flex-col">
+                            <label className="text-xs text-gray-500 mb-1">Food Item</label>
+                            <input
+                              value={String(value ?? "")}
+                              readOnly
+                              className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+
+                    
+                    if (i === 3) {
+                      const options = Array.isArray(unitList) ? unitList : [];
+                      const itemMeta = templateMap[entry.a_id]?.[`item_id${i}`]?.[0];
+                      const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
+                      const isEditing = editingItemId === entry.ua_id;
+
+                      return (
+                        <div key={`val${i}`} className="grid grid-cols-1 gap-2">
+                          <div className="flex flex-col">
+                            <label className="text-xs text-gray-500 mb-1">Quantity</label>
+                            <div className="flex items-center gap-2">
+                              {isEditing ? (
+                                <>
+                                  <input
+                                    value={editedValues[`value${i}`] ?? String(value ?? "")}
+                                    onChange={(e) =>
+                                      setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
+                                    }
+                                    className="border border-blue-400 rounded px-2 py-1 text-sm flex-1"
+                                  />
+                                  <select
+                                    value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || "")}
+                                    onChange={(e) =>
+                                      setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                                    }
+                                    className="border border-blue-400 rounded px-2 py-1 text-sm"
+                                  >
+                                    <option value="">Unit</option>
+                                    {options.map((opt, idx) => (
+                                      <option key={idx} value={opt.unit_id}>
+                                        {opt.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </>
+                              ) : (
+                                <>
+                                  <input
+                                    value={String(value ?? "")}
+                                    readOnly
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
+                                  />
+                                  {selectedUnit?.name && (
+                                    <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                      {selectedUnit.name}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // Skip other fields for food items
+                    return [];
+                  }
+
+                  // Original handling for non-food items
+                  const isUnitField = i === 4; // Only cat_qty_id4 is a unit field in non-food items
+                  const selectedOption =
+                    Array.isArray(unitList)
+                      ? unitList.find((u: any) => u?.Selected || u?.flag === "selected")
+                      : undefined;
+
+                  const displayValue = isUnitField ? value : selectedOption?.name || value;
+                  const unitValue = isUnitField ? selectedOption?.name : undefined;
+
+                  if (!displayValue && !unitValue) return [];
 
                   return (
-                    <div key={`field-${entry.ua_id}-${i}`} className="grid grid-cols-2 gap-2">
+                    <div key={`val${i}`} className={`grid ${isUnitField ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
                       <div className="flex flex-col">
-                        <label className="text-xs text-gray-500 mb-1">{fieldName}</label>
-                        {isEditing ? (
-                          options.length > 0 ? (
-                            <select
-                              value={editedValues[`value${i}`] ?? String(value ?? "")}
-                              onChange={(e) =>
-                                setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
-                              }
-                              className="border border-blue-400 rounded px-2 py-1 text-sm"
-                            >
-                              {options.map((opt: any) => (
-                                <option
-                                  key={`option-${opt.cat_id || opt.unit_id || opt.name}`}
-                                  value={opt.name}
-                                >
-                                  {opt.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              value={editedValues[`value${i}`] ?? String(value ?? "")}
-                              onChange={(e) =>
-                                setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
-                              }
-                              className="border border-blue-400 rounded px-2 py-1 text-sm"
-                            />
+                        <label className="text-xs text-gray-500 mb-1">
+                          {(
+                            templateMap[entry.a_id]?.[`item_id${i}`]?.[0]?.item_description ||
+                            templateMap[entry.a_id]?.[`item_id${i}`]?.[0]?.item_name ||
+                            `Field ${i}`
                           )
+                            .replace(/^add\s+/i, "")
+                            .replace(/\bbased on.*$/i, "")
+                            .trim()}
+                        </label>
+                        {isEditing ? (
+                          <input
+                            value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                            onChange={(e) =>
+                              setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
+                            }
+                            className="border border-blue-400 rounded px-2 py-1 text-sm"
+                          />
                         ) : (
                           <input
-                            value={String(value ?? "")}
+                            value={String(displayValue ?? "")}
                             readOnly
                             className="border border-gray-300 rounded px-2 py-1 text-sm"
                           />
                         )}
                       </div>
 
-                      {selectedOption && (
+                      {isUnitField && unitValue && (
                         <div className="flex flex-col">
-                          <label className="text-xs text-gray-500 mb-1">Option</label>
+                          <label className="text-xs text-gray-500 mb-1">Unit</label>
                           <input
-                            value={selectedOption}
+                            value={unitValue}
                             readOnly
                             className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
                           />
@@ -257,16 +299,14 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                       )}
                     </div>
                   );
-                }).filter(Boolean); // Remove any null entries from flatMap
+                });
 
                 return (
                   <div
-                    key={`entry-${entry.ua_id}`}
+                    key={entry.ua_id}
                     className="grid gap-2 items-start text-sm border rounded p-3 bg-white shadow-sm"
                   >
-                    {renderFields.length > 0 ? renderFields : (
-                      <div className="text-gray-500 text-sm">No data available</div>
-                    )}
+                    {renderFields}
 
                     <div className="flex justify-end gap-2 mt-1">
                       {isEditing ? (
