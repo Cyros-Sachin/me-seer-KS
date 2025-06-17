@@ -84,90 +84,85 @@ const DynamicActivityItemForm = ({
 
   const renderField = (idKey: string, index: number) => {
     const items = template[idKey];
-    if (
-      !items ||
-      items.length === 0 ||
-      items[0].item_name?.toLowerCase().includes("doesn't exist") ||
-      items[0].item_name?.toLowerCase() === "none"
-    )
+    if (!items || items.length === 0 || items[0].item_name?.toLowerCase().includes("doesn't exist") || items[0].item_name?.toLowerCase() === "none")
       return null;
 
-    const itemMeta = items[0];
-    const label = (itemMeta.item_name || itemMeta.item_description || `Field ${index}`)
-      .replace(/^add\s+/i, "")
-      .replace(/\bbased on.*$/i, "")
-      .trim();
+    const label = items[0].item_description || items[0].item_name || `Field ${index}`;
 
-    const showQuantityInput = itemMeta.item_name?.toLowerCase() === "time"; // 👈 only show for "Time"
-    const isUnitCombo = itemMeta.item_type?.includes("unit") || items.length > 1;
+    if (items[0]?.item_type?.includes("unit") || items.length > 1) {
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">Quantity</label>
+          <input
+            type="number"
+            className="w-full border rounded px-3 py-2 mb-2"
+            value={quantities[index] || ""}
+            onChange={(e) => handleQuantityChange(index, e.target.value)}
+          />
 
-    return (
-      <div key={idKey} className="mb-4">
-        <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-        <div className="grid grid-cols-2 gap-2">
-          {showQuantityInput && (
-            <input
-              type="text"
-              placeholder="Quantity"
-              className="border rounded px-3 py-2 text-sm"
-              value={quantities[index] || ""}
-              onChange={(e) => handleQuantityChange(index, e.target.value)}
-            />
-          )}
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={values[index] || ""}
+            onChange={(e) => handleChange(index, e.target.value)}
+          >
+            <option value="">Select...</option>
+            {items
+              .filter((x: any) => x.unit_id || x.name)
+              .map((opt: any, i: number) => (
+                <option key={i} value={opt.unit_id || opt.name}>
+                  {opt.name}
+                </option>
+              ))}
+          </select>
+        </div>
+      );
+    }
 
-          {isUnitCombo ? (
-            <select
-              className="border rounded px-3 py-2 text-sm"
-              value={values[index] || ""}
-              onChange={(e) => handleChange(index, e.target.value)}
-            >
-              <option value="">Select</option>
-              {items
-                .filter((x: any) => x.unit_id || x.name)
-                .map((opt: any, i: number) => (
-                  <option key={i} value={opt.unit_id || opt.name}>
-                    {opt.name}
-                  </option>
-                ))}
-            </select>
-          ) : itemMeta.item_type?.includes("Search") ? (
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setSelectedSearchItem(null);
-              }}
-              placeholder="Search..."
-              className="col-span-2 border px-3 py-2 rounded text-sm"
-            />
-          ) : (
-            <input
-              type="text"
-              className="col-span-2 border rounded px-3 py-2 text-sm"
-              value={values[index] || ""}
-              onChange={(e) => handleChange(index, e.target.value)}
-            />
+    if (items[0].item_type?.includes("Search")) {
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSelectedSearchItem(null);
+            }}
+            placeholder="Search..."
+            className="w-full border px-3 py-2 rounded"
+          />
+          {suggestions.length > 0 && (
+            <ul className="border bg-white max-h-40 overflow-y-auto shadow rounded mt-1 text-sm">
+              {suggestions.map((s: any, i: number) => (
+                <li
+                  key={i}
+                  className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                  onClick={() => {
+                    setSelectedSearchItem(s);
+                    setSearch(s.name);
+                    setSuggestions([]);
+                    handleChange(index, s.name);
+                  }}
+                >
+                  {s.name}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
+      );
+    }
 
-        {itemMeta.item_type?.includes("Search") && suggestions.length > 0 && (
-          <ul className="border bg-white max-h-40 overflow-y-auto shadow rounded mt-1 text-sm">
-            {suggestions.map((s: any, i: number) => (
-              <li
-                key={i}
-                className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-                onClick={() => {
-                  setSelectedSearchItem(s);
-                  setSearch(s.name);
-                  setSuggestions([]);
-                  handleChange(index, s.name);
-                }}
-              >
-                {s.name}
-              </li>
-            ))}
-          </ul>
-        )}
+    return (
+      <div key={idKey} className="mb-3">
+        <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+        <input
+          type="text"
+          className="w-full border rounded px-3 py-2"
+          value={values[index] || ""}
+          onChange={(e) => handleChange(index, e.target.value)}
+        />
       </div>
     );
   };
