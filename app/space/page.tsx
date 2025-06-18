@@ -289,6 +289,9 @@ export default function SpacePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskContent, setEditingTaskContent] = useState<string>('');
+
   const dropdownVariants = {
     hidden: { opacity: 0, y: -10 },
     visible: { opacity: 1, y: 0 },
@@ -1050,7 +1053,52 @@ export default function SpacePage() {
                                             onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
                                             className="accent-blue-600 w-4 h-4 rounded"
                                           />
-                                          <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
+                                          {editingTaskId === item.tc_id ? (
+                                            <input
+                                              className="text-sm text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none"
+                                              value={editingTaskContent}
+                                              onChange={(e) => setEditingTaskContent(e.target.value)}
+                                              onBlur={async () => {
+                                                if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                                  await updateCheckStatus({ ...item, content: editingTaskContent });
+                                                  const userId = getUserId();
+                                                  if (activeSubspace) {
+                                                    const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+                                                    setTodos(updatedTodos);
+                                                  }
+                                                }
+                                                setEditingTaskId(null);
+                                              }}
+                                              onKeyDown={async (e) => {
+                                                if (e.key === 'Enter') {
+                                                  if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                                    await updateCheckStatus({ ...item, content: editingTaskContent });
+                                                    const userId = getUserId();
+                                                    if (activeSubspace) {
+                                                      const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+                                                      setTodos(updatedTodos);
+                                                    }
+                                                  }
+                                                  setEditingTaskId(null);
+                                                } else if (e.key === 'Escape') {
+                                                  setEditingTaskId(null);
+                                                  setEditingTaskContent(item.content);
+                                                }
+                                              }}
+                                              autoFocus
+                                            />
+                                          ) : (
+                                            <span
+                                              className="text-sm text-gray-800 truncate w-full cursor-pointer"
+                                              onClick={() => {
+                                                setEditingTaskId(item.tc_id);
+                                                setEditingTaskContent(item.content);
+                                              }}
+                                            >
+                                              {item.content}
+                                            </span>
+                                          )}
+
                                         </div>
                                         <motion.button
                                           whileHover={{ scale: 1.1 }}
