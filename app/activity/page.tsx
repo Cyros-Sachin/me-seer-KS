@@ -375,6 +375,19 @@ function ActivityPage() {
         userActivities: false,
         templateData: false
     });
+    const [showGoalDialog, setShowGoalDialog] = useState(false);
+    const [goalForm, setGoalForm] = useState({
+        value2: '',     // Name
+        value3: '',     // By date
+        value4: '',     // Effort
+        value5: '',     // Completed
+        value6: '',     // optional
+        cat_qty_id2: 23,
+        cat_qty_id3: 47,
+        cat_qty_id4: 54,
+        cat_qty_id5: 2,
+    });
+
     const [showDynamicForm, setShowDynamicForm] = useState(false);
     const [dynamicItem, setDynamicItem] = useState<ActivityItem | null>(null);
     const [foodItems, setFoodItems] = useState<any[]>([]);
@@ -471,7 +484,6 @@ function ActivityPage() {
         setDynamicItem(item);
         setShowDynamicForm(true);
     };
-
 
     const fetchFoodItems = async () => {
         if (!activeActivity?.collective_id || !activeActivity?.a_id) return;
@@ -670,7 +682,7 @@ function ActivityPage() {
                 console.log('Launch budget module');
                 break;
             case 'create goal':
-                console.log('Launch budget module');
+                setShowGoalDialog(true);
                 break;
             case 'add task':
                 console.log('Launch budget module');
@@ -699,47 +711,49 @@ function ActivityPage() {
         }
     };
 
-    const handleUpdateFoodItem = async (
-        item: any,
-        updated: { value2: string; value3: string }
-    ) => {
+    const handleSubmitGoal = async () => {
         try {
             const userId = getUserId();
+            const now = new Date().toISOString().slice(0,19);
 
-            // ✅ Extract selected unit_id from cat_qty_id3 array
-            const selectedUnitId =
-                Array.isArray(item.cat_qty_id3)
-                    ? item.cat_qty_id3.find((u: any) => u?.Selected)?.unit_id ?? "None"
-                    : item.cat_qty_id3 ?? "None";
-
-            await ActivityService.updatePrimaryMWBData({
-                ua_id: item.ua_id,
-                a_id: 9,
-                at_id: item.at_id || 1,
-                flag: item.flag || "PN",
-                trigger: "meal",
-                is_active: true,
+            const payload = {
                 user_id: userId,
-                description: `updating ${updated.value2}`,
-                action: "UPDATE",
-                cat_qty_id1: item.cat_qty_id1 ?? "None",
-                cat_qty_id2: item.cat_qty_id2 ?? "None",
-                cat_qty_id3: selectedUnitId,
-                cat_qty_id4: "None",
-                cat_qty_id5: "None",
-                cat_qty_id6: "None",
-                value1: "None",
-                value2: updated.value2 || "None",
-                value3: updated.value3 || "None",
-                value4: "None",
-                value5: "None",
-                value6: "None",
+                flag: "P",
+                at_id: 301,
+                a_id: 24,
+                cat_qty_id1: 0,
+                cat_qty_id2: goalForm.cat_qty_id2,
+                cat_qty_id3: goalForm.cat_qty_id3,
+                cat_qty_id4: goalForm.cat_qty_id4,
+                cat_qty_id5: goalForm.cat_qty_id5,
+                cat_qty_id6: 0,
+                value1: "",
+                value2: goalForm.value2,
+                value3: goalForm.value3,
+                value4: goalForm.value4,
+                value5: goalForm.value5,
+                value6: "",
+                cat_qty_undefined: 0,
+                valueundefined: "",
+                trigger: "goal",
+                is_active: true,
+                description: `Goal is added at ${now}`,
+                event_time: now
+            };
+
+            const res = await fetch('https://meseer.com/dog/add-data/primary-mwb/', {
+                method: 'POST',
+                headers: ActivityService.getHeaders(),
+                body: JSON.stringify(payload)
             });
-            await fetchFoodItems(); // ✅ this works now
-            setEditingItemId(null);
+
+            if (!res.ok) throw new Error("Failed to create goal");
+
+            setShowGoalDialog(false);
+            await fetchUserActivities();
         } catch (err) {
-            console.error("Error updating item:", err);
-            setError("Failed to update item");
+            console.error("Goal creation failed", err);
+            alert("Error creating goal");
         }
     };
 
@@ -1069,6 +1083,68 @@ function ActivityPage() {
                                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showGoalDialog && (
+                <div className="fixed inset-0  bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center">
+                    <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 space-y-4">
+                        <h2 className="text-2xl font-semibold text-gray-800">Create Goal</h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input
+                                type="text"
+                                placeholder="Name (e.g., SEM 3)"
+                                value={goalForm.value2}
+                                onChange={(e) => setGoalForm({ ...goalForm, value2: e.target.value })}
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="date"
+                                value={goalForm.value3}
+                                onChange={(e) => setGoalForm({ ...goalForm, value3: e.target.value })}
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Effort"
+                                value={goalForm.value4}
+                                onChange={(e) => setGoalForm({ ...goalForm, value4: e.target.value })}
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                            <select
+                                value={goalForm.cat_qty_id4}
+                                onChange={(e) => setGoalForm({ ...goalForm, cat_qty_id4: parseInt(e.target.value) })}
+                                className="w-32 border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={53}>hpd</option>
+                                <option value={54}>hpw</option>
+                                <option value={55}>hpm</option>
+                            </select>
+                            <input
+                                type="number"
+                                placeholder="Completed (%)"
+                                value={goalForm.value5}
+                                onChange={(e) => setGoalForm({ ...goalForm, value5: e.target.value })}
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => setShowGoalDialog(false)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitGoal}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Submit
                             </button>
                         </div>
                     </div>
