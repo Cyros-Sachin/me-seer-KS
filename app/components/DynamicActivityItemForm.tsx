@@ -97,6 +97,13 @@ const DynamicActivityItemForm = ({
       .replace(/^add\s+/i, "")
       .replace(/\bbased on.*$/i, "")
       .trim();
+    if (
+      label.toLowerCase().includes("meal_id") ||
+      label.toLowerCase().includes("workout_id") ||
+      label.toLowerCase().includes("etc")
+    ) {
+      return null;
+    }
 
     const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
     const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
