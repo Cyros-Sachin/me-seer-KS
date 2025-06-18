@@ -105,7 +105,26 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
 
   const handleUpdateItem = async (item: MWBEntry) => {
     try {
-      const payload: any = {
+      // Helpers for Assign Meal (a_id = 10)
+      const getCollectiveId = (list: unknown): number | undefined => {
+        return Array.isArray(list) ? list[0]?.collective_id : undefined;
+      };
+
+      const getCatId = (list: unknown, i: number): number | undefined => {
+        if (!Array.isArray(list)) return undefined;
+        return editedValues[`unit${i}`]
+          ? Number(editedValues[`unit${i}`])
+          : list.find((u: any) => u?.flag === "selected")?.cat_id;
+      };
+
+      const getUnitId = (list: unknown, i: number): number | undefined => {
+        if (!Array.isArray(list)) return undefined;
+        return editedValues[`unit${i}`]
+          ? Number(editedValues[`unit${i}`])
+          : list.find((u: any) => u?.flag === "selected" || u?.Selected)?.unit_id;
+      };
+
+      let payload: any = {
         ua_id: item.ua_id,
         a_id: item.a_id,
         at_id: item.at_id,
@@ -113,24 +132,57 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         trigger: item.trigger,
         is_active: true,
         user_id: userId,
-        description: editedValues.value2 || item.description,
+        description: editedValues.value2 || item.description || "",
         action: "UPDATE",
-        cat_qty_id1: item.cat_qty_id1 ?? "None",
-        cat_qty_id2: item.cat_qty_id2 ?? "None",
-        cat_qty_id3:
-          item.a_id === 9
-            ? Number(editedValues.unit3) || item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id || "None"
-            : item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id ?? "None",
-        cat_qty_id4: item.cat_qty_id4 ?? "None",
-        cat_qty_id5: item.cat_qty_id5 ?? "None",
-        cat_qty_id6: item.cat_qty_id6 ?? "None",
-        value1: editedValues.value1 ?? item.value1,
-        value2: editedValues.value2 ?? item.value2,
-        value3: editedValues.value3 ?? item.value3,
-        value4: editedValues.value4 ?? item.value4,
-        value5: editedValues.value5 ?? item.value5,
-        value6: editedValues.value6 ?? item.value6,
       };
+
+      if (item.a_id === 10) {
+        // ✅ Special logic for Assign Meal
+        payload = {
+          ...payload,
+          trigger: item.trigger ?? "meal",
+          cat_qty_id1: getCollectiveId(item.cat_qty_id1),
+          cat_qty_id2: getCatId(item.cat_qty_id2, 2),
+          cat_qty_id3: getCatId(item.cat_qty_id3, 3),
+          cat_qty_id4: getUnitId(item.cat_qty_id4, 4),
+          cat_qty_id5: getCatId(item.cat_qty_id5, 5),
+          cat_qty_id6: getCatId(item.cat_qty_id6, 6),
+          value1: editedValues.value1 ?? item.value1 ?? "",
+          value2: editedValues.value2 ?? item.value2 ?? "",
+          value3: editedValues.value3 ?? item.value3 ?? "",
+          value4: editedValues.value4 ?? item.value4 ?? "",
+          value5: editedValues.value5 ?? item.value5 ?? "",
+          value6: editedValues.value6 ?? item.value6 ?? "",
+        };
+      } else {
+        // ✅ Standard logic for all other a_id (including a_id = 9)
+        payload = {
+          ...payload,
+          cat_qty_id1: item.cat_qty_id1 ?? null,
+          cat_qty_id2: item.cat_qty_id2 ?? null,
+          cat_qty_id3:
+            item.a_id === 9
+              ? Number(editedValues.unit3) || item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id || null
+              : item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id ?? null,
+          cat_qty_id4: Array.isArray(item.cat_qty_id4)
+            ? item.cat_qty_id4.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+            : item.cat_qty_id4 ?? null,
+          cat_qty_id5: Array.isArray(item.cat_qty_id5)
+            ? item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+            : item.cat_qty_id5 ?? null,
+          cat_qty_id6: Array.isArray(item.cat_qty_id6)
+            ? item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+            : item.cat_qty_id6 ?? null,
+          value1: editedValues.value1 ?? item.value1 ?? "",
+          value2: editedValues.value2 ?? item.value2 ?? "",
+          value3: editedValues.value3 ?? item.value3 ?? "",
+          value4: editedValues.value4 ?? item.value4 ?? "",
+          value5: editedValues.value5 ?? item.value5 ?? "",
+          value6: editedValues.value6 ?? item.value6 ?? "",
+        };
+      }
+
+      console.log("Payload being sent:", payload);
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
       await fetchAll();
@@ -162,110 +214,74 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                 const renderFields = [1, 2, 3, 4, 5, 6].flatMap((i) => {
                   const value = entry[`value${i}` as keyof MWBEntry];
                   const unitList = entry[`cat_qty_id${i}` as keyof MWBEntry];
+                  const isEditing = editingItemId === entry.ua_id;
 
-                  // Special handling for food items (a_id === 9)
-                  const isFoodItem = entry.a_id === 9;
+                  const aId = entry.a_id;
+                  const isAid10 = aId === 10;
 
-                  // For food items, we have special field handling:
-                  if (isFoodItem) {
-                    if (i === 2) {
-                      // Food name field
-                      return (
-                        <div key={`val${i}`} className="grid grid-cols-1 gap-2">
-                          <div className="flex flex-col">
-                            <label className="text-xs text-gray-500 mb-1">Food Item</label>
+                  // === a_id = 10: Custom dropdowns ===
+                  if (isAid10 && [2, 3, 5, 6].includes(i)) {
+                    const options = Array.isArray(unitList) ? unitList : [];
+                    const selectedOption = options.find((u: any) => u?.Selected || u?.flag === "selected");
+
+                    const labelMap: Record<number, string> = {
+                      2: "Day of the Week",
+                      3: "Meal Type",
+                      5: "Person(s) with whom food was consumed",
+                      6: "Activity done while eating food",
+                    };
+
+                    return (
+                      <div key={`val${i}`} className="grid grid-cols-1 gap-2">
+                        <div className="flex flex-col">
+                          <label className="text-xs text-gray-500 mb-1">{labelMap[i]}</label>
+                          {isEditing ? (
+                            <select
+                              value={editedValues[`unit${i}`] ?? String(selectedOption?.cat_id || "")}
+                              onChange={(e) =>
+                                setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                              }
+                              className="border border-blue-400 rounded px-2 py-1 text-sm"
+                            >
+                              <option value="">Select</option>
+                              {options
+                                .filter((opt) => opt?.cat_id)
+                                .map((opt, idx) => (
+                                  <option key={idx} value={opt.cat_id}>
+                                    {opt.name}
+                                  </option>
+                                ))}
+                            </select>
+                          ) : (
                             <input
-                              value={String(value ?? "")}
+                              value={selectedOption?.name || ""}
                               readOnly
                               className="border border-gray-300 rounded px-2 py-1 text-sm"
                             />
-                          </div>
+                          )}
                         </div>
-                      );
-                    }
-                    
-
-                    
-                    if (i === 3) {
-                      const options = Array.isArray(unitList) ? unitList : [];
-                      const itemMeta = templateMap[entry.a_id]?.[`item_id${i}`]?.[0];
-                      const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
-                      const isEditing = editingItemId === entry.ua_id;
-
-                      return (
-                        <div key={`val${i}`} className="grid grid-cols-1 gap-2">
-                          <div className="flex flex-col">
-                            <label className="text-xs text-gray-500 mb-1">Quantity</label>
-                            <div className="flex items-center gap-2">
-                              {isEditing ? (
-                                <>
-                                  <input
-                                    value={editedValues[`value${i}`] ?? String(value ?? "")}
-                                    onChange={(e) =>
-                                      setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
-                                    }
-                                    className="border border-blue-400 rounded px-2 py-1 text-sm flex-1"
-                                  />
-                                  <select
-                                    value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || "")}
-                                    onChange={(e) =>
-                                      setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
-                                    }
-                                    className="border border-blue-400 rounded px-2 py-1 text-sm"
-                                  >
-                                    <option value="">Unit</option>
-                                    {options.map((opt, idx) => (
-                                      <option key={idx} value={opt.unit_id}>
-                                        {opt.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </>
-                              ) : (
-                                <>
-                                  <input
-                                    value={String(value ?? "")}
-                                    readOnly
-                                    className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
-                                  />
-                                  {selectedUnit?.name && (
-                                    <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                                      {selectedUnit.name}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    
-                    // Skip other fields for food items
-                    return [];
+                      </div>
+                    );
                   }
 
-                  // Original handling for non-food items
-                  const isUnitField = i === 4; // Only cat_qty_id4 is a unit field in non-food items
-                  const selectedOption =
-                    Array.isArray(unitList)
-                      ? unitList.find((u: any) => u?.Selected || u?.flag === "selected")
-                      : undefined;
+                  // === All other a_id (except 10): Show value + unit ===
+                  const options = Array.isArray(unitList) ? unitList : [];
+                  const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
 
-                  const displayValue = isUnitField ? value : selectedOption?.name || value;
-                  const unitValue = isUnitField ? selectedOption?.name : undefined;
+                  const isUnitField = !!selectedUnit?.unit_id || i === 4;
+
+                  const displayValue = value;
+                  const unitValue = selectedUnit?.name;
 
                   if (!displayValue && !unitValue) return [];
 
                   return (
-                    <div key={`val${i}`} className={`grid ${isUnitField ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                    <div key={`val${i}`} className={`grid ${unitValue ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
                       <div className="flex flex-col">
                         <label className="text-xs text-gray-500 mb-1">
-                          {(
-                            templateMap[entry.a_id]?.[`item_id${i}`]?.[0]?.item_description ||
-                            templateMap[entry.a_id]?.[`item_id${i}`]?.[0]?.item_name ||
-                            `Field ${i}`
-                          )
+                          {(templateMap[aId]?.[`item_id${i}`]?.[0]?.item_description ||
+                            templateMap[aId]?.[`item_id${i}`]?.[0]?.item_name ||
+                            `Field ${i}`)
                             .replace(/^add\s+/i, "")
                             .replace(/\bbased on.*$/i, "")
                             .trim()}
@@ -287,19 +303,40 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                         )}
                       </div>
 
-                      {isUnitField && unitValue && (
+                      {unitValue && (
                         <div className="flex flex-col">
                           <label className="text-xs text-gray-500 mb-1">Unit</label>
-                          <input
-                            value={unitValue}
-                            readOnly
-                            className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
-                          />
+                          {isEditing ? (
+                            <select
+                              value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || "")}
+                              onChange={(e) =>
+                                setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                              }
+                              className="border border-blue-400 rounded px-2 py-1 text-sm"
+                            >
+                              <option value="">Unit</option>
+                              {options
+                                .filter((opt) => opt?.unit_id)
+                                .map((opt, idx) => (
+                                  <option key={idx} value={opt.unit_id}>
+                                    {opt.name}
+                                  </option>
+                                ))}
+                            </select>
+                          ) : (
+                            <input
+                              value={unitValue}
+                              readOnly
+                              className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
+                            />
+                          )}
                         </div>
                       )}
                     </div>
                   );
                 });
+
+
 
                 return (
                   <div
