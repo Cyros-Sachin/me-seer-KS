@@ -138,11 +138,12 @@ const ActivityService = {
 
     // Pinned Activities
     getPinnedActivities: async (user_id: string, at_id: number): Promise<PinnedActivity[]> => {
-        const response = await fetch(`${API_BASE_URL}/generic/pinned-activity/${user_id}/${at_id}`, {
+        const response = await fetch(`${API_BASE_URL}/activities-items/${at_id}`, {
             headers: ActivityService.getHeaders()
         });
         const data = await response.json();
-        return data.pinned_activity || [];
+        console.log(data);
+        return data || [];
     },
 
     // User Activities
@@ -556,6 +557,7 @@ function ActivityPage() {
                 const userId = getUserId();
                 const pinned = await ActivityService.getPinnedActivities(userId, selectedActivityType);
                 setPinnedActivities(pinned);
+                console.log(pinned);
 
                 // Select first pinned activity by default if available
                 // if (pinned.length > 0) {
