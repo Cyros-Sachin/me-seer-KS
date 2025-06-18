@@ -211,7 +211,8 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
               {itemData.map((entry) => {
                 const isEditing = editingItemId === entry.ua_id;
 
-                const renderFields = [1, 2, 3, 4, 5, 6].flatMap((i) => {
+                const indices = entry.a_id === 13 ? [1, 2, 3, 4, 6] : [1, 2, 3, 4, 5, 6];
+                const renderFields = indices.flatMap((i) => {
                   const value = entry[`value${i}` as keyof MWBEntry];
                   const unitList = entry[`cat_qty_id${i}` as keyof MWBEntry];
                   const isEditing = editingItemId === entry.ua_id;
