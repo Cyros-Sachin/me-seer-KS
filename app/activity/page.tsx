@@ -387,7 +387,11 @@ function ActivityPage() {
         cat_qty_id4: 54,
         cat_qty_id5: 2,
     });
-
+    const [showTaskDialog, setShowTaskDialog] = useState(false);
+    const [taskForm, setTaskForm] = useState({
+        value3: '', // task name/title
+    });
+    const [goalTasksData, setGoalTasksData] = useState<Record<string, any[]> | null>(null);
     const [showDynamicForm, setShowDynamicForm] = useState(false);
     const [dynamicItem, setDynamicItem] = useState<ActivityItem | null>(null);
     const [foodItems, setFoodItems] = useState<any[]>([]);
@@ -404,6 +408,8 @@ function ActivityPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const iconRef = useRef<HTMLDivElement | null>(null);
     const sidebarRef = useRef<HTMLDivElement | null>(null);
+    const isPlanType = selectedActivityType === 301;
+
     const getUserId = (): string => {
         const userInfo = Cookies.get("userInfo");
         if (!userInfo) throw new Error('User not authenticated');
@@ -449,6 +455,25 @@ function ActivityPage() {
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        const fetchGoalsTasks = async () => {
+            if (!selectedActivityType) return;
+            const activity = activityTypes.find(a => a.at_id === selectedActivityType);
+            if (!activity || activity.name.toLowerCase() !== "plan") return;
+
+            try {
+                const userId = getUserId();
+                const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
+                const data = await res.json();
+                setGoalTasksData(data);
+            } catch (err) {
+                console.error("Failed to fetch goals/tasks", err);
+            }
+        };
+
+        fetchGoalsTasks();
+    }, [selectedActivityType]);
 
     const handleCreateWorkout = async () => {
         try {
@@ -685,7 +710,7 @@ function ActivityPage() {
                 setShowGoalDialog(true);
                 break;
             case 'add task':
-                console.log('Launch budget module');
+                setShowTaskDialog(true);
                 break;
             default:
                 console.log('No action mapped yet');
@@ -714,7 +739,7 @@ function ActivityPage() {
     const handleSubmitGoal = async () => {
         try {
             const userId = getUserId();
-            const now = new Date().toISOString().slice(0,19);
+            const now = new Date().toISOString().slice(0, 19);
 
             const payload = {
                 user_id: userId,
@@ -754,6 +779,52 @@ function ActivityPage() {
         } catch (err) {
             console.error("Goal creation failed", err);
             alert("Error creating goal");
+        }
+    };
+
+    const handleSubmitTask = async () => {
+        try {
+            const userId = getUserId();
+            const now = new Date().toISOString().slice(0, 19);
+
+            const payload = {
+                user_id: userId,
+                flag: "PP",
+                at_id: 301,
+                a_id: 27,
+                cat_qty_id1: 0,
+                cat_qty_id2: "08",
+                cat_qty_id3: 23,
+                cat_qty_id4: 0,
+                cat_qty_id5: 0,
+                cat_qty_id6: 0,
+                value1: "0",
+                value2: "",
+                value3: taskForm.value3,
+                value4: "",
+                value5: "",
+                value6: "",
+                cat_qty_undefined: 0,
+                valueundefined: "",
+                trigger: "task",
+                is_active: "Y",
+                description: `Task is added at ${now}`,
+                event_time: now
+            };
+
+            const res = await fetch('https://meseer.com/dog/add-data/primary-mwb/', {
+                method: 'POST',
+                headers: ActivityService.getHeaders(),
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) throw new Error("Failed to create task");
+
+            setShowTaskDialog(false);
+            await fetchUserActivities();
+        } catch (err) {
+            console.error("Task creation failed", err);
+            alert("Error creating task");
         }
     };
 
@@ -982,53 +1053,86 @@ function ActivityPage() {
                 {selectedActivityType && (
                     <div className="p-4">
                         {loading.userActivities ? (
-                            // 🔄 Loading Spinner
                             <div className="flex justify-center items-center h-40">
                                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-500" />
                             </div>
-                        ) : userActivities && Array.isArray(userActivities) && userActivities.length > 0 ? (
-                            // ✅ Actual content
-                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2 ">
-                                {userActivities.map((activity) => (
-                                    <div
-                                        key={activity.ua_id}
-                                        className="bg-white rounded-xl shadow relative overflow-hidden group p-4"
-                                        onClick={() => setActiveActivity(activity)}
-                                    >
-                                        <div className="aspect-square bg-gray-100 relative rounded-t-xl overflow-hidden">
-                                            <Trash2Icon
-                                                className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer absolute top-2 right-2 z-10"
-                                                onClick={() => handleDeleteData(activity)}
-                                            />
+                        ) : isPlanType ? (
+                            // ✅ New UI for Plan Type
+                            goalTasksData && Object.entries(goalTasksData).length > 0 ? (
+                                <div className="space-y-6">
+                                    {Object.entries(goalTasksData).map(([key, tasks]) => {
+                                        const [goalId, goalName] = key.replace(/\[|\]/g, '').split(',');
+                                        const timestamp = new Date(tasks[0]?.created_timestamp).toLocaleString();
 
-                                            {(() => {
-                                                const key = (activity.name || activity.description || "").toLowerCase();
-                                                const image = activityImageMap[key];
+                                        return (
+                                            <div key={goalId} className="bg-white shadow-xl rounded-xl p-6 border border-gray-200">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
+                                                    <span className="text-sm text-gray-500">{timestamp}</span>
+                                                </div>
+                                                <div className="space-y-2 pl-4 border-l-4 border-blue-500">
+                                                    {tasks.map((task, index) => (
+                                                        <div
+                                                            key={`goal-${goalId}-task-${task.task_id || 'x'}-ua-${task.ua_id || 'x'}-${index}`}
+                                                            className="bg-gray-50 px-3 py-2 rounded-md shadow-sm flex justify-between items-center hover:bg-blue-50 transition"
+                                                        >
+                                                            <span className="text-gray-800">{task.task_name}</span>
+                                                            {task.todo_id === null && (
+                                                                <span className="text-xs text-red-500">Unlinked</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
 
-                                                return image ? (
-                                                    <img
-                                                        src={image}
-                                                        alt={key}
-                                                        className="absolute inset-0 w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex items-center justify-center h-full w-full text-4xl text-gray-300">📋</div>
-                                                );
-                                            })()}
-                                        </div>
-
-                                        <div className="p-2 text-md font-bold text-center truncate">
-                                            {activity.description || activity.name || 'Unnamed'}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center text-sm text-gray-500">No goals found.</div>
+                            )
                         ) : (
-                            // ❌ No activities fallback
-                            <div className="text-center text-sm text-gray-500">No activities found.</div>
+                            // ✅ Existing UI for all other types
+                            userActivities && Array.isArray(userActivities) && userActivities.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
+                                    {userActivities.map((activity) => (
+                                        <div
+                                            key={activity.ua_id}
+                                            className="bg-white rounded-xl shadow relative overflow-hidden group p-4"
+                                            onClick={() => setActiveActivity(activity)}
+                                        >
+                                            <div className="aspect-square bg-gray-100 relative rounded-t-xl overflow-hidden">
+                                                <Trash2Icon
+                                                    className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer absolute top-2 right-2 z-10"
+                                                    onClick={() => handleDeleteData(activity)}
+                                                />
+                                                {(() => {
+                                                    const key = (activity.name || activity.description || "").toLowerCase();
+                                                    const image = activityImageMap[key];
+                                                    return image ? (
+                                                        <img
+                                                            src={image}
+                                                            alt={key}
+                                                            className="absolute inset-0 w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full w-full text-4xl text-gray-300">📋</div>
+                                                    );
+                                                })()}
+                                            </div>
+                                            <div className="p-2 text-md font-bold text-center truncate">
+                                                {activity.description || activity.name || 'Unnamed'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center text-sm text-gray-500">No activities found.</div>
+                            )
                         )}
                     </div>
                 )}
+
             </div>
 
             {showMealDialog && (
@@ -1143,6 +1247,38 @@ function ActivityPage() {
                             <button
                                 onClick={handleSubmitGoal}
                                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Submit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showTaskDialog && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
+                        <h2 className="text-2xl font-semibold text-gray-800">Create Task</h2>
+                        <div className="space-y-2">
+                            <label className="text-sm text-gray-600">Task Name</label>
+                            <input
+                                type="text"
+                                placeholder="e.g., Make notes"
+                                value={taskForm.value3}
+                                onChange={(e) => setTaskForm({ ...taskForm, value3: e.target.value })}
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button
+                                onClick={() => setShowTaskDialog(false)}
+                                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmitTask}
+                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Submit
                             </button>
