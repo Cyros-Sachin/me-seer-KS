@@ -42,6 +42,7 @@ type ActivityItem = {
 type PinnedActivity = {
     a_id: number;
     name: string;
+    flag: string;
 };
 
 type UserActivity = {
@@ -400,7 +401,10 @@ function ActivityPage() {
     const [showMealDialog, setShowMealDialog] = useState(false);
     const [showFoodform, setshowFoodform] = useState(false);
     const [newMealName, setNewMealName] = useState('');
+    const [selectedGoalId, setSelectedGoalId] = useState('');
     const [showWorkoutDialog, setShowWorkoutDialog] = useState(false);
+    const [showGoal, setShowGoal] = useState(false);
+    const [showTask, setShowTask] = useState(false);
     const [newWorkoutName, setNewWorkoutName] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -409,6 +413,8 @@ function ActivityPage() {
     const iconRef = useRef<HTMLDivElement | null>(null);
     const sidebarRef = useRef<HTMLDivElement | null>(null);
     const isPlanType = selectedActivityType === 301;
+    const [selectedGoalDetails, setSelectedGoalDetails] = useState<any | null>(null);
+    const [selectedTaskDetails, setSelectedTaskDetails] = useState<any | null>(null);
 
     const getUserId = (): string => {
         const userInfo = Cookies.get("userInfo");
@@ -457,23 +463,23 @@ function ActivityPage() {
     }, []);
 
     useEffect(() => {
-        const fetchGoalsTasks = async () => {
-            if (!selectedActivityType) return;
-            const activity = activityTypes.find(a => a.at_id === selectedActivityType);
-            if (!activity || activity.name.toLowerCase() !== "plan") return;
-
-            try {
-                const userId = getUserId();
-                const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
-                const data = await res.json();
-                setGoalTasksData(data);
-            } catch (err) {
-                console.error("Failed to fetch goals/tasks", err);
-            }
-        };
-
         fetchGoalsTasks();
     }, [selectedActivityType]);
+
+    const fetchGoalsTasks = async () => {
+        if (!selectedActivityType) return;
+        const activity = activityTypes.find(a => a.at_id === selectedActivityType);
+        if (!activity || activity.name.toLowerCase() !== "plan") return;
+
+        try {
+            const userId = getUserId();
+            const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
+            const data = await res.json();
+            setGoalTasksData(data);
+        } catch (err) {
+            console.error("Failed to fetch goals/tasks", err);
+        }
+    };
 
     const handleCreateWorkout = async () => {
         try {
@@ -566,12 +572,15 @@ function ActivityPage() {
 
     // Fetch activity items when activity type changes
     useEffect(() => {
-        if (!selectedActivityType) return;
+        const effectiveActivityType = showTask ? 302 : selectedActivityType;
+
+        if (!effectiveActivityType) return;
+        if (activeActivity) setActiveActivity(null);
 
         const fetchActivityItems = async () => {
             try {
                 setLoading(prev => ({ ...prev, activityItems: true }));
-                const items = await ActivityService.getActivityItemsByType(selectedActivityType);
+                const items = await ActivityService.getActivityItemsByType(effectiveActivityType);
                 setActivityItems(items);
             } catch (err) {
                 console.error('Error fetching activity items:', err);
@@ -582,7 +591,8 @@ function ActivityPage() {
         };
 
         fetchActivityItems();
-    }, [selectedActivityType]);
+    }, [selectedActivityType, showTask]);
+
 
     // Fetch pinned activities when activity type changes
     useEffect(() => {
@@ -709,9 +719,6 @@ function ActivityPage() {
             case 'create goal':
                 setShowGoalDialog(true);
                 break;
-            case 'add task':
-                setShowTaskDialog(true);
-                break;
             default:
                 console.log('No action mapped yet');
                 break;
@@ -775,7 +782,7 @@ function ActivityPage() {
             if (!res.ok) throw new Error("Failed to create goal");
 
             setShowGoalDialog(false);
-            await fetchUserActivities();
+            await fetchGoalsTasks();
         } catch (err) {
             console.error("Goal creation failed", err);
             alert("Error creating goal");
@@ -793,7 +800,7 @@ function ActivityPage() {
                 at_id: 301,
                 a_id: 27,
                 cat_qty_id1: 0,
-                cat_qty_id2: "08",
+                cat_qty_id2: selectedGoalId,
                 cat_qty_id3: 23,
                 cat_qty_id4: 0,
                 cat_qty_id5: 0,
@@ -819,9 +826,9 @@ function ActivityPage() {
             });
 
             if (!res.ok) throw new Error("Failed to create task");
-
+            setSelectedGoalId('');
             setShowTaskDialog(false);
-            await fetchUserActivities();
+            await fetchGoalsTasks();
         } catch (err) {
             console.error("Task creation failed", err);
             alert("Error creating task");
@@ -919,7 +926,7 @@ function ActivityPage() {
                                 )}
 
                                 {/* Activity Items */}
-                                {activeActivity && (
+                                {(activeActivity || showGoal || showTask) && (
                                     <div className="p-2">
                                         <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
                                         <hr />
@@ -944,7 +951,6 @@ function ActivityPage() {
                             </motion.div>
                         )}
                     </AnimatePresence>
-                    <SideBar />
                 </>
             ) :
                 (<div className="w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4 overflow-scroll">
@@ -991,16 +997,17 @@ function ActivityPage() {
                                 <div className="mt-2 text-sm text-gray-500">Loading...</div>
                             ) : (
                                 <ul className="mt-2 space-y-2">
-                                    {pinnedActivities.map((activity) => (
-                                        <li
-                                            key={`pinned-${activity.a_id}`}
-                                            className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
-                                            onClick={() => handlePinnedActivityClick(activity)}
-                                        >
-                                            <span className="truncate">{activity.name}</span>
-                                            <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                        </li>
-                                    ))}
+                                    {pinnedActivities.filter(activity => activity.flag === 'P')
+                                        .map((activity) => (
+                                            <li
+                                                key={`pinned-${activity.a_id}`}
+                                                className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
+                                                onClick={() => handlePinnedActivityClick(activity)}
+                                            >
+                                                <span className="truncate">{activity.name}</span>
+                                                <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                            </li>
+                                        ))}
 
                                 </ul>
                             )}
@@ -1008,7 +1015,7 @@ function ActivityPage() {
                     )}
 
                     {/* Activity Items */}
-                    {activeActivity && (
+                    {(activeActivity || showGoal || showTask) && (
                         <div className="p-2">
                             <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
                             <hr />
@@ -1062,21 +1069,38 @@ function ActivityPage() {
                                 <div className="space-y-6">
                                     {Object.entries(goalTasksData).map(([key, tasks]) => {
                                         const [goalId, goalName] = key.replace(/\[|\]/g, '').split(',');
-                                        const timestamp = new Date(tasks[0]?.created_timestamp).toLocaleString();
 
                                         return (
                                             <div key={goalId} className="bg-white shadow-xl rounded-xl p-6 border border-gray-200">
-                                                <div className="flex justify-between items-center mb-3">
+                                                <div className="flex justify-between items-center mb-3" onClick={() => {
+                                                    setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
+                                                    setShowGoal(true);
+                                                }}
+                                                >
                                                     <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
-                                                    <span className="text-sm text-gray-500">{timestamp}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowTaskDialog(true);
+                                                            setSelectedGoalId(goalId); // You'll need this state
+                                                        }}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                                                    >
+                                                        <span className="text-lg">＋</span> Add Task
+                                                    </button>
                                                 </div>
                                                 <div className="space-y-2 pl-4 border-l-4 border-blue-500">
                                                     {tasks.map((task, index) => (
                                                         <div
                                                             key={`goal-${goalId}-task-${task.task_id || 'x'}-ua-${task.ua_id || 'x'}-${index}`}
                                                             className="bg-gray-50 px-3 py-2 rounded-md shadow-sm flex justify-between items-center hover:bg-blue-50 transition"
+                                                            onClick={() => {
+                                                                setSelectedTaskDetails(task); // for task
+                                                                setShowTask(true);
+                                                            }}
+
                                                         >
                                                             <span className="text-gray-800">{task.task_name}</span>
+                                                            <span className="text-gray-800">{new Date(task.created_timestamp).toLocaleString()}</span>
                                                             {task.todo_id === null && (
                                                                 <span className="text-xs text-red-500">Unlinked</span>
                                                             )}
@@ -1349,6 +1373,82 @@ function ActivityPage() {
 
             )}
 
+            {/* Bottom Slide-Up for Goal */}
+            <AnimatePresence>
+                {showGoal && selectedGoalDetails && (
+                    <motion.div
+                        initial={{ x: '100%', opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: '100%', opacity: 0 }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                        className="fixed top-0 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
+                    >
+                        <div className="max-w-4xl mx-auto space-y-6 py-12">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-2xl font-bold">{selectedGoalDetails.goalName}</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowGoal(false);
+                                        setSelectedGoalDetails(null);
+                                    }}
+                                    className="text-gray-500 hover:text-red-600 text-lg transition"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="space-y-2">
+                                {selectedGoalDetails.tasks.map((task: any, index: number) => (
+                                    <div key={index} className="border p-3 rounded-md bg-gray-50">
+                                        <div className="font-medium">{task.task_name}</div>
+                                        <div className="text-sm text-gray-500">
+                                            {new Date(task.created_timestamp).toLocaleString()}
+                                        </div>
+                                        {task.todo_id === null && (
+                                            <span className="text-xs text-red-500">Unlinked</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Slide-In Panel for Task */}
+            <AnimatePresence>
+                {showTask && selectedTaskDetails && (
+                    <motion.div
+                        initial={{ x: '100%', opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: '100%', opacity: 0 }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                        className="fixed top-0 right-0 h-full w-full sm:w-[calc(100%-16rem)] bg-white z-50 shadow-xl overflow-y-auto p-6"
+                    >
+                        <div className="max-w-4xl mx-auto space-y-6 py-5">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-2xl font-bold">{selectedTaskDetails.task_name}</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowTask(false);
+                                        setSelectedTaskDetails(null);
+                                    }}
+                                    className="text-gray-500 hover:text-red-600 text-lg transition"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 text-gray-700 text-sm">
+                                <p><strong>Created:</strong> {new Date(selectedTaskDetails.created_timestamp).toLocaleString()}</p>
+                                {selectedTaskDetails.todo_id === null && (
+                                    <p className="text-red-500">This task is not linked to any To-Do.</p>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
