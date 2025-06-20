@@ -104,10 +104,15 @@ const DynamicActivityItemForm = ({
     ) {
       return null;
     }
-
+    const itemId = Number(itemMeta.item_id);
+    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49; // show plain text input (for "What")
     const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
     const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
     const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
+    const isDateField = items.some((x: any) =>
+      x.name?.toLowerCase()?.includes("yyyy") || x.description?.toLowerCase()?.includes("date")
+    );
+
 
     // 🔍 Render Search Field
     if (isSearch) {
@@ -145,33 +150,59 @@ const DynamicActivityItemForm = ({
       );
     }
 
-    // ⏱ Render Unit Field (e.g. Time, show quantity + unit)
-    if (isUnit) {
+    if (isDateField) {
       return (
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-          <div className="flex gap-3">
-            <input
-              type="number"
-              placeholder="Quantity"
-              className="flex-1 border rounded px-3 py-2"
-              value={quantities[index] || ""}
-              onChange={(e) => handleQuantityChange(index, e.target.value)}
-            />
-            <select
-              className="flex-1 border rounded px-3 py-2"
-              value={values[index] || ""}
-              onChange={(e) => handleChange(index, e.target.value)}
-            >
-              <option value="">Select...</option>
-              {items
-                .filter((x: any) => x.unit_id || x.name)
-                .map((opt: any, i: number) => (
+          <input
+            type="date"
+            className="w-full border rounded px-3 py-2"
+            value={values[index] || ""}
+            onChange={(e) => handleChange(index, e.target.value)}
+          />
+        </div>
+      );
+    }
+
+    // ⏱ Render Unit Field (e.g. Time, show quantity + unit)
+    if (isUnit) {
+      const unitOptions = items.filter((x: any) => x.unit_id || x.name);
+      const singleUnit = unitOptions.length === 1;
+
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+          <div className="flex gap-3 items-center">
+            {isWhatOverride ?
+              <input
+                type="text"
+                placeholder="text"
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              /> : <input
+                type="number"
+                placeholder="Quantity"
+                className="flex-1 border rounded px-3 py-2"
+                value={quantities[index] || ""}
+                onChange={(e) => handleQuantityChange(index, e.target.value)}
+              />}
+            {singleUnit ? (
+              <span className="text-gray-700">{unitOptions[0].name}</span>
+            ) : (
+              <select
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              >
+                <option value="">Select...</option>
+                {unitOptions.map((opt: any, i: number) => (
                   <option key={i} value={opt.unit_id || opt.name}>
                     {opt.name}
                   </option>
                 ))}
-            </select>
+              </select>
+            )}
           </div>
         </div>
       );
