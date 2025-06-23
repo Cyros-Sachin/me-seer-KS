@@ -9,10 +9,12 @@ import {
     Goal,
     House,
     PersonStanding,
-    SquareChevronRight,
-    SquareChevronLeft,
+    ChevronRight,
+    ChevronLeft,
     LogOut,
     Settings,
+    Menu,
+    X,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -20,18 +22,24 @@ const Sidebar = () => {
     const [isMobile, setIsMobile] = useState(false);
     const router = useRouter();
     const [showDropdown, setShowDropdown] = useState(false);
+    const [activeItem, setActiveItem] = useState("");
 
     useEffect(() => {
         const handleResize = () => {
             const width = window.innerWidth;
-            setExpanded(width >= 1024); // Expand if ≥1024px
-            setIsMobile(width < 786);   // Mobile nav if <786px
+            setExpanded(width >= 1024);
+            setIsMobile(width < 768);
         };
 
-        handleResize(); // Initial check
+        handleResize();
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
     }, []);
+
+    useEffect(() => {
+        setActiveItem(window.location.pathname);
+    }, []);
+
     let data = null;
     try {
         const userInfoRaw = Cookies.get("userInfo");
@@ -53,65 +61,107 @@ const Sidebar = () => {
     }, []);
 
     const items = [
-        { icon: <House className="w-7 h-7" />, label: "Space", path: "/space" },
-        { icon: <PersonStanding className="w-7 h-7" />, label: "Activity", path: "/activity" },
-        { icon: <ChartLine className="w-7 h-7" />, label: "Dashboard", path: "/dashboard" },
-        { icon: <CircleHelp className="w-7 h-7" />, label: "Help & Support", path: "/support" },
-        { icon: <Goal className="w-7 h-7" />, label: "Goals", path: "/goals" },
+        { icon: <House className="w-5 h-5" />, label: "Space", path: "/space" },
+        { icon: <PersonStanding className="w-5 h-5" />, label: "Activity", path: "/activity" },
+        { icon: <ChartLine className="w-5 h-5" />, label: "Dashboard", path: "/dashboard" },
+        { icon: <Goal className="w-5 h-5" />, label: "Goals", path: "/goals" },
+        { icon: <CircleHelp className="w-5 h-5" />, label: "Help", path: "/support" },
     ];
+
+    const handleNavigation = (path) => {
+        router.push(path);
+        setActiveItem(path);
+        if (isMobile) setExpanded(false);
+    };
 
     if (isMobile) {
         return (
             <>
-                {/* Top logo */}
-                <div className="fixed top-0 left-0 w-full bg-white border-b border-gray-200 flex justify-between p-4 py-2 z-500 space-x-3">
-                    <img src="/icons/logo.png" className="h-6 w-6" alt="Logo" />
-                    <h2 className="text-xl font-black text-gray-800">MeSeer</h2>
+                {/* Mobile Header */}
+                <div className="fixed top-0 left-0 w-full bg-white border-b border-gray-100 flex justify-between items-center p-4 z-50 shadow-sm">
+                    <div className="flex items-center">
+                        <button 
+                            onClick={() => setExpanded(!expanded)}
+                            className="mr-3 text-gray-600"
+                        >
+                            {expanded ? <X size={20} /> : <Menu size={20} />}
+                        </button>
+                        <img src="/icons/logo.png" className="h-6 w-6" alt="Logo" />
+                        <h2 className="ml-2 text-lg font-semibold text-gray-800">MeSeer</h2>
+                    </div>
+                    
                     <div className="relative dropdown-profile">
-                        <div
+                        <button
                             onClick={() => setShowDropdown(!showDropdown)}
-                            className="bg-gray-400 w-8 h-8 p-2 text-lg rounded-full flex justify-center items-center font-black cursor-pointer"
+                            className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 text-blue-600"
                         >
                             <User className="w-4 h-4" />
-                        </div>
+                        </button>
 
                         {showDropdown && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 text-sm">
-                                <p className="text-gray-800 font-semibold mb-1">{data?.name}</p>
-                                <p className="text-gray-600 mb-2 truncate">{data?.email}</p>
-                                <hr className="my-2" />
-                                <button
-                                    onClick={() => router.push("/settings")}
-                                    className="w-full text-left px-2 py-1 hover:bg-gray-100 rounded inline-flex text-gray-400"
-                                >
-                                    <Settings className="w-7 h-7 mr-2" />
-                                    Open Settings
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        Cookies.remove("token");
-                                        Cookies.remove("userInfo");
-                                        router.push("/login");
-                                    }}
-                                    className="w-full text-left px-2 py-1 text-red-600 hover:bg-red-50 rounded inline-flex"
-                                >
-                                    <LogOut className="w-7 h-7 mr-2" />
-                                    Logout
-                                </button>
+                            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-lg shadow-lg z-50 overflow-hidden">
+                                <div className="p-3 bg-gray-50">
+                                    <p className="text-gray-800 font-medium">{data?.name}</p>
+                                    <p className="text-gray-500 text-sm truncate">{data?.email}</p>
+                                </div>
+                                <div className="p-1">
+                                    <button
+                                        onClick={() => handleNavigation("/settings")}
+                                        className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 flex items-center"
+                                    >
+                                        <Settings className="w-4 h-4 mr-2" />
+                                        Settings
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            Cookies.remove("token");
+                                            Cookies.remove("userInfo");
+                                            router.push("/login");
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md flex items-center"
+                                    >
+                                        <LogOut className="w-4 h-4 mr-2" />
+                                        Logout
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Bottom Nav */}
-                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 z-500 h-15">
-                    {items.map((item, index) => (
+                {/* Mobile Sidebar */}
+                {expanded && (
+                    <div className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white z-40 shadow-lg border-r border-gray-100 transition-all duration-300 ease-in-out">
+                        <div className="p-4">
+                            <ul className="space-y-2">
+                                {items.map((item, index) => (
+                                    <li key={index}>
+                                        <button
+                                            onClick={() => handleNavigation(item.path)}
+                                            className={`w-full text-left px-3 py-2 rounded-md flex items-center ${activeItem === item.path ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            <span className={`mr-3 ${activeItem === item.path ? 'text-blue-500' : 'text-gray-500'}`}>
+                                                {item.icon}
+                                            </span>
+                                            {item.label}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
+
+                {/* Mobile Bottom Nav */}
+                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 z-50 shadow-lg">
+                    {items.slice(0, 4).map((item, index) => (
                         <button
                             key={index}
-                            onClick={() => router.push(item.path)}
-                            className="flex flex-col items-center text-xs text-black"
+                            onClick={() => handleNavigation(item.path)}
+                            className={`flex flex-col items-center p-2 rounded-lg ${activeItem === item.path ? 'text-blue-600' : 'text-gray-500'}`}
                         >
                             {item.icon}
+                            <span className="text-xs mt-1">{item.label}</span>
                         </button>
                     ))}
                 </div>
@@ -122,83 +172,97 @@ const Sidebar = () => {
     return (
         <>
             <div
-                className={`fixed top-0 left-0 h-full bg-white z-50 p-6 border-r border-[#1a1a1a] flex flex-col justify-between transition-all duration-300 ease-in-out ${expanded ? "w-[250px]" : "w-16"}`}
+                className={`fixed top-0 left-0 h-full bg-white z-50 flex flex-col justify-between transition-all duration-300 ease-in-out ${expanded ? "w-64 shadow-lg" : "w-20"} border-r border-gray-100`}
             >
                 <div>
-                    <div className="text-2xl font-bold mb-6 flex items-center text-black">
-                        <img
-                            src="/icons/logo.png"
-                            alt="Logo"
-                            className={`mr-2 transition-opacity duration-300 ${expanded ? "h-6 w-6" : "h-4 w-4"}`}
-                        />
-                        {expanded && "MeSeer"}
-                    </div>
-                    <hr className="border-[#2a2a2a]" />
-
-                    <ul className="mt-8 space-y-6 text-sm text-black">
-                        {items.map((item, index) => (
-                            <SidebarItem
-                                key={index}
-                                icon={item.icon}
-                                label={item.label}
-                                expanded={expanded}
-                                onClick={() => router.push(item.path)}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                        <div className="flex items-center">
+                            <img
+                                src="/icons/logo.png"
+                                alt="Logo"
+                                className="h-6 w-6"
                             />
-                        ))}
-                    </ul>
+                            {expanded && (
+                                <h1 className="ml-2 text-lg font-semibold text-gray-800">MeSeer</h1>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setExpanded(!expanded)}
+                            className="p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+                        >
+                            {expanded ? (
+                                <ChevronLeft className="w-5 h-5" />
+                            ) : (
+                                <ChevronRight className="w-5 h-5" />
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="p-4">
+                        <ul className="space-y-1">
+                            {items.map((item, index) => (
+                                <li key={index}>
+                                    <button
+                                        onClick={() => handleNavigation(item.path)}
+                                        className={`w-full text-left px-3 py-2 rounded-md flex items-center ${activeItem === item.path ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} ${expanded ? 'justify-start' : 'justify-center'}`}
+                                    >
+                                        <span className={`${expanded ? 'mr-3' : ''} ${activeItem === item.path ? 'text-blue-500' : 'text-gray-500'}`}>
+                                            {item.icon}
+                                        </span>
+                                        {expanded && item.label}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
 
-                <hr />
-
-                {expanded ? (
-                    <div className="text-xs text-gray-500 bg-gray-300 rounded-full p-3 inline-flex items-center transition-all duration-300 w-55">
-                        <div className="bg-white w-10 h-10 p-2 text-lg rounded-full flex justify-center font-black"><User /></div>
-                        <div className="ml-2 text-black">
-                            {data?.name} <br /> {data?.email}
-                        </div>
+                <div className="p-4 border-t border-gray-100">
+                    <div className={`flex items-center ${expanded ? 'justify-between' : 'justify-center'}`}>
+                        <button
+                            onClick={() => setShowDropdown(!showDropdown)}
+                            className={`flex items-center ${expanded ? 'w-full' : ''}`}
+                        >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-blue-600">
+                                <User className="w-4 h-4" />
+                            </div>
+                            {expanded && (
+                                <div className="ml-3 text-left">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{data?.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{data?.email}</p>
+                                </div>
+                            )}
+                        </button>
                     </div>
-                ) : (
-                    <div className="bg-gray-200 w-10 h-10 -ml-2 text-lg font-black rounded-full flex justify-center items-center text-black">?</div>
-                )}
-            </div>
 
-            {/* Toggle Button for larger screens */}
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="fixed top-4 p-1 rounded-full bg-white border border-gray-300 shadow-md hover:bg-gray-100 focus:outline-none transition-all duration-300 ease-in-out z-60"
-                aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
-                style={{
-                    left: expanded ? 230 : 56,
-                    width: 32,
-                    height: 32,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                }}
-            >
-                {expanded ? (
-                    <SquareChevronLeft className="w-6 h-6 text-black" />
-                ) : (
-                    <SquareChevronRight className="w-6 h-6 text-black" />
-                )}
-            </button>
+                    {showDropdown && expanded && (
+                        <div className="absolute bottom-16 left-4 w-56 bg-white border border-gray-100 rounded-lg shadow-lg z-50 overflow-hidden">
+                            <div className="p-1">
+                                <button
+                                    onClick={() => handleNavigation("/settings")}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 flex items-center"
+                                >
+                                    <Settings className="w-4 h-4 mr-2" />
+                                    Settings
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        Cookies.remove("token");
+                                        Cookies.remove("userInfo");
+                                        router.push("/login");
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md flex items-center"
+                                >
+                                    <LogOut className="w-4 h-4 mr-2" />
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </>
-    );
-};
-
-const SidebarItem = ({ icon, label, expanded, onClick }) => {
-    return (
-        <li
-            className="flex items-center justify-between hover:text-gray-500 cursor-pointer text-lg"
-            title={!expanded ? label : undefined}
-            onClick={onClick}
-        >
-            <div className="flex items-center gap-2">
-                {icon}
-                {expanded && <span>{label}</span>}
-            </div>
-            {expanded && <SquareChevronRight className="w-4 h-4 text-black" />}
-        </li>
     );
 };
 

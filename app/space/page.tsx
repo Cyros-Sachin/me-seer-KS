@@ -2,7 +2,7 @@
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft, XCircle, X, ChevronLeft, ChevronUp, FileText, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
 import SidebarPanel from "../components/SpaceSidebar"
@@ -806,7 +806,7 @@ export default function SpacePage() {
 
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-white text-black">
+    <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
       {/* Left Panel */}
 
       {isMobile ?
@@ -873,38 +873,36 @@ export default function SpacePage() {
       {/* Main Content */}
       <div className="flex-2 p-6 overflow-auto mt-15">
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r">
             <div className="flex justify-between items-center">
-              <span>{error}</span>
+              <div className="flex items-center">
+                <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                <span className="text-red-700">{error}</span>
+              </div>
               <button
                 onClick={() => setError(null)}
-                className="ml-2 font-bold"
+                className="ml-2 text-red-500 hover:text-red-700"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
             </div>
-            {error.includes('Invalid API response') && (
-              <div className="mt-2 text-xs">
-                Please check the API response format or contact support.
-              </div>
-            )}
           </div>
         )}
 
         {/* Breadcrumbs */}
-        <div className="flex items-center text-sm text-gray-500 mb-4">
+        <div className="flex items-center text-sm text-gray-600 mb-6">
           {activeSpace && (
             <>
               <span
-                className="hover:text-black cursor-pointer"
+                className="hover:text-blue-600 cursor-pointer transition-colors"
                 onClick={() => setActiveSubspace(null)}
               >
                 {activeSpace.name}
               </span>
               {activeSubspace && (
                 <>
-                  <ChevronRight className="w-4 h-4 mx-1" />
-                  <span className="text-black">{activeSubspace.name}</span>
+                  <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                  <span className="text-blue-600 font-medium">{activeSubspace.name}</span>
                 </>
               )}
             </>
@@ -931,45 +929,47 @@ export default function SpacePage() {
                       className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                     >
                       {/* Header */}
-                      <div className="flex items-center justify-between px-3 py-2 border-b group">
-                        {editingTodoId === todo.todo_id ? (
-                          <input
-                            className="font-semibold truncate w-full border-b border-gray-300 focus:outline-none"
-                            value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onBlur={() => {
-                              if (editingName.trim() && editingName !== todo.name) {
-                                handleRenameTodo(todo.todo_id, editingName.trim());
-                              }
-                              setEditingTodoId(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
+                      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
+                        <div className="flex items-center min-w-0">
+                          {editingTodoId === todo.todo_id ? (
+                            <input
+                              className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onBlur={() => {
                                 if (editingName.trim() && editingName !== todo.name) {
                                   handleRenameTodo(todo.todo_id, editingName.trim());
                                 }
                                 setEditingTodoId(null);
-                              } else if (e.key === "Escape") {
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  if (editingName.trim() && editingName !== todo.name) {
+                                    handleRenameTodo(todo.todo_id, editingName.trim());
+                                  }
+                                  setEditingTodoId(null);
+                                } else if (e.key === "Escape") {
+                                  setEditingName(todo.name);
+                                  setEditingTodoId(null);
+                                }
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className="font-medium text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={() => {
+                                setEditingTodoId(todo.todo_id);
                                 setEditingName(todo.name);
-                                setEditingTodoId(null);
-                              }
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <span
-                            className="font-semibold truncate cursor-pointer"
-                            onClick={() => {
-                              setEditingTodoId(todo.todo_id);
-                              setEditingName(todo.name);
-                            }}
-                            title="Click to rename"
-                          >
-                            {todo.name}
-                          </span>
-                        )}
-                        <Trash2Icon
-                          className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                              }}
+                              title="Click to rename"
+                            >
+                              {todo.name}
+                            </span>
+                          )}
+                        </div>
+                        <Trash2
+                          className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                           onClick={() => handleDeleteTodo(todo.todo_id)}
                         />
                       </div>
@@ -1209,41 +1209,57 @@ export default function SpacePage() {
                       </AnimatePresence>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between border-t px-3 py-2">
-                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                          {todo.refresh_type}
+                      <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50">
+                        <div className="flex gap-2">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                            {todo.refresh_type}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800">
+                            {todoViewMap[todo.todo_id] || 'unchecked'}
+                          </span>
                         </div>
-                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                          {currentView}
-                        </div>
-                        <div className="flex gap-2 text-gray-600 items-center">
-                          <CirclePlus
-                            className="w-4 h-4 cursor-pointer"
-                            onClick={() => {
-                              setNewTaskContentMap((prev) => ({ ...prev, [todo.todo_id]: '' }));
-                            }}
-                          />
-                          <SquareChevronLeft
-                            className="w-3 h-3 cursor-pointer"
-                            onClick={() => handleViewSwitch(todo.todo_id, "left")}
-                          />
-                          <SquareChevronRight
-                            className="w-3 h-3 cursor-pointer"
-                            onClick={() => handleViewSwitch(todo.todo_id, "right")}
-                          />
-
-                          <Maximize2 className="w-3 h-3 cursor-pointer" onClick={() => setMaximizedTodo(todo)} />
+                        <div className="flex gap-2">
                           <button
-                            onClick={() =>
-                              setCollapsedTodos((prev: string[]) =>
-                                prev.includes(todo.todo_id)
-                                  ? prev.filter((id) => id !== todo.todo_id)
-                                  : [...prev, todo.todo_id]
-                              )
-                            }
-                            className="text-xs"
+                            onClick={() => setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }))}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Add task"
                           >
-                            {isCollapsed ? "🔼" : "🔽"}
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleViewSwitch(todo.todo_id, "left")}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Previous view"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleViewSwitch(todo.todo_id, "right")}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Next view"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setMaximizedTodo(todo)}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Maximize"
+                          >
+                            <Maximize2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setCollapsedTodos(prev =>
+                              prev.includes(todo.todo_id)
+                                ? prev.filter(id => id !== todo.todo_id)
+                                : [...prev, todo.todo_id]
+                            )}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title={collapsedTodos.includes(todo.todo_id) ? "Expand" : "Collapse"}
+                          >
+                            {collapsedTodos.includes(todo.todo_id) ?
+                              <ChevronDown className="w-4 h-4" /> :
+                              <ChevronUp className="w-4 h-4" />
+                            }
                           </button>
                         </div>
                       </div>
@@ -1273,47 +1289,47 @@ export default function SpacePage() {
                       className={`bg-white rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[height-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                     >
                       {/* Header */}
-                      <div className="flex items-center justify-between px-3 py-2 border-b group">
-                        {editingWordpadId === wordpad.wordpad_id ? (
-                          <input
-                            className="font-semibold truncate w-full border-b border-gray-300 focus:outline-none"
-                            value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onBlur={() => {
-                              if (editingName.trim() && editingName !== wordpad.name) {
-                                handleRenameWordpad(wordpad.wordpad_id, editingName.trim());
-                              }
-
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
+                      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
+                        <div className="flex items-center min-w-0">
+                          {editingWordpadId === wordpad.wordpad_id ? (
+                            <input
+                              className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onBlur={() => {
                                 if (editingName.trim() && editingName !== wordpad.name) {
                                   handleRenameWordpad(wordpad.wordpad_id, editingName.trim());
                                 }
-
                                 setEditingWordpadId(null);
-                              } else if (e.key === "Escape") {
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  if (editingName.trim() && editingName !== wordpad.name) {
+                                    handleRenameWordpad(wordpad.wordpad_id, editingName.trim());
+                                  }
+                                  setEditingWordpadId(null);
+                                } else if (e.key === "Escape") {
+                                  setEditingName(wordpad.name);
+                                  setEditingWordpadId(null);
+                                }
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className="font-medium text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={() => {
+                                setEditingWordpadId(wordpad.wordpad_id);
                                 setEditingName(wordpad.name);
-
-                                setEditingWordpadId(null);
-                              }
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <span
-                            className="font-semibold truncate cursor-pointer"
-                            onClick={() => {
-                              setEditingWordpadId(wordpad.wordpad_id);
-                              setEditingName(wordpad.name);
-                            }}
-                            title="Click to rename"
-                          >
-                            {wordpad.name}
-                          </span>
-                        )}
-                        <Trash2Icon
-                          className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                              }}
+                              title="Click to rename"
+                            >
+                              {wordpad.name}
+                            </span>
+                          )}
+                        </div>
+                        <Trash2
+                          className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                           onClick={() => handleDeleteWordpad(wordpad.wordpad_id)}
                         />
                       </div>
@@ -1403,47 +1419,60 @@ export default function SpacePage() {
                       </AnimatePresence>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between border-t px-3 py-2">
-                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                          {wordpad.refresh_type}
+                      <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50">
+                        <div className="flex gap-2">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                            {wordpad.refresh_type}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800 uppercase">
+                            {wordpadViewMap[wordpad.wordpad_id] || 'current'}
+                          </span>
                         </div>
-                        <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full uppercase">
-                          {currentView}
-                        </div>
-                        <div className="flex gap-2 text-gray-600 items-center">
-                          <SquareChevronLeft
-                            className="w-3 h-3 cursor-pointer"
+                        <div className="flex gap-2">
+                          <button
                             onClick={() => {
                               setWordpadViewMap(prev => ({
                                 ...prev,
                                 [wordpad.wordpad_id]: 'current',
                               }));
                             }}
-                          />
-                          <SquareChevronRight
-                            className="w-3 h-3 cursor-pointer"
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Current version"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => {
                               setWordpadViewMap(prev => ({
                                 ...prev,
                                 [wordpad.wordpad_id]: 'history',
                               }));
                             }}
-                          />
-                          <Maximize2
-                            className="w-3 h-3 cursor-pointer"
-                            onClick={() => setMaximizedWordpad(wordpad)}
-                          />
-                          <button
-                            onClick={() =>
-                              setCollapsedWordpads((prev: string[]) =>
-                                prev.includes(wordpad.wordpad_id)
-                                  ? prev.filter((id) => id !== wordpad.wordpad_id)
-                                  : [...prev, wordpad.wordpad_id]
-                              )
-                            }
-                            className="text-xs"
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Version history"
                           >
-                            {isCollapsed ? "🔼" : "🔽"}
+                            <Clock className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setMaximizedWordpad(wordpad)}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Maximize"
+                          >
+                            <Maximize2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setCollapsedWordpads(prev =>
+                              prev.includes(wordpad.wordpad_id)
+                                ? prev.filter(id => id !== wordpad.wordpad_id)
+                                : [...prev, wordpad.wordpad_id]
+                            )}
+                            className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                            title={collapsedWordpads.includes(wordpad.wordpad_id) ? "Expand" : "Collapse"}
+                          >
+                            {collapsedWordpads.includes(wordpad.wordpad_id) ?
+                              <ChevronDown className="w-4 h-4" /> :
+                              <ChevronUp className="w-4 h-4" />
+                            }
                           </button>
                         </div>
                       </div>
@@ -1461,70 +1490,56 @@ export default function SpacePage() {
         )}
       </div>
       {maximizedWordpad && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl p-6 relative h-[80vh] flex flex-col">
-            <button
-              onClick={() => setMaximizedWordpad(null)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-black"
-            >
-              ✕
-            </button>
-
-            {/* ✅ WORDPAD NAME EDITING FIX */}
-            <div className="flex items-center justify-between border-b pb-2 mb-4">
-              {editingWordpadId === maximizedWordpad.wordpad_id ? (
-                <input
-                  className="text-xl font-bold border-b border-gray-300 focus:outline-none flex-1 mr-2"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onBlur={() => {
-                    if (editingName.trim() && editingName !== maximizedWordpad.name) {
-                      handleRenameWordpad(maximizedWordpad.wordpad_id, editingName.trim());
-                    }
-
-                    setEditingWordpadId(null); // ✅ Ensure exit edit mode
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center min-w-0">
+                {editingWordpadId === maximizedWordpad.wordpad_id ? (
+                  <input
+                    className="text-xl font-semibold text-gray-800 border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={() => {
                       if (editingName.trim() && editingName !== maximizedWordpad.name) {
                         handleRenameWordpad(maximizedWordpad.wordpad_id, editingName.trim());
                       }
-
                       setEditingWordpadId(null);
-                    } else if (e.key === "Escape") {
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (editingName.trim() && editingName !== maximizedWordpad.name) {
+                          handleRenameWordpad(maximizedWordpad.wordpad_id, editingName.trim());
+                        }
+                        setEditingWordpadId(null);
+                      } else if (e.key === "Escape") {
+                        setEditingName(maximizedWordpad.name);
+                        setEditingWordpadId(null);
+                      }
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <h2
+                    className="text-xl font-semibold text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={() => {
+                      setEditingWordpadId(maximizedWordpad.wordpad_id);
                       setEditingName(maximizedWordpad.name);
-
-                      setEditingWordpadId(null);
-                    }
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <span
-                  className="text-xl font-bold truncate cursor-pointer"
-                  onClick={() => {
-                    setEditingName(maximizedWordpad.name); // ✅ Set name
-                    setEditingWordpadId(maximizedWordpad.wordpad_id); // ✅ Activate edit
-                  }}
-                  title="Click to rename"
-                >
-                  {maximizedWordpad.name}
-                </span>
-              )}
-
-              <Trash2Icon
-                className="w-4 h-4 text-red-500 opacity-50 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                onClick={() => {
-                  handleDeleteWordpad(maximizedWordpad.wordpad_id);
-                  setMaximizedWordpad(null);
-                }}
-              />
+                    }}
+                    title="Click to rename"
+                  >
+                    {maximizedWordpad.name}
+                  </h2>
+                )}
+              </div>
+              <button
+                onClick={() => setMaximizedWordpad(null)}
+                className="p-1 text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-
-
-
             {/* Content Area */}
-            <div className="flex-1 overflow-auto mb-4">
+            <div className="flex-1 overflow-auto p-4">
               {(wordpadViewMap[maximizedWordpad.wordpad_id] || 'current') === 'current' ? (
                 <WordpadEditor
                   content={
@@ -1573,32 +1588,38 @@ export default function SpacePage() {
             </div>
 
             {/* Footer Controls */}
-            <div className="flex justify-between items-center border-t pt-4">
-              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                {maximizedWordpad.refresh_type}
+            <div className="flex items-center justify-between p-4 border-t">
+              <div className="flex gap-2">
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                  {maximizedWordpad.refresh_type}
+                </span>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800 uppercase">
+                  {wordpadViewMap[maximizedWordpad.wordpad_id] || 'current'}
+                </span>
               </div>
-              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full uppercase">
-                {wordpadViewMap[maximizedWordpad.wordpad_id] || 'current'}
-              </div>
-              <div className="flex gap-3 text-gray-600">
-                <SquareChevronLeft
-                  className="w-4 h-4 cursor-pointer"
+              <div className="flex gap-2">
+                <button
                   onClick={() => {
-                    setWordpadViewMap((prev) => ({
+                    setWordpadViewMap(prev => ({
                       ...prev,
                       [maximizedWordpad.wordpad_id]: 'current',
                     }));
                   }}
-                />
-                <SquareChevronRight
-                  className="w-4 h-4 cursor-pointer"
+                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => {
-                    setWordpadViewMap((prev) => ({
+                    setWordpadViewMap(prev => ({
                       ...prev,
                       [maximizedWordpad.wordpad_id]: 'history',
                     }));
                   }}
-                />
+                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <Clock className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
@@ -1606,364 +1627,410 @@ export default function SpacePage() {
       )}
 
       {showSubspaceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs">
-          <div className="bg-zinc-900 text-white rounded-xl shadow-2xl w-full max-w-4xl h-[60vh] flex overflow-hidden">
-
-            {/* Left Panel: Subspaces List */}
-            <div className="w-1/3 bg-zinc-800 border-r border-zinc-700 overflow-y-auto">
-              <div className="p-4 border-b border-zinc-700 text-lg font-semibold">
-                Subspaces
-              </div>
-              <div className="divide-y divide-zinc-700">
-                {subspaces.map((subspace) => (
-                  <div key={subspace.subspace_id} className="flex justify-between items-center p-3 hover:bg-zinc-700 cursor-pointer">
-                    <span
-                      onClick={() => setCurrentSubspace(subspace)}
-                      className="truncate cursor-pointer"
-                    >
-                      {subspace.name}
-                    </span>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleSubspaceAction('edit', subspace)}>
-                        <Edit className="w-4 h-4 text-blue-400 hover:text-blue-500" />
-                      </button>
-                      <button onClick={() => handleSubspaceAction('delete', subspace)}>
-                        <Trash2 className="w-4 h-4 text-red-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">
+                {subspaceAction === 'create' ? 'Create New Subspace' :
+                  subspaceAction === 'edit' ? 'Edit Subspace' :
+                    subspaceAction === 'delete' ? 'Delete Subspace' : 'Subspaces'}
+              </h3>
+              <button
+                onClick={() => setShowSubspaceModal(false)}
+                className="p-1 text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-
-            {/* Right Panel: Form or Action */}
-            <div className="flex-1 p-6 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">
-                  {subspaceAction === 'edit'
-                    ? 'Editing Subspace'
-                    : subspaceAction === 'create'
-                      ? 'Creating New Subspace'
-                      : 'Subspace Details'}
-                </h3>
-                <button onClick={() => setShowSubspaceModal(false)} className="text-white hover:text-gray-300 text-xl">
-                  ✕
-                </button>
-              </div>
-
-              {/* Create/Edit Form */}
+            <div className="p-4">
               {(subspaceAction === 'create' || subspaceAction === 'edit') && (
                 <>
-                  <label className="block text-sm font-medium mb-2">Subspace</label>
-                  <input
-                    type="text"
-                    value={newSubspaceName}
-                    onChange={(e) => setNewSubspaceName(e.target.value)}
-                    className="w-full px-4 py-2 mb-6 placeholder:text-white rounded-md border-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter subspace name"
-                    autoFocus
-                  />
-                  <div className="flex justify-end gap-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Subspace Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newSubspaceName}
+                      onChange={(e) => setNewSubspaceName(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter subspace name"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
                     <button
                       onClick={() => setSubspaceAction(null)}
-                      className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                     >
-                      Reset
+                      Cancel
                     </button>
                     <button
                       onClick={handleSaveSubspace}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                     >
-                      {subspaceAction === 'create' ? 'Submit' : 'Update'}
+                      {subspaceAction === 'create' ? 'Create' : 'Update'}
                     </button>
                   </div>
                 </>
               )}
-
-              {/* Delete Confirmation */}
               {subspaceAction === 'delete' && (
                 <>
-                  <p className="mb-4">
-                    Are you sure you want to delete <strong>{currentSubspace?.name}</strong>?
-                  </p>
-                  <div className="flex justify-end gap-4">
+                  <div className="mb-4">
+                    <p className="text-gray-700">
+                      Are you sure you want to delete <span className="font-semibold">"{currentSubspace?.name}"</span>?
+                      This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
                     <button
                       onClick={() => setSubspaceAction(null)}
-                      className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleDeleteSubspace}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                     >
-                      Confirm Delete
+                      Delete
                     </button>
                   </div>
                 </>
               )}
-
-              {/* Idle State */}
               {!subspaceAction && (
-                <button
-                  onClick={() => handleSubspaceAction('create')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                >
-                  + Create New Subspace
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => handleSubspaceAction('create')}
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create New Subspace
+                  </button>
+                  <div className="border-t pt-3">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Existing Subspaces</h4>
+                    <div className="space-y-2">
+                      {subspaces.map((subspace) => (
+                        <div key={subspace.subspace_id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
+                          <span>{subspace.name}</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSubspaceAction('edit', subspace)}
+                              className="p-1 text-gray-500 hover:text-blue-600"
+                              title="Edit"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSubspaceAction('delete', subspace)}
+                              className="p-1 text-gray-500 hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
+
       {maximizedTodo && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setMaximizedTodo(null)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-black"
-            >
-              ✕
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">           <button
+            onClick={() => setMaximizedTodo(null)}
+            className="absolute top-2 right-2 text-gray-500 hover:text-black"
+          >
+            ✕
+          </button>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b pb-2 mb-4">
-              <h2 className="text-xl font-bold">{maximizedTodo.name}</h2>
-              <Trash2Icon
-                className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                onClick={() => handleDeleteTodo(maximizedTodo.todo_id)}
-              />
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center min-w-0">
+                {editingTodoId === maximizedTodo.todo_id ? (
+                  <input
+                    className="text-xl font-semibold text-gray-800 border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={() => {
+                      if (editingName.trim() && editingName !== maximizedTodo.name) {
+                        handleRenameTodo(maximizedTodo.todo_id, editingName.trim());
+                      }
+                      setEditingTodoId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (editingName.trim() && editingName !== maximizedTodo.name) {
+                          handleRenameTodo(maximizedTodo.todo_id, editingName.trim());
+                        }
+                        setEditingTodoId(null);
+                      } else if (e.key === "Escape") {
+                        setEditingName(maximizedTodo.name);
+                        setEditingTodoId(null);
+                      }
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <h2
+                    className="text-xl font-semibold text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                    onClick={() => {
+                      setEditingTodoId(maximizedTodo.todo_id);
+                      setEditingName(maximizedTodo.name);
+                    }}
+                    title="Click to rename"
+                  >
+                    {maximizedTodo.name}
+                  </h2>
+                )}
+              </div>
+              <button
+                onClick={() => setMaximizedTodo(null)}
+                className="p-1 text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Filtered Todo List */}
-            <div className="space-y-2 mb-4">
-              {(() => {
-                const currentView = todoViewMap[maximizedTodo.todo_id] || 'unchecked';
-                const items = (maximizedTodo as any).contents || [];
+            <div className="flex-1 overflow-auto p-4">
+              <div className="space-y-2 mb-4">
+                {(() => {
+                  const currentView = todoViewMap[maximizedTodo.todo_id] || 'unchecked';
+                  const items = (maximizedTodo as any).contents || [];
 
-                if (currentView === 'history') {
-                  // ✅ Type-safe and scoped refresh type check
-                  const refreshType = ['daily', 'weekly', 'monthly'].includes(maximizedTodo.refresh_type ?? '')
-                    ? (maximizedTodo.refresh_type as 'daily' | 'weekly' | 'monthly')
-                    : 'daily';
+                  if (currentView === 'history') {
+                    // ✅ Type-safe and scoped refresh type check
+                    const refreshType = ['daily', 'weekly', 'monthly'].includes(maximizedTodo.refresh_type ?? '')
+                      ? (maximizedTodo.refresh_type as 'daily' | 'weekly' | 'monthly')
+                      : 'daily';
 
-                  const grouped = groupByRefreshTypeDate(items, refreshType);
+                    const grouped = groupByRefreshTypeDate(items, refreshType);
 
-                  return Object.entries(grouped).map(([date, group]) => (
-                    <div key={date}>
-                      <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
-                      <ul className="mt-2 space-y-1">
-                        {group.map((item: any) => (
-                          <li key={item.tc_id} className="flex items-center gap-2">
-                            <input type="checkbox" checked={item.checked} readOnly />
-                            <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
-                              {item.content}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ));
-                }
-
-                // ✅ Show only current day's/week's/month's items in checked/unchecked
-                const now = new Date();
-                const filteredItems = items.filter((item: any) => {
-                  const itemDate = new Date(item.last_updated);
-
-                  const isCurrent = (() => {
-                    if (maximizedTodo.refresh_type === 'daily') {
-                      return now.toDateString() === itemDate.toDateString();
-                    } else if (maximizedTodo.refresh_type === 'weekly') {
-                      const start = new Date(now);
-                      start.setDate(now.getDate() - now.getDay());
-                      const end = new Date(start);
-                      end.setDate(start.getDate() + 6);
-                      return itemDate >= start && itemDate <= end;
-                    } else if (maximizedTodo.refresh_type === 'monthly') {
-                      return now.getMonth() === itemDate.getMonth() && now.getFullYear() === itemDate.getFullYear();
-                    }
-                    return true;
-                  })();
-
-                  if (!isCurrent) return false;
-                  if (currentView === 'unchecked') return !item.checked;
-                  if (currentView === 'checked') return item.checked;
-                  return true;
-                });
-
-                return filteredItems.length > 0 ? (
-                  filteredItems.map((item: any) => (
-                    <motion.div
-                      key={`${maximizedTodo.todo_id}-${item.tc_id}`}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.2 }}
-                      className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-center gap-3 overflow-hidden w-full">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={() => handleToggleCheck(maximizedTodo.todo_id, item.tc_id)}
-                          className="accent-blue-600 w-4 h-4 rounded"
-                        />
-                        <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
+                    return Object.entries(grouped).map(([date, group]) => (
+                      <div key={date}>
+                        <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
+                        <ul className="mt-2 space-y-1">
+                          {group.map((item: any) => (
+                            <li key={item.tc_id} className="flex items-center gap-2">
+                              <input type="checkbox" checked={item.checked} readOnly />
+                              <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
+                                {item.content}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={async () => {
-                          try {
-                            await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
-                              method: "DELETE",
-                              headers: SpaceService.getHeaders(),
-                            });
-
-                            setMaximizedTodo((prev: any) => {
-                              const newContents = prev.contents.filter((c: any) => c.tc_id !== item.tc_id);
-                              return { ...prev, contents: newContents };
-                            });
-
-                            setTodos((prev: any) =>
-                              prev.map((todo: any) =>
-                                todo.todo_id === maximizedTodo.todo_id
-                                  ? {
-                                    ...todo,
-                                    contents: todo.contents.filter((c: any) => c.tc_id !== item.tc_id),
-                                  }
-                                  : todo
-                              )
-                            );
-                          } catch (err) {
-                            console.error("Failed to delete task:", err);
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
-                        title="Delete Task"
-                      >
-                        ❌
-                      </motion.button>
-                    </motion.div>
-                  ))
-                ) : (
-                  <p className="text-gray-400 italic">No tasks in this view</p>
-                );
-              })()}
-
-              {newTaskContentMap[maximizedTodo.todo_id] !== undefined && (
-                <input
-                  type="text"
-                  className="w-full border px-2 py-1 text-sm rounded"
-                  placeholder="Enter task and press Enter"
-                  value={newTaskContentMap[maximizedTodo.todo_id]}
-                  onChange={(e) =>
-                    setNewTaskContentMap((prev) => ({
-                      ...prev,
-                      [maximizedTodo.todo_id]: e.target.value,
-                    }))
+                    ));
                   }
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
-                      const content = newTaskContentMap[maximizedTodo.todo_id].trim();
-                      if (!content) return;
 
-                      try {
-                        const userId = getUserId();
-                        const now = new Date().toISOString();
-                        const refresh_type = maximizedTodo.refresh_type || "daily";
-                        const version = "v1";
+                  // ✅ Show only current day's/week's/month's items in checked/unchecked
+                  const now = new Date();
+                  const filteredItems = items.filter((item: any) => {
+                    const itemDate = new Date(item.last_updated);
 
-                        const newTask = {
-                          tc_id: crypto.randomUUID(),
-                          content,
-                          checked: false,
-                          urgent: true,
-                          important: false,
-                          refresh_type,
-                          created_date: now,
-                          last_updated: now,
-                        };
+                    const isCurrent = (() => {
+                      if (maximizedTodo.refresh_type === 'daily') {
+                        return now.toDateString() === itemDate.toDateString();
+                      } else if (maximizedTodo.refresh_type === 'weekly') {
+                        const start = new Date(now);
+                        start.setDate(now.getDate() - now.getDay());
+                        const end = new Date(start);
+                        end.setDate(start.getDate() + 6);
+                        return itemDate >= start && itemDate <= end;
+                      } else if (maximizedTodo.refresh_type === 'monthly') {
+                        return now.getMonth() === itemDate.getMonth() && now.getFullYear() === itemDate.getFullYear();
+                      }
+                      return true;
+                    })();
 
-                        setMaximizedTodo((prev: any) =>
-                          prev ? { ...prev, contents: [newTask, ...prev.contents] } : prev
-                        );
+                    if (!isCurrent) return false;
+                    if (currentView === 'unchecked') return !item.checked;
+                    if (currentView === 'checked') return item.checked;
+                    return true;
+                  });
 
-                        setTodos((prev: any) =>
-                          prev.map((todo: any) =>
-                            todo.todo_id === maximizedTodo.todo_id
-                              ? { ...todo, contents: [newTask, ...todo.contents] }
-                              : todo
-                          )
-                        );
+                  return filteredItems.length > 0 ? (
+                    filteredItems.map((item: any) => (
+                      <motion.div
+                        key={`${maximizedTodo.todo_id}-${item.tc_id}`}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden w-full">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => handleToggleCheck(maximizedTodo.todo_id, item.tc_id)}
+                            className="accent-blue-600 w-4 h-4 rounded"
+                          />
+                          <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
+                        </div>
 
-                        await fetch(`https://meseer.com/dog/todo_content`, {
-                          method: "POST",
-                          headers: SpaceService.getHeaders(),
-                          body: JSON.stringify({
-                            todo_id: maximizedTodo.todo_id,
-                            user_id: userId,
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={async () => {
+                            try {
+                              await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
+                                method: "DELETE",
+                                headers: SpaceService.getHeaders(),
+                              });
+
+                              setMaximizedTodo((prev: any) => {
+                                const newContents = prev.contents.filter((c: any) => c.tc_id !== item.tc_id);
+                                return { ...prev, contents: newContents };
+                              });
+
+                              setTodos((prev: any) =>
+                                prev.map((todo: any) =>
+                                  todo.todo_id === maximizedTodo.todo_id
+                                    ? {
+                                      ...todo,
+                                      contents: todo.contents.filter((c: any) => c.tc_id !== item.tc_id),
+                                    }
+                                    : todo
+                                )
+                              );
+                            } catch (err) {
+                              console.error("Failed to delete task:", err);
+                            }
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
+                          title="Delete Task"
+                        >
+                          ❌
+                        </motion.button>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 italic">No tasks in this view</p>
+                  );
+                })()}
+
+                {newTaskContentMap[maximizedTodo.todo_id] !== undefined && (
+                  <input
+                    type="text"
+                    className="w-full border px-2 py-1 text-sm rounded"
+                    placeholder="Enter task and press Enter"
+                    value={newTaskContentMap[maximizedTodo.todo_id]}
+                    onChange={(e) =>
+                      setNewTaskContentMap((prev) => ({
+                        ...prev,
+                        [maximizedTodo.todo_id]: e.target.value,
+                      }))
+                    }
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        const content = newTaskContentMap[maximizedTodo.todo_id].trim();
+                        if (!content) return;
+
+                        try {
+                          const userId = getUserId();
+                          const now = new Date().toISOString();
+                          const refresh_type = maximizedTodo.refresh_type || "daily";
+                          const version = "v1";
+
+                          const newTask = {
+                            tc_id: crypto.randomUUID(),
                             content,
                             checked: false,
                             urgent: true,
                             important: false,
-                            version,
+                            refresh_type,
                             created_date: now,
                             last_updated: now,
-                            refresh_type,
-                          }),
-                        });
+                          };
 
+                          setMaximizedTodo((prev: any) =>
+                            prev ? { ...prev, contents: [newTask, ...prev.contents] } : prev
+                          );
+
+                          setTodos((prev: any) =>
+                            prev.map((todo: any) =>
+                              todo.todo_id === maximizedTodo.todo_id
+                                ? { ...todo, contents: [newTask, ...todo.contents] }
+                                : todo
+                            )
+                          );
+
+                          await fetch(`https://meseer.com/dog/todo_content`, {
+                            method: "POST",
+                            headers: SpaceService.getHeaders(),
+                            body: JSON.stringify({
+                              todo_id: maximizedTodo.todo_id,
+                              user_id: userId,
+                              content,
+                              checked: false,
+                              urgent: true,
+                              important: false,
+                              version,
+                              created_date: now,
+                              last_updated: now,
+                              refresh_type,
+                            }),
+                          });
+
+                          setNewTaskContentMap((prev) => {
+                            const updated = { ...prev };
+                            delete updated[maximizedTodo.todo_id];
+                            return updated;
+                          });
+                        } catch (err) {
+                          console.error("Failed to add task:", err);
+                        }
+                      }
+
+                      if (e.key === "Escape") {
                         setNewTaskContentMap((prev) => {
                           const updated = { ...prev };
                           delete updated[maximizedTodo.todo_id];
                           return updated;
                         });
-                      } catch (err) {
-                        console.error("Failed to add task:", err);
                       }
-                    }
-
-                    if (e.key === "Escape") {
-                      setNewTaskContentMap((prev) => {
-                        const updated = { ...prev };
-                        delete updated[maximizedTodo.todo_id];
-                        return updated;
-                      });
-                    }
-                  }}
-                />
-              )}
+                    }}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Footer Controls */}
-            <div className="flex justify-between items-center border-t pt-4">
-              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                {maximizedTodo.refresh_type}
+            <div className="flex items-center justify-between p-4 border-t">
+              <div className="flex gap-2">
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                  {maximizedTodo.refresh_type}
+                </span>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800">
+                  {todoViewMap[maximizedTodo.todo_id] || 'unchecked'}
+                </span>
               </div>
-              <div className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full">
-                {todoViewMap[maximizedTodo.todo_id] || 'unchecked'}
-              </div>
-              <div className="flex gap-3 text-gray-600">
-                <CirclePlus
-                  className="w-4 h-4 cursor-pointer"
-                  onClick={() => {
-                    setNewTaskContentMap((prev) => ({
-                      ...prev,
-                      [maximizedTodo.todo_id]: '',
-                    }));
-                  }}
-                />
-                <SquareChevronLeft
-                  className="w-3 h-3 cursor-pointer"
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setNewTaskContentMap(prev => ({ ...prev, [maximizedTodo.todo_id]: '' }))}
+                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleViewSwitch(maximizedTodo.todo_id, "left")}
-                />
-                <SquareChevronRight
-                  className="w-3 h-3 cursor-pointer"
+                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleViewSwitch(maximizedTodo.todo_id, "right")}
-                />
+                  className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

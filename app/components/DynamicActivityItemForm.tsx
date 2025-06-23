@@ -109,11 +109,7 @@ const DynamicActivityItemForm = ({
     const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
     const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
     const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
-    const isDateField = items.some((x: any) =>
-      x.name?.toLowerCase()?.includes("yyyy") || x.description?.toLowerCase()?.includes("date")
-    );
-
-
+    
     // 🔍 Render Search Field
     if (isSearch) {
       return (
@@ -146,20 +142,6 @@ const DynamicActivityItemForm = ({
               ))}
             </ul>
           )}
-        </div>
-      );
-    }
-
-    if (isDateField) {
-      return (
-        <div key={idKey} className="mb-3">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
-          <input
-            type="date"
-            className="w-full border rounded px-3 py-2"
-            value={values[index] || ""}
-            onChange={(e) => handleChange(index, e.target.value)}
-          />
         </div>
       );
     }

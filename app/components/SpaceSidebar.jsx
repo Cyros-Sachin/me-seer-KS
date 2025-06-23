@@ -3,9 +3,9 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, Pencil, Plus } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, ArrowLeft, Folder, FolderPlus, FileText, CheckSquare } from 'lucide-react';
 
-const SidebarPanel = ({
+const SpaceSidebar = ({
   mounted,
   error,
   loading,
@@ -30,163 +30,198 @@ const SidebarPanel = ({
   const router = useRouter();
 
   return (
-    <div className="bg-white w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4 overflow-auto">
-      <h2 className="text-xl font-semibold mb-2 mt-2">
-        <ChevronRight
-          className="w-6 h-6 rotate-180 transform inline-flex mr-15 mb-1 cursor-pointer"
+    <div className="bg-white w-72 min-w-[240px] border-r border-gray-200 p-5 flex flex-col gap-6 overflow-auto h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <button
           onClick={() => router.push('/')}
-        />
-        SPACE
-      </h2>
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          <h2 className="text-xl font-semibold">SPACE</h2>
+        </button>
+      </div>
+
       {!mounted ? (
-        <div className="text-center py-4">Loading user data...</div>
+        <div className="flex justify-center items-center h-20">
+          <div className="text-gray-500 animate-pulse">Loading user data...</div>
+        </div>
       ) : error ? (
-        <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
+        <div className="p-3 bg-red-50 rounded-lg border border-red-100 text-red-600 text-sm">
+          {error}
+        </div>
       ) : (
         <>
           {/* Spaces Section */}
-          <div className='p-2'>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">Spaces</h3>
-            <hr />
-            {loading.spaces ? (
-              <div className="mt-2 text-sm text-gray-500">Loading...</div>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {spaces.map((space) => (
-                  <li
-                    key={space.space_id}
-                    className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${activeSpace?.space_id === space.space_id ? 'bg-gray-100' : ''}`}
-                    onClick={() => setActiveSpace(space)}
-                  >
-                    <span className="truncate">{space.name}</span>
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center">
+                <Folder className="w-4 h-4 mr-2" />
+                Spaces
+              </h3>
+            </div>
+            <div className="border-t border-gray-100 pt-2">
+              {loading.spaces ? (
+                <div className="flex justify-center py-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-300"></div>
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {spaces.map((space) => (
+                    <li key={space.space_id}>
+                      <button
+                        onClick={() => setActiveSpace(space)}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${activeSpace?.space_id === space.space_id ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        <span className="truncate">{space.name}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Subspaces Section */}
-          <div className='p-2'>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-500">Subspaces</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center">
+                <FolderPlus className="w-4 h-4 mr-2" />
+                Subspaces
+              </h3>
               <button
                 onClick={() => {
                   setShowSubspaceModal(true);
                   setSubspaceAction(null);
                 }}
-                className="text-gray-500 hover:text-black"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                 title="Manage subspaces"
               >
                 <Pencil className="w-4 h-4" />
               </button>
             </div>
-            <hr />
-            {loading.subspaces ? (
-              <div className="mt-2 text-sm text-gray-500">Loading...</div>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {(() => {
-                  const seen = new Set();
-                  const filtered = subspaces.filter((s) => {
-                    const key = s.name.toLowerCase() === 'default' ? 'default' : s.subspace_id;
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                  });
-                  return filtered.map((subspace) => (
-                    <li
-                      key={subspace.subspace_id}
-                      className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${activeSubspace?.subspace_id === subspace.subspace_id ? 'bg-gray-100' : ''}`}
-                      onClick={() => setActiveSubspace(subspace)}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="truncate">{subspace.name}</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                    </li>
-                  ));
-                })()}
-              </ul>
-            )}
+            <div className="border-t border-gray-100 pt-2">
+              {loading.subspaces ? (
+                <div className="flex justify-center py-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-300"></div>
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {(() => {
+                    const seen = new Set();
+                    const filtered = subspaces.filter((s) => {
+                      const key = s.name.toLowerCase() === 'default' ? 'default' : s.subspace_id;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                    return filtered.map((subspace) => (
+                      <li key={subspace.subspace_id}>
+                        <button
+                          onClick={() => setActiveSubspace(subspace)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${activeSubspace?.subspace_id === subspace.subspace_id ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="truncate">{subspace.name}</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </li>
+                    ));
+                  })()}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* Add Section */}
-          <div className='p-2'>
-            <h3 className="text-sm font-medium text-gray-500 mb-3">Add</h3>
-            <hr />
-            <div className="mt-2 space-y-2 relative">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Create New
+            </h3>
+            <div className="border-t border-gray-100 pt-2 relative">
               {/* Todo Button */}
-              <button
-                className="flex items-center justify-between w-full hover:bg-gray-100 px-2 py-1 rounded text-left"
-                onClick={() => setShowTodoMenu((prev) => !prev)}
-              >
-                <span>Todo</span>
-                <Plus className="w-4 h-4" />
-              </button>
-              <AnimatePresence>
-                {showTodoMenu && (
-                  <motion.div
-                    key="todo-menu"
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    variants={dropdownVariants}
-                    transition={{ duration: 0.2 }}
-                    className="absolute left-0 mt-1 w-full bg-white border rounded shadow z-10"
-                  >
-                    {refreshTypes.map((type) => (
-                      <button
-                        key={type}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-100 capitalize inline-flex justify-between"
-                        onClick={() => handleCreateTodoWithType(type)}
-                      >
-                        {type}
-                        <ChevronRight />
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Wordpad Button */}
-              <button
-                className="flex items-center justify-between w-full hover:bg-gray-100 px-2 py-1 rounded text-left"
-                onClick={() => setShowWordpadMenu((prev) => !prev)}
-              >
-                <span>Wordpad</span>
-                <Plus className="w-4 h-4" />
-              </button>
-              <AnimatePresence>
-                {showWordpadMenu && (
-                  <motion.div
-                    key="wordpad-menu"
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    variants={dropdownVariants}
-                    transition={{ duration: 0.2 }}
-                    ref={dropdownRef}
-                    className="absolute left-0 mt-1 w-full bg-white border rounded shadow z-10"
-                  >
-                    <div className="py-1">
+              <div className="mb-2">
+                <button
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${showTodoMenu ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                  onClick={() => setShowTodoMenu((prev) => !prev)}
+                >
+                  <div className="flex items-center">
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    <span>Todo</span>
+                  </div>
+                  <Plus className="w-4 h-4" />
+                </button>
+                <AnimatePresence>
+                  {showTodoMenu && (
+                    <motion.div
+                      key="todo-menu"
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      variants={dropdownVariants}
+                      transition={{ duration: 0.2 }}
+                      className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden"
+                    >
                       {refreshTypes.map((type) => (
                         <button
                           key={type}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-100 capitalize inline-flex justify-between"
-                          onClick={() => {
-                            handleCreateWordpad(type);
-                            setShowWordpadMenu(false);
-                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 capitalize flex items-center justify-between text-gray-700"
+                          onClick={() => handleCreateTodoWithType(type)}
                         >
-                          {type}
-                          <ChevronRight />
+                          <span>{type}</span>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
                         </button>
                       ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Wordpad Button */}
+              <div>
+                <button
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${showWordpadMenu ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                  onClick={() => setShowWordpadMenu((prev) => !prev)}
+                >
+                  <div className="flex items-center">
+                    <FileText className="w-4 h-4 mr-2" />
+                    <span>Wordpad</span>
+                  </div>
+                  <Plus className="w-4 h-4" />
+                </button>
+                <AnimatePresence>
+                  {showWordpadMenu && (
+                    <motion.div
+                      key="wordpad-menu"
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      variants={dropdownVariants}
+                      transition={{ duration: 0.2 }}
+                      ref={dropdownRef}
+                      className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden"
+                    >
+                      <div className="py-1">
+                        {refreshTypes.map((type) => (
+                          <button
+                            key={type}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 capitalize flex items-center justify-between text-gray-700"
+                            onClick={() => {
+                              handleCreateWordpad(type);
+                              setShowWordpadMenu(false);
+                            }}
+                          >
+                            <span>{type}</span>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </>
@@ -195,4 +230,4 @@ const SidebarPanel = ({
   );
 };
 
-export default SidebarPanel;
+export default SpaceSidebar;

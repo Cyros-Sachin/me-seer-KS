@@ -2,10 +2,9 @@
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie, Sidebar, AlignLeft } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie, Sidebar, AlignLeft, XCircle, X, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
-import { FoodItemForm } from "../components/FoodItem";
 import SideBar from "../components/SideBar";
 import DynamicActivityDetails from "../components/DynamicActivityDetails";
 import DynamicActivityItemForm from "../components/DynamicActivityItemForm";
@@ -842,321 +841,408 @@ function ActivityPage() {
     }));
 
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-white text-black">
+        <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
             {/* Left Panel */}
             {isMobile ? (
                 <>
                     <SideBar />
-                    <div ref={iconRef}>
-                        <AlignLeft
-                            className="absolute top-12 left-4 z-500 w-6 h-6 cursor-pointer text-black"
-                            onClick={() => setSidebarOpen((prev) => !prev)}
-                        />
-                    </div>
+                    <AlignLeft
+                        className="absolute top-12 left-4 z-500 w-6 h-6 cursor-pointer text-black"
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                    />
                     <AnimatePresence>
-                        {(sidebarOpen) && (
+                        {sidebarOpen && (
                             <motion.div
                                 ref={sidebarRef}
                                 initial={{ x: -300 }}
                                 animate={{ x: 0 }}
                                 exit={{ x: -300 }}
                                 transition={{ duration: 0.3 }}
-                                className="fixed top-20 left-0 h-full w-64 bg-white z-500 border-r border-gray-300 p-4 flex flex-col gap-4 overflow-y-auto shadow-lg"
+                                className="fixed top-20 left-0 h-full w-64 bg-white z-500 border-r border-gray-200 p-4 flex flex-col gap-4 overflow-y-auto shadow-lg"
                             >
-                                <h2 className="text-xl font-semibold mb-2 mt-2">
-                                    {!isMobile && <ChevronRight
-                                        className="w-6 h-6 rotate-180 transform inline-flex mr-2 mb-1 cursor-pointer"
-                                        onClick={() => {
-                                            setSidebarOpen(false);
-                                            router.push('/');
-                                        }}
-                                    />}
-                                    ACTIVITY
-                                </h2>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                                        <ChevronRight
+                                            className="w-5 h-5 rotate-180 transform mr-2 cursor-pointer hover:text-gray-600 transition-colors"
+                                            onClick={() => router.push('/')}
+                                        />
+                                        ACTIVITY
+                                    </h2>
+                                </div>
 
                                 {error && (
-                                    <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
+                                    <div className="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-md">
+                                        {error}
+                                    </div>
                                 )}
 
                                 {/* Activity Types */}
-                                <div className="p-2">
-                                    <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Types</h3>
-                                    <hr />
-                                    {loading.activityTypes ? (
-                                        <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                                    ) : (
-                                        <ul className="mt-2 space-y-2">
-                                            {activityTypes.map((type) => (
-                                                <li
-                                                    key={`type-${type.at_id}`}
-                                                    className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedActivityType === type.at_id ? 'bg-gray-100' : ''}`}
-                                                    onClick={() => setSelectedActivityType(type.at_id)}
-                                                >
-                                                    <span className="truncate">{type.name}</span>
-                                                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            Activity Types
+                                        </h3>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {loading.activityTypes ? (
+                                            <div className="flex items-center justify-center py-3">
+                                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                            </div>
+                                        ) : (
+                                            <ul className="space-y-1">
+                                                {activityTypes.map((type) => (
+                                                    <li key={`type-${type.at_id}`}>
+                                                        <button
+                                                            onClick={() => setSelectedActivityType(type.at_id)}
+                                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedActivityType === type.at_id
+                                                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                                                : 'text-gray-700 hover:bg-gray-50'
+                                                                }`}
+                                                        >
+                                                            <span>{type.name}</span>
+                                                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Pinned Activities */}
                                 {selectedActivityType && (
-                                    <div className="p-2">
-                                        <h3 className="text-sm font-medium text-gray-500 mb-3">Pinned Activities</h3>
-                                        <hr />
-                                        {loading.pinnedActivities ? (
-                                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                                        ) : (
-                                            <ul className="mt-2 space-y-2">
-                                                {pinnedActivities.map((activity) => (
-                                                    <li
-                                                        key={`pinned-${activity.a_id}`}
-                                                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
-                                                        onClick={() => handlePinnedActivityClick(activity)}
-                                                    >
-                                                        <span className="truncate">{activity.name}</span>
-                                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                                    </li>
-                                                ))}
-
-                                            </ul>
-                                        )}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                Pinned Activities
+                                            </h3>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {loading.pinnedActivities ? (
+                                                <div className="flex items-center justify-center py-3">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                                </div>
+                                            ) : (
+                                                <ul className="space-y-1">
+                                                    {pinnedActivities
+                                                        .filter((activity) => activity.flag === 'P')
+                                                        .map((activity) => (
+                                                            <li key={`pinned-${activity.a_id}`}>
+                                                                <button
+                                                                    onClick={() => handlePinnedActivityClick(activity)}
+                                                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedPinnedActivity === activity.a_id
+                                                                        ? 'bg-blue-50 text-blue-600 font-medium'
+                                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                                        }`}
+                                                                >
+                                                                    <span>{activity.name}</span>
+                                                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                </ul>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
                                 {/* Activity Items */}
                                 {(activeActivity || showGoal || showTask) && (
-                                    <div className="p-2">
-                                        <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
-                                        <hr />
-                                        {loading.activityItems ? (
-                                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                                        ) : (
-                                            <ul className="mt-2 space-y-2">
-                                                {activityItems.map((item) => (
-                                                    <li
-                                                        key={`item-${item.a_id}`}
-                                                        className="flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
-                                                        onClick={() => handleActivityItemClick(item)}
-                                                    >
-                                                        <span className="truncate">{item.name}</span>
-                                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                Activity Items
+                                            </h3>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {loading.activityItems ? (
+                                                <div className="flex items-center justify-center py-3">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                                </div>
+                                            ) : (
+                                                <ul className="space-y-1">
+                                                    {activityItems.map((item) => (
+                                                        <li key={`item-${item.a_id}`}>
+                                                            <button
+                                                                onClick={() => handleActivityItemClick(item)}
+                                                                className="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                            >
+                                                                <span>{item.name}</span>
+                                                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                            </button>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </>
-            ) :
-                (<div className="w-64 min-w-[220px] border-r border-gray-300 p-4 flex flex-col gap-4 overflow-scroll">
-                    <h2 className="text-xl font-semibold mb-2 mt-2">
-                        <ChevronRight
-                            className="w-6 h-6 rotate-180 transform inline-flex mr-15 mb-1"
-                            onClick={() => router.push('/')}
-                        />
-                        ACTIVITY
-                    </h2>
-
-                    {error && (
-                        <div className="text-red-500 p-2 bg-red-50 rounded">{error}</div>
-                    )}
-
-                    {/* Activity Types */}
-                    <div className="p-2">
-                        <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Types</h3>
-                        <hr />
-                        {loading.activityTypes ? (
-                            <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                        ) : (
-                            <ul className="mt-2 space-y-2">
-                                {activityTypes.map((type) => (
-                                    <li
-                                        key={`type-${type.at_id}`}
-                                        className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedActivityType === type.at_id ? 'bg-gray-100' : ''}`}
-                                        onClick={() => setSelectedActivityType(type.at_id)}
-                                    >
-                                        <span className="truncate">{type.name}</span>
-                                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+            ) : (
+                <div className="w-64 min-w-[220px] border-r border-gray-200 p-4 flex flex-col gap-4 overflow-y-auto bg-white">
+                    {/* Desktop sidebar content (same as mobile but without animations) */}
+                    <div className="flex items-center justify-between mb-2">
+                        <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                            <ArrowLeft
+                                className="w-5 h-5 transform mr-2 cursor-pointer hover:text-gray-600 transition-colors"
+                                onClick={() => router.push('/')}
+                            />
+                            ACTIVITY
+                        </h2>
                     </div>
 
-                    {/* Pinned Activities */}
-                    {selectedActivityType && (
-                        <div className="p-2">
-                            <h3 className="text-sm font-medium text-gray-500 mb-3">Pinned Activities</h3>
-                            <hr />
-                            {loading.pinnedActivities ? (
-                                <div className="mt-2 text-sm text-gray-500">Loading...</div>
-                            ) : (
-                                <ul className="mt-2 space-y-2">
-                                    {pinnedActivities.filter(activity => activity.flag === 'P')
-                                        .map((activity) => (
-                                            <li
-                                                key={`pinned-${activity.a_id}`}
-                                                className={`flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer ${selectedPinnedActivity === activity.a_id ? 'bg-gray-100' : ''}`}
-                                                onClick={() => handlePinnedActivityClick(activity)}
-                                            >
-                                                <span className="truncate">{activity.name}</span>
-                                                <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                                            </li>
-                                        ))}
-
-                                </ul>
-                            )}
+                    {error && (
+                        <div className="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-md">
+                            {error}
                         </div>
                     )}
 
-                    {/* Activity Items */}
-                    {(activeActivity || showGoal || showTask) && (
-                        <div className="p-2">
-                            <h3 className="text-sm font-medium text-gray-500 mb-3">Activity Items</h3>
-                            <hr />
-                            {loading.activityItems ? (
-                                <div className="mt-2 text-sm text-gray-500">Loading...</div>
+                    {/* Activity Types */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                Activity Types
+                            </h3>
+                        </div>
+                        <div className="space-y-1">
+                            {loading.activityTypes ? (
+                                <div className="flex items-center justify-center py-3">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                </div>
                             ) : (
-                                <ul className="mt-2 space-y-2">
-                                    {activityItems.map((item) => (
-                                        <li
-                                            key={`item-${item.a_id}`}
-                                            className="flex items-center justify-between hover:bg-gray-100 px-2 py-1 rounded cursor-pointer"
-                                            onClick={() => { handleActivityItemClick(item); }}
-                                        >
-                                            <span className="truncate">{item.name}</span>
-                                            <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                                <ul className="space-y-1">
+                                    {activityTypes.map((type) => (
+                                        <li key={`type-${type.at_id}`}>
+                                            <button
+                                                onClick={() => setSelectedActivityType(type.at_id)}
+                                                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedActivityType === type.at_id
+                                                    ? 'bg-blue-50 text-blue-600 font-medium'
+                                                    : 'text-gray-700 hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                <span>{type.name}</span>
+                                                <ChevronRight className="w-4 h-4 text-gray-400" />
+                                            </button>
                                         </li>
                                     ))}
                                 </ul>
                             )}
                         </div>
-                    )}
-                </div>)}
+                    </div>
 
-            {/* Main Content */}
-            <div className={`flex-1 p-6 overflow-auto ${activeActivity ? 'hidden' : ''}`}>
-                {/* Breadcrumbs */}
-                <div className="flex items-center text-sm text-gray-500 mb-4">
+                    {/* Pinned Activities */}
                     {selectedActivityType && (
-                        <span className="text-black">
-                            {activityTypes.find(t => t.at_id === selectedActivityType)?.name}
-                        </span>
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    Pinned Activities
+                                </h3>
+                            </div>
+                            <div className="space-y-1">
+                                {loading.pinnedActivities ? (
+                                    <div className="flex items-center justify-center py-3">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-1">
+                                        {pinnedActivities
+                                            .filter((activity) => activity.flag === 'P')
+                                            .map((activity) => (
+                                                <li key={`pinned-${activity.a_id}`}>
+                                                    <button
+                                                        onClick={() => handlePinnedActivityClick(activity)}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${selectedPinnedActivity === activity.a_id
+                                                            ? 'bg-blue-50 text-blue-600 font-medium'
+                                                            : 'text-gray-700 hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        <span>{activity.name}</span>
+                                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                    </button>
+                                                </li>
+                                            ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
                     )}
-                    {selectedPinnedActivity && (
-                        <>
-                            <span className="mx-2">/</span>
-                            <span className="text-black">
-                                {pinnedActivities.find(a => a.a_id === selectedPinnedActivity)?.name}
-                            </span>
-                        </>
+
+                    {/* Activity Items */}
+                    {(activeActivity || showGoal || showTask) && (
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    Activity Items
+                                </h3>
+                            </div>
+                            <div className="space-y-1">
+                                {loading.activityItems ? (
+                                    <div className="flex items-center justify-center py-3">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400" />
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-1">
+                                        {activityItems.map((item) => (
+                                            <li key={`item-${item.a_id}`}>
+                                                <button
+                                                    onClick={() => handleActivityItemClick(item)}
+                                                    className="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <span>{item.name}</span>
+                                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
-                {selectedActivityType && (
-                    <div className="p-4">
-                        {loading.userActivities ? (
-                            <div className="flex justify-center items-center h-40">
-                                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-500" />
+            )}
+
+            {/* Main Content */}
+            <div className="flex-1 p-6 overflow-auto">
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r">
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center">
+                                <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                                <span className="text-red-700">{error}</span>
                             </div>
-                        ) : isPlanType ? (
-                            // ✅ New UI for Plan Type
-                            goalTasksData && Object.entries(goalTasksData).length > 0 ? (
-                                <div className="space-y-6">
-                                    {Object.entries(goalTasksData).map(([key, tasks]) => {
-                                        const [goalId, goalName] = key.replace(/\[|\]/g, '').split(',');
-
-                                        return (
-                                            <div key={goalId} className="bg-white shadow-xl rounded-xl p-6 border border-gray-200">
-                                                <div className="flex justify-between items-center mb-3" onClick={() => {
-                                                    setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
-                                                    setShowGoal(true);
-                                                }}
-                                                >
-                                                    <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
-                                                    <button
-                                                        onClick={() => {
-                                                            setShowTaskDialog(true);
-                                                            setSelectedGoalId(goalId); // You'll need this state
-                                                        }}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                                                    >
-                                                        <span className="text-lg">＋</span> Add Task
-                                                    </button>
-                                                </div>
-                                                <div className="space-y-2 pl-4 border-l-4 border-blue-500">
-                                                    {tasks.map((task, index) => (
-                                                        <div
-                                                            key={`goal-${goalId}-task-${task.task_id || 'x'}-ua-${task.ua_id || 'x'}-${index}`}
-                                                            className="bg-gray-50 px-3 py-2 rounded-md shadow-sm flex justify-between items-center hover:bg-blue-50 transition"
-                                                            onClick={() => {
-                                                                setSelectedTaskDetails(task); // for task
-                                                                setShowTask(true);
-                                                            }}
-
-                                                        >
-                                                            <span className="text-gray-800">{task.task_name}</span>
-                                                            <span className="text-gray-800">{new Date(task.created_timestamp).toLocaleString()}</span>
-                                                            {task.todo_id === null && (
-                                                                <span className="text-xs text-red-500">Unlinked</span>
-                                                            )}
-                                                        </div>
-                                                    ))}
-
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-center text-sm text-gray-500">No goals found.</div>
-                            )
-                        ) : (
-                            // ✅ Existing UI for all other types
-                            userActivities && Array.isArray(userActivities) && userActivities.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 md:grid-cols-2">
-                                    {userActivities.map((activity) => (
-                                        <div
-                                            key={activity.ua_id}
-                                            className="bg-white rounded-xl shadow relative overflow-hidden group p-4"
-                                            onClick={() => setActiveActivity(activity)}
-                                        >
-                                            <div className="aspect-square bg-gray-100 relative rounded-t-xl overflow-hidden">
-                                                <Trash2Icon
-                                                    className="w-4 h-4 text-red-500 opacity-50 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer absolute top-2 right-2 z-10"
-                                                    onClick={() => handleDeleteData(activity)}
-                                                />
-                                                {(() => {
-                                                    const key = (activity.name || activity.description || "").toLowerCase();
-                                                    const image = activityImageMap[key];
-                                                    return image ? (
-                                                        <img
-                                                            src={image}
-                                                            alt={key}
-                                                            className="absolute inset-0 w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex items-center justify-center h-full w-full text-4xl text-gray-300">📋</div>
-                                                    );
-                                                })()}
-                                            </div>
-                                            <div className="p-2 text-md font-bold text-center truncate">
-                                                {activity.description || activity.name || 'Unnamed'}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center text-sm text-gray-500">No activities found.</div>
-                            )
-                        )}
+                            <button
+                                onClick={() => setError(null)}
+                                className="ml-2 text-red-500 hover:text-red-700"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 )}
 
+                {/* Breadcrumbs */}
+                <div className="flex items-center text-sm text-gray-600 mb-6">
+                    {selectedActivityType && (
+                        <span className="text-blue-600 font-medium">
+                            {activityTypes.find(t => t.at_id === selectedActivityType)?.name}
+                        </span>
+                    )}
+                </div>
+
+                {/* Activity Content */}
+                {loading.userActivities ? (
+                    <div className="flex justify-center items-center h-64">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-500"></div>
+                    </div>
+                ) : isPlanType ? (
+                    // Plan Type UI (Goals/Tasks)
+                    goalTasksData && Object.entries(goalTasksData).length > 0 ? (
+                        <div className="space-y-6">
+                            {Object.entries(goalTasksData).map(([key, tasks]) => {
+                                const [goalId, goalName] = key.replace(/\[|\]/g, '').split(',');
+
+                                return (
+                                    <div key={goalId} className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+                                        <div className="flex justify-between items-center mb-4" onClick={() => {
+                                                    setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
+                                                    setShowGoal(true);
+                                                }}>
+                                            <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedGoalId(goalId);
+                                                    setShowTaskDialog(true);
+                                                }}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                Add Task
+                                            </button>
+                                        </div>
+                                        <div className="space-y-3 pl-4 border-l-4 border-blue-500">
+                                            {tasks.map((task, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="bg-gray-50 px-4 py-3 rounded-md shadow-sm flex justify-between items-center hover:bg-blue-50 transition cursor-pointer"
+                                                    onClick={() => {
+                                                        setSelectedTaskDetails(task);
+                                                        setShowTask(true);
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div className="font-medium text-gray-800">{task.task_name}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            {new Date(task.created_timestamp).toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                    {task.todo_id === null && (
+                                                        <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">
+                                                            Unlinked
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-gray-500">
+                            No goals found. Create your first goal to get started.
+                        </div>
+                    )
+                ) : (
+                    // Regular Activity UI
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {userActivities.map((activity) => (
+                            <motion.div
+                                key={activity.ua_id}
+                                whileHover={{ y: -2 }}
+                                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                            >
+                                <div className="relative aspect-square bg-gray-100">
+                                    <Trash2
+                                        className="absolute top-2 right-2 z-10 w-5 h-5 p-1 bg-white rounded-full text-red-500 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                                        onClick={() => handleDeleteData(activity)}
+                                    />
+                                    {(() => {
+                                        const key = (activity.name || activity.description || "").toLowerCase();
+                                        const image = activityImageMap[key];
+                                        return image ? (
+                                            <img
+                                                src={image}
+                                                alt={key}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
+                                                📋
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                                <div className="p-4">
+                                    <h3 className="font-medium text-gray-800 truncate">
+                                        {activity.description || activity.name || 'Unnamed Activity'}
+                                    </h3>
+                                    <div className="flex justify-between items-center mt-2">
+                                        
+                                        <button
+                                            onClick={() => setActiveActivity(activity)}
+                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                        >
+                                            View Details
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {showMealDialog && (

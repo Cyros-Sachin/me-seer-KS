@@ -18,7 +18,7 @@ type UnitOption = {
   name: string;
   Selected?: boolean;
   flag?: string;
-  item_type?: string; // Add this
+  item_type?: string;
 };
 
 type MWBEntry = {
@@ -69,7 +69,6 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         });
         const json = await res.json();
 
-        // Convert the object of objects to an array of objects
         const entriesArray = json ? Object.values(json) : [];
         result[item.a_id] = entriesArray as MWBEntry[];
 
@@ -105,7 +104,6 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
 
   const handleUpdateItem = async (item: MWBEntry) => {
     try {
-      // Helpers for Assign Meal (a_id = 10)
       const getCollectiveId = (list: unknown): number | undefined => {
         return Array.isArray(list) ? list[0]?.collective_id : undefined;
       };
@@ -137,7 +135,6 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
       };
 
       if (item.a_id === 10) {
-        // ✅ Special logic for Assign Meal
         payload = {
           ...payload,
           trigger: item.trigger ?? "meal",
@@ -155,7 +152,6 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
           value6: editedValues.value6 ?? item.value6 ?? "",
         };
       } else {
-        // ✅ Standard logic for all other a_id (including a_id = 9)
         payload = {
           ...payload,
           cat_qty_id1: item.cat_qty_id1 ?? null,
@@ -182,7 +178,6 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         };
       }
 
-      console.log("Payload being sent:", payload);
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
       await fetchAll();
@@ -196,31 +191,30 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
     fetchAll();
   }, [userId, collectiveId, activityItems]);
 
-  if (loading) return <div className="text-sm text-gray-400">Loading activity details...</div>;
+  if (loading) return <div className="text-sm text-gray-400 p-4">Loading activity details...</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       {activityItems.map((item) => {
         const itemData = Array.isArray(dataMap[item.a_id]) ? dataMap[item.a_id] : [];
         if (itemData.length === 0) return null;
 
         return (
-          <div key={item.a_id}>
-            <h3 className="text-md font-semibold text-gray-700 mb-2">{item.name}</h3>
-            <div className="space-y-2">
+          <div key={item.a_id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+            <h3 className="text-md font-semibold text-gray-800 p-4 border-b border-gray-100">
+              {item.name}
+            </h3>
+            <div className="space-y-3 p-4">
               {itemData.map((entry) => {
                 const isEditing = editingItemId === entry.ua_id;
-
                 const indices = entry.a_id === 13 ? [1, 2, 3, 4, 6] : [1, 2, 3, 4, 5, 6];
+
                 const renderFields = indices.flatMap((i) => {
                   const value = entry[`value${i}` as keyof MWBEntry];
                   const unitList = entry[`cat_qty_id${i}` as keyof MWBEntry];
-                  const isEditing = editingItemId === entry.ua_id;
-
                   const aId = entry.a_id;
                   const isAid10 = aId === 10;
 
-                  // === a_id = 10: Custom dropdowns ===
                   if (isAid10 && [2, 3, 5, 6].includes(i)) {
                     const options = Array.isArray(unitList) ? unitList : [];
                     const selectedOption = options.find((u: any) => u?.Selected || u?.flag === "selected");
@@ -233,53 +227,48 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                     };
 
                     return (
-                      <div key={`val${i}`} className="grid grid-cols-1 gap-2">
-                        <div className="flex flex-col">
-                          <label className="text-xs text-gray-500 mb-1">{labelMap[i]}</label>
-                          {isEditing ? (
-                            <select
-                              value={editedValues[`unit${i}`] ?? String(selectedOption?.cat_id || "")}
-                              onChange={(e) =>
-                                setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
-                              }
-                              className="border border-blue-400 rounded px-2 py-1 text-sm"
-                            >
-                              <option value="">Select</option>
-                              {options
-                                .filter((opt) => opt?.cat_id)
-                                .map((opt, idx) => (
-                                  <option key={idx} value={opt.cat_id}>
-                                    {opt.name}
-                                  </option>
-                                ))}
-                            </select>
-                          ) : (
-                            <input
-                              value={selectedOption?.name || ""}
-                              readOnly
-                              className="border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          )}
-                        </div>
+                      <div key={`val${i}`} className="space-y-1">
+                        <label className="text-xs font-medium text-gray-500">{labelMap[i]}</label>
+                        {isEditing ? (
+                          <select
+                            value={editedValues[`unit${i}`] ?? String(selectedOption?.cat_id || "")}
+                            onChange={(e) =>
+                              setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                            }
+                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                          >
+                            <option value="">Select</option>
+                            {options
+                              .filter((opt) => opt?.cat_id)
+                              .map((opt, idx) => (
+                                <option key={idx} value={opt.cat_id}>
+                                  {opt.name}
+                                </option>
+                              ))}
+                          </select>
+                        ) : (
+                          <input
+                            value={selectedOption?.name || ""}
+                            readOnly
+                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50"
+                          />
+                        )}
                       </div>
                     );
                   }
 
-                  // === All other a_id (except 10): Show value + unit ===
                   const options = Array.isArray(unitList) ? unitList : [];
                   const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
-
                   const isUnitField = !!selectedUnit?.unit_id || i === 4;
-
                   const displayValue = value;
                   const unitValue = selectedUnit?.name;
 
                   if (!displayValue && !unitValue) return [];
 
                   return (
-                    <div key={`val${i}`} className={`grid ${unitValue ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
-                      <div className="flex flex-col">
-                        <label className="text-xs text-gray-500 mb-1">
+                    <div key={`val${i}`} className={`grid ${unitValue ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-500">
                           {(templateMap[aId]?.[`item_id${i}`]?.[0]?.item_description ||
                             templateMap[aId]?.[`item_id${i}`]?.[0]?.item_name ||
                             `Field ${i}`)
@@ -293,27 +282,27 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                             onChange={(e) =>
                               setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
                             }
-                            className="border border-blue-400 rounded px-2 py-1 text-sm"
+                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                           />
                         ) : (
                           <input
                             value={String(displayValue ?? "")}
                             readOnly
-                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50"
                           />
                         )}
                       </div>
 
                       {unitValue && (
-                        <div className="flex flex-col">
-                          <label className="text-xs text-gray-500 mb-1">Unit</label>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-500">Unit</label>
                           {isEditing ? (
                             <select
                               value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || "")}
                               onChange={(e) =>
                                 setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
                               }
-                              className="border border-blue-400 rounded px-2 py-1 text-sm"
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                             >
                               <option value="">Unit</option>
                               {options
@@ -328,7 +317,7 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                             <input
                               value={unitValue}
                               readOnly
-                              className="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100"
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50"
                             />
                           )}
                         </div>
@@ -337,28 +326,25 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                   );
                 });
 
-
-
                 return (
                   <div
                     key={entry.ua_id}
-                    className="grid gap-2 items-start text-sm border rounded p-3 bg-white shadow-sm"
+                    className="space-y-3 border border-gray-100 rounded-lg p-4 bg-white shadow-xs"
                   >
                     {renderFields}
 
-                    <div className="flex justify-end gap-2 mt-1">
+                    <div className="flex justify-end">
                       {isEditing ? (
                         <button
-                          className="text-green-600 hover:text-green-800 text-sm"
-                          title="Save"
+                          className="text-green-600 hover:text-green-800 text-sm flex items-center gap-1 px-3 py-1 rounded-md hover:bg-green-50"
                           onClick={() => handleUpdateItem(entry)}
                         >
-                          <SquareCheck className="h-5 w-5" />
+                          <SquareCheck className="h-4 w-4" />
+                          <span>Save</span>
                         </button>
                       ) : (
                         <button
-                          className="text-gray-500 hover:text-black text-sm"
-                          title="Edit"
+                          className="text-gray-500 hover:text-gray-700 text-sm flex items-center gap-1 px-3 py-1 rounded-md hover:bg-gray-50"
                           onClick={() => {
                             setEditingItemId(entry.ua_id);
                             const ev: Record<string, string> = {};
@@ -368,7 +354,8 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                             setEditedValues(ev);
                           }}
                         >
-                          <Pencil className="h-5 w-5" />
+                          <Pencil className="h-4 w-4" />
+                          <span>Edit</span>
                         </button>
                       )}
                     </div>
