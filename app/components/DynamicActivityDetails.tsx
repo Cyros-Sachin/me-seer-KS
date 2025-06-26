@@ -61,6 +61,9 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
     const result: Record<number, MWBEntry[]> = {};
 
     for (const item of activityItems) {
+      if (item.a_id === 26) {
+        item.a_id = 24;
+      }
       try {
         const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${collectiveId}`, {
           headers: {
@@ -198,6 +201,23 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
       {activityItems.map((item) => {
         const itemData = Array.isArray(dataMap[item.a_id]) ? dataMap[item.a_id] : [];
         if (itemData.length === 0) return null;
+        // Check if any entry inside itemData has at least one non-empty value
+        const hasValidEntry = itemData.some((entry) => {
+          for (let i = 1; i <= 6; i++) {
+            const val = entry[`value${i}` as keyof MWBEntry];
+            const unitList = entry[`cat_qty_id${i}` as keyof MWBEntry];
+            const selectedUnit = Array.isArray(unitList)
+              ? unitList.find((u: any) => u?.Selected || u?.flag === "selected")
+              : null;
+            if ((val !== "" && val !== undefined && val !== null) || selectedUnit) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        // If all entries are empty, skip rendering this whole activity section
+        if (!hasValidEntry) return null;
 
         return (
           <div key={item.a_id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
@@ -325,7 +345,7 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                     </div>
                   );
                 });
-
+                if (renderFields.length === 0) return null;
                 return (
                   <div
                     key={entry.ua_id}

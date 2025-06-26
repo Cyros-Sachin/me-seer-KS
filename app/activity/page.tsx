@@ -1455,8 +1455,9 @@ function ActivityPage() {
                     isOpen={showDynamicForm}
                     onClose={() => setShowDynamicForm(false)}
                     onSuccess={fetchUserActivities}
+                    selectedTaskDetails={selectedTaskDetails}
+                    selectedGoalDetails={selectedGoalDetails}
                 />
-
             )}
 
             {/* Bottom Slide-Up for Goal */}
@@ -1496,6 +1497,11 @@ function ActivityPage() {
                                     </div>
                                 ))}
                             </div>
+                            <DynamicActivityDetails
+                                userId={getUserId()}
+                                collectiveId={selectedGoalDetails.goalId}
+                                activityItems={enrichedItems}
+                            />
                         </div>
                     </motion.div>
                 )}
@@ -1531,6 +1537,11 @@ function ActivityPage() {
                                     <p className="text-red-500">This task is not linked to any To-Do.</p>
                                 )}
                             </div>
+                            <DynamicActivityDetails
+                                userId={getUserId()}
+                                collectiveId={selectedTaskDetails.task_id}
+                                activityItems={enrichedItems}
+                            />
                         </div>
                     </motion.div>
                 )}

@@ -11,6 +11,8 @@ const DynamicActivityItemForm = ({
   isOpen,
   onClose,
   onSuccess,
+  selectedTaskDetails,
+  selectedGoalDetails 
 }: {
   a_id: number;
   at_id: number;
@@ -20,6 +22,12 @@ const DynamicActivityItemForm = ({
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  selectedGoalDetails?: {
+    goalId: number;
+    goalName: string;
+    tasks: any[];
+  };
+  selectedTaskDetails?: { task_id: number; task_name: string }; // ✅ optional type
 }) => {
   const [template, setTemplate] = useState<any>({});
   const [values, setValues] = useState<Record<number, string>>({});
@@ -29,11 +37,48 @@ const DynamicActivityItemForm = ({
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const token = JSON.parse(Cookies.get("userInfo") || "{}").access_token;
+  const [subspaces, setSubspaces] = useState<{ subspace_id: number; name: string }[]>([]);
+  const [selectedSubspace, setSelectedSubspace] = useState<{ subspace_id: number; name: string } | null>(null);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+
 
   useEffect(() => {
     if (!isOpen || !a_id) return;
     fetchTemplateData();
   }, [a_id, isOpen]);
+
+  useEffect(() => {
+    const fetchSubspaces = async () => {
+      try {
+        const res = await fetch(`https://meseer.com/dog/space-subspace/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+
+        // Transform into flat array with proper labels
+        const transformed = Object.entries(data).flatMap(([spaceKey, subspaceArrRaw]) => {
+          const subspaceArr = subspaceArrRaw as Record<string, number>[];
+          const spaceLabel = spaceKey.split(",")[1]?.replace("]", "").trim(); // e.g. "Work"
+
+          return subspaceArr.map((sub) => {
+            const label = Object.keys(sub)[0];
+            const id = Object.values(sub)[0];
+            return {
+              subspace_id: id,
+              name: `${spaceLabel} - ${label}`,
+            };
+          });
+        });
+
+        setSubspaces(transformed);
+      } catch (err) {
+        console.error("Failed to fetch subspaces", err);
+      }
+    };
+
+    fetchSubspaces();
+  }, [userId]);
+
 
   const fetchTemplateData = async () => {
     try {
@@ -83,6 +128,7 @@ const DynamicActivityItemForm = ({
   };
 
   const renderField = (idKey: string, index: number) => {
+
     const items = template[idKey];
     if (
       !items ||
@@ -105,11 +151,37 @@ const DynamicActivityItemForm = ({
       return null;
     }
     const itemId = Number(itemMeta.item_id);
-    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49; // show plain text input (for "What")
+    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49 || itemId === 38; // show plain text input (for "What")
     const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
     const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
     const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
-    
+    // Inside renderField
+    const isSubspace = itemMeta.item_name?.toLowerCase().includes("subspace");
+
+    if (isSubspace) {
+      // only once per render
+
+      return (
+        <div key={idKey} className="mb-3">
+          <label className="text-sm font-medium text-gray-700 mb-1 block">Select Subspace</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={selectedSubspace?.subspace_id || ""}
+            onChange={(e) => {
+              const sub = subspaces.find(s => s.subspace_id === Number(e.target.value));
+              if (sub) setSelectedSubspace(sub);
+            }}
+          >
+            <option value="">Select...</option>
+            {subspaces.map((s) => (
+              <option key={s.subspace_id} value={s.subspace_id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
     // 🔍 Render Search Field
     if (isSearch) {
       return (
@@ -150,26 +222,50 @@ const DynamicActivityItemForm = ({
     if (isUnit) {
       const unitOptions = items.filter((x: any) => x.unit_id || x.name);
       const singleUnit = unitOptions.length === 1;
+      const isDateField = unitOptions.some((u: any) =>
+        /date|mm\/dd\/yyyy|dd\/mm\/yyyy/i.test(u.name || u.description)
+      );
+      const isDateTimeField = unitOptions.some((u: any) =>
+        /hh:mm|date time|datetime/i.test(u.name || u.description || "")
+      );
 
       return (
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
           <div className="flex gap-3 items-center">
-            {isWhatOverride ?
+            {isDateTimeField ? (
+              <input
+                type="datetime-local"
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              />
+            ) : isDateField ? (
+              <input
+                type="date"
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              />
+            ) : isWhatOverride ? (
               <input
                 type="text"
                 placeholder="text"
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}
                 onChange={(e) => handleChange(index, e.target.value)}
-              /> : <input
+              />
+            ) : (
+              <input
                 type="number"
                 placeholder="Quantity"
                 className="flex-1 border rounded px-3 py-2"
                 value={quantities[index] || ""}
                 onChange={(e) => handleQuantityChange(index, e.target.value)}
-              />}
-            {singleUnit ? (
+              />
+            )}
+
+            {!isDateField && (singleUnit ? (
               <span className="text-gray-700">{unitOptions[0].name}</span>
             ) : (
               <select
@@ -184,7 +280,7 @@ const DynamicActivityItemForm = ({
                   </option>
                 ))}
               </select>
-            )}
+            ))}
           </div>
         </div>
       );
@@ -232,16 +328,31 @@ const DynamicActivityItemForm = ({
     try {
       const event_time = new Date().toISOString().slice(0, 19);
 
+      // 🟨 Define flags for special a_ids
+      const specialAids: Record<number, string> = {
+        28: "PN",  // task metadata
+        29: "PH",  // Build task
+        30: "PT",  // Add action
+        31: "PT",  // Weekly action
+        32: "PT",  // Monthly action
+        33: "PT",  // Add event
+      };
+
+      const isSpecial = Object.keys(specialAids).map(Number).includes(a_id);
+      const flag = isSpecial ? specialAids[a_id] : "PN";
+
+      // 🔁 Override at_id if flag is "PT"
+      const finalAtId = (isSpecial) ? 302 : at_id;
       const payload: any = {
         a_id,
-        at_id,
-        flag: "PN",
+        at_id: finalAtId,
+        flag: isSpecial ? specialAids[a_id] : "PN",
         trigger,
-        is_active: true,
+        is_active: isSpecial ? "Y" : true,
         user_id: userId,
         event_time,
-        description: selectedSearchItem?.name || trigger,
-        cat_qty_id1: collectiveId,
+        description: selectedTaskDetails?.task_name || selectedSearchItem?.name || trigger,
+        cat_qty_id1: isSpecial ? selectedTaskDetails?.task_id : collectiveId,
         value1: "",
         value2: "",
         value3: "",
@@ -261,30 +372,77 @@ const DynamicActivityItemForm = ({
 
         if (!itemList || itemList.length === 0) continue;
 
-        const isSearch = itemList[0].item_type?.toLowerCase()?.includes("search");
-        const isUnit = itemList[0].item_type?.toLowerCase()?.includes("unit");
-        const isCategory = itemList[0].item_type?.toLowerCase()?.includes("category");
+        const itemType = itemList[0].item_type?.toLowerCase() || "";
 
-        // Unit (Time) — Quantity in value, unit_id in cat_qty_id
-        if (isUnit) {
-          payload[`value${i}`] = quantities[i] || "";
+        const unitOptions = itemList.filter((x: any) => x.unit_id);
+        const isTextUnit = unitOptions.length === 1 && unitOptions[0].name?.toLowerCase() === "text";
+
+        const isDateTimeField = unitOptions.some((u: any) =>
+          /hh:mm|date time|datetime/i.test(u.name || u.description || "")
+        );
+
+        const isDateField = unitOptions.some((u: any) =>
+          /date|mm\/dd\/yyyy|dd\/mm\/yyyy/i.test(u.name || u.description || "")
+        );
+
+        if (i === 2 && isDateField) {
+          const isoDate = selected || "";
+          const formattedDate = isoDate
+            ? `${isoDate.split("-")[2]}/${isoDate.split("-")[1]}/${isoDate.split("-")[0]}`
+            : "";
+
+          payload[`value2`] = formattedDate;
+          payload[`cat_qty_id2`] = 47;
+        } else if (itemType.includes("unit")) {
+          if (isDateTimeField && selected) {
+            // datetime: format "2025-06-30T14:30" → "30/06/2025 14:30"
+            const [datePart, timePart] = selected.split("T");
+            const [yyyy, mm, dd] = datePart.split("-");
+            const formatted = `${dd}/${mm}/${yyyy} ${timePart}`;
+            payload[`value${i}`] = formatted;
+          } else if (isDateField && selected) {
+            // fallback date
+            const [yyyy, mm, dd] = selected.split("-");
+            payload[`value${i}`] = `${dd}/${mm}/${yyyy}`;
+          } else {
+            payload[`value${i}`] = isTextUnit
+              ? values[i] || ""
+              : quantities[i] || "";
+          }
+
+          // Set cat_qty_id
+          payload[`cat_qty_id${i}`] = unitOptions.length === 1
+            ? unitOptions[0].unit_id
+            : Number(values[i]) || 0;
+        } else if (itemType.includes("category")) {
           payload[`cat_qty_id${i}`] = Number(selected) || 0;
-        }
-        // Search field — value only
-        else if (isSearch) {
+          payload[`value${i}`] = ""; // optional but safe
+        } else if (itemType.includes("search") || itemType.includes("text")) {
           payload[`value${i}`] = selected || "";
-        }
-        // Category field — store cat_id in cat_qty_id
-        else if (isCategory) {
-          payload[`cat_qty_id${i}`] = Number(selected) || 0;
-        }
-        // Fallback — value only
-        else {
+        } else {
           payload[`value${i}`] = selected || "";
         }
       }
 
-      await fetch("https://meseer.com/dog/user_activity_insert", {
+      // 🔧 Minimal adjustments for special a_ids
+      // Override fields for special MWB a_ids
+      if (a_id === 25) {
+        payload.cat_qty_id1 = selectedGoalDetails?.goalId || 0;
+      }
+
+
+      // ⬇️ Only override if subspace was selected
+      if (selectedSubspace) {
+        payload.cat_qty_id5 = selectedSubspace.subspace_id;
+        payload.value5 = selectedSubspace.name;
+      }
+
+      // 📡 Choose correct endpoint
+      const endpoint = (isSpecial && a_id != 30 && a_id != 28 && a_id != 33)
+        ? "https://meseer.com/dog//add-data/primary-mwb/"
+        : "https://meseer.com/dog/user_activity_insert";
+
+      await fetch(endpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -301,7 +459,6 @@ const DynamicActivityItemForm = ({
       setLoading(false);
     }
   };
-
 
   if (!isOpen) return null;
 

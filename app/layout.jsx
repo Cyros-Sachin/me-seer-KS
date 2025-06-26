@@ -1,8 +1,9 @@
 // app/layout.jsx
 import "./globals.css";
 import { Inter } from "next/font/google";
-import GoogleProviderWrapper from "./components/GoogleProviderWrapper";
 import { Toaster } from "react-hot-toast";
+import { AppProviders } from "./providers"; // ✅ Import client wrapper
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
@@ -15,9 +16,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={inter.className}>
         <Toaster position="top-right" reverseOrder={false} />
-        <GoogleProviderWrapper>
-          {children}
-        </GoogleProviderWrapper>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
