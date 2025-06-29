@@ -12,7 +12,7 @@ const DynamicActivityItemForm = ({
   onClose,
   onSuccess,
   selectedTaskDetails,
-  selectedGoalDetails 
+  selectedGoalDetails
 }: {
   a_id: number;
   at_id: number;
@@ -228,12 +228,23 @@ const DynamicActivityItemForm = ({
       const isDateTimeField = unitOptions.some((u: any) =>
         /hh:mm|date time|datetime/i.test(u.name || u.description || "")
       );
+      const isTimeField = unitOptions.some((u: any) =>
+        /^hh:mm$/i.test(u.name || u.description || "")
+      );
+
 
       return (
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
           <div className="flex gap-3 items-center">
-            {isDateTimeField ? (
+            {isTimeField ? (
+              <input
+                type="time"
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              />
+            ) : isDateTimeField ? (
               <input
                 type="datetime-local"
                 className="flex-1 border rounded px-3 py-2"
@@ -385,6 +396,11 @@ const DynamicActivityItemForm = ({
           /date|mm\/dd\/yyyy|dd\/mm\/yyyy/i.test(u.name || u.description || "")
         );
 
+        const isTimeField = unitOptions.some((u: any) =>
+          /^hh:mm$/i.test(u.name || u.description || "")
+        );
+
+
         if (i === 2 && isDateField) {
           const isoDate = selected || "";
           const formattedDate = isoDate
@@ -394,13 +410,17 @@ const DynamicActivityItemForm = ({
           payload[`value2`] = formattedDate;
           payload[`cat_qty_id2`] = 47;
         } else if (itemType.includes("unit")) {
-          if (isDateTimeField && selected) {
-            // datetime: format "2025-06-30T14:30" → "30/06/2025 14:30"
+          if (isTimeField && selected) {
+            // time-only field (HH:mm)
+            payload[`value${i}`] = selected; // example: "14:30"
+          } else if (isDateTimeField && selected) {
+            // datetime-local (2025-06-30T14:30)
             const [datePart, timePart] = selected.split("T");
             const [yyyy, mm, dd] = datePart.split("-");
             const formatted = `${dd}/${mm}/${yyyy} ${timePart}`;
             payload[`value${i}`] = formatted;
-          } else if (isDateField && selected) {
+          }
+          else if (isDateField && selected) {
             // fallback date
             const [yyyy, mm, dd] = selected.split("-");
             payload[`value${i}`] = `${dd}/${mm}/${yyyy}`;
@@ -438,7 +458,7 @@ const DynamicActivityItemForm = ({
       }
 
       // 📡 Choose correct endpoint
-      const endpoint = (isSpecial && a_id != 30 && a_id != 28 && a_id != 33)
+      const endpoint = (isSpecial && (a_id === 29 || a_id === 33))
         ? "https://meseer.com/dog//add-data/primary-mwb/"
         : "https://meseer.com/dog/user_activity_insert";
 

@@ -47,9 +47,10 @@ type Props = {
   userId: string;
   collectiveId: number;
   activityItems: ActivityItem[];
+  realCollectiveId?: number; 
 };
 
-export default function DynamicActivityDetails({ userId, collectiveId, activityItems }: Props) {
+export default function DynamicActivityDetails({ userId, realCollectiveId,collectiveId, activityItems }: Props) {
   const [dataMap, setDataMap] = useState<Record<number, MWBEntry[]>>({});
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
@@ -65,7 +66,8 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
         item.a_id = 24;
       }
       try {
-        const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${collectiveId}`, {
+        const correctCollectiveId = item.a_id === 29 ? realCollectiveId : collectiveId;
+        const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${correctCollectiveId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
@@ -280,7 +282,11 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                   const options = Array.isArray(unitList) ? unitList : [];
                   const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
                   const isUnitField = !!selectedUnit?.unit_id || i === 4;
-                  const displayValue = value;
+                  const displayValue =
+                    value && value !== "None"
+                      ? value
+                      : selectedUnit?.name || "";
+
                   const unitValue = selectedUnit?.name;
 
                   if (!displayValue && !unitValue) return [];
@@ -313,12 +319,12 @@ export default function DynamicActivityDetails({ userId, collectiveId, activityI
                         )}
                       </div>
 
-                      {unitValue && (
+                      {unitValue && selectedUnit?.unit_id && (
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-gray-500">Unit</label>
                           {isEditing ? (
                             <select
-                              value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || "")}
+                              value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || selectedUnit?.cat_id || "")}
                               onChange={(e) =>
                                 setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
                               }

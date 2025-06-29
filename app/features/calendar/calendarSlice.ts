@@ -1,5 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
+import { createSlice, PayloadAction, createAction } from '@reduxjs/toolkit';
 export interface Task {
   id: string;
   title: string;
@@ -65,8 +64,11 @@ const calendarSlice = createSlice({
     deleteEvent(state: { events: any[]; }, action: PayloadAction<string>) {
       state.events = state.events.filter((e: { id: any; }) => e.id !== action.payload);
     },
-    addGoal(state: { goals: any[]; }, action: PayloadAction<Goal>) {
-      state.goals.push(action.payload);
+    addGoal: (state, action) => {
+      const exists = state.goals.some(g => g.id === action.payload.id);
+      if (!exists) {
+        state.goals.push(action.payload);
+      }
     },
     updateGoal(state: { goals: any[]; }, action: PayloadAction<Goal>) {
       const index = state.goals.findIndex((g: { id: any; }) => g.id === action.payload.id);
@@ -97,6 +99,9 @@ const calendarSlice = createSlice({
     selectGoal(state: { selectedGoalId: any; }, action: PayloadAction<string | null>) {
       state.selectedGoalId = action.payload;
     },
+    resetGoals: (state) => {
+      state.goals = [];
+    },
   },
 });
 
@@ -112,7 +117,7 @@ export const {
   addTask,
   updateTask,
   deleteTask,
-  selectGoal,
+  selectGoal, resetGoals,
 } = calendarSlice.actions;
 
 export default calendarSlice.reducer;

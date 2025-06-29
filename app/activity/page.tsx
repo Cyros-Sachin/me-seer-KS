@@ -1541,6 +1541,7 @@ function ActivityPage() {
                                 userId={getUserId()}
                                 collectiveId={selectedTaskDetails.task_id}
                                 activityItems={enrichedItems}
+                                realCollectiveId = {selectedTaskDetails.collective_id}
                             />
                         </div>
                     </motion.div>

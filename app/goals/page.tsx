@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, X, Settings, Calendar, List, Grid, Edi
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
+import { resetGoals } from '../features/calendar/calendarSlice';
 import {
   setSelectedDate,
   setViewMode,
@@ -88,21 +89,26 @@ const GoalsPage = () => {
   const [timeSlotClicked, setTimeSlotClicked] = useState<{ time: Date; day: Date } | null>(null);
   const [showGoalInput, setShowGoalInput] = useState(false);
   const [showTaskInput, setShowTaskInput] = useState(false);
+  const goalsFromRedux = useSelector((state: RootState) => state.calendar.goals);
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        dispatch(resetGoals());
         const userId = getUserId();
         const token = getUserToken();
 
         const goals = await fetchGoalsAndTasks(userId, token);
-        console.log("Goals response:", goals);
+        console.log("Fetched goals:", goals.map(g => g.id)); // See if duplicate IDs
 
         if (!Array.isArray(goals)) {
           console.error("goals is not an array", goals);
           return;
         }
-        goals.forEach(g => dispatch(addGoal(g)));
+        const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
+        goals
+          .filter(g => !existingGoalIds.has(g.id))
+          .forEach(g => dispatch(addGoal(g)));
 
         for (const goal of goals) {
           if (!goal) continue;
@@ -413,7 +419,7 @@ const GoalsPage = () => {
                     className="w-3 h-3 rounded-full mr-2"
                     style={{ backgroundColor: goal.color }}
                   />
-                  <span className="font-medium">{goal.title}</span>
+                  <span className="font-semibold text-black">{goal.title}</span>
                 </div>
                 <ChevronDown
                   size={16}
@@ -538,7 +544,7 @@ const GoalsPage = () => {
                 </button>
                 <button
                   onClick={() => dispatch(setSelectedDate(new Date().toISOString()))}
-                  className="px-3 py-1 text-sm font-medium rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  className="px-3 py-1 text-sm text-black font-medium rounded-md bg-blue-50 hover:bg-blue-100"
                 >
                   Today
                 </button>
@@ -549,7 +555,7 @@ const GoalsPage = () => {
                   <ChevronRight size={20} />
                 </button>
               </div>
-              <span className="text-lg font-semibold">
+              <span className="text-lg font-semibold text-black">
                 {viewMode === 'day' && formatDate(selectedDate)}
                 {viewMode === 'week' && `
                   ${formatDate(weekDays[0])} - 
@@ -564,19 +570,19 @@ const GoalsPage = () => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => handleViewModeChange('day')}
-                className={`px-3 py-1 text-sm rounded-md ${viewMode === 'day' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                className={`px-3 py-1 text-sm text-black rounded-md ${viewMode === 'day' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
               >
                 Day
               </button>
               <button
                 onClick={() => handleViewModeChange('week')}
-                className={`px-3 py-1 text-sm rounded-md ${viewMode === 'week' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                className={`px-3 py-1 text-sm text-black rounded-md ${viewMode === 'week' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
               >
                 Week
               </button>
               <button
                 onClick={() => handleViewModeChange('month')}
-                className={`px-3 py-1 text-sm rounded-md ${viewMode === 'month' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
+                className={`px-3 py-1 text-sm text-black rounded-md ${viewMode === 'month' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
               >
                 Month
               </button>
@@ -593,7 +599,7 @@ const GoalsPage = () => {
                 <div className="border-r p-2"></div>
                 {weekDays.map((day) => (
                   <div key={day.toString()} className="p-2 text-center">
-                    <div className="text-sm font-medium">
+                    <div className="text-sm font-medium text-black">
                       {day.toLocaleDateString([], { weekday: 'short' })}
                     </div>
                     <div
