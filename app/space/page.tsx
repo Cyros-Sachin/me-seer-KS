@@ -301,7 +301,7 @@ export default function SpacePage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskContent, setEditingTaskContent] = useState<string>('');
   const [gridCols, setGridCols] = useState(3); // default: 3 per row
-  
+
   const cycleGridCols = () => {
     setGridCols((prev) => (prev >= 3 ? 1 : prev + 1)); // 1 → 2 → 3 → 4 → 1 ...
   };
@@ -322,7 +322,19 @@ export default function SpacePage() {
     visible: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: -10 },
   };
-  
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTodoId === maximizedTodo?.todo_id) {
+      const input = nameInputRef.current;
+      if (input) {
+        input.focus(); // Show cursor
+        input.setSelectionRange(input.value.length, input.value.length); // Place cursor at end
+      }
+    }
+  }, [editingTodoId, maximizedTodo]);
+
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
@@ -679,6 +691,7 @@ export default function SpacePage() {
       setTodos(prev =>
         prev.map(t => (t.todo_id === todoId ? { ...t, name: newName } : t))
       );
+      setMaximizedTodo(p => p && p.todo_id === todoId ? { ...p, name: newName } : p);
     } catch (error) {
       console.error("Rename failed:", error);
     }
@@ -1103,8 +1116,10 @@ export default function SpacePage() {
 
                                                   const isCurrent = (() => {
                                                     if (todo.refresh_type === 'daily') {
-                                                      return now.toDateString() === itemDate.toDateString();
-                                                    } else if (todo.refresh_type === 'weekly') {
+                                                      const diffMs = now.getTime() - itemDate.getTime();
+                                                      return diffMs < 24 * 60 * 60 * 1000;   // keep as current for 24 h
+                                                    }
+                                                    else if (todo.refresh_type === 'weekly') {
                                                       const startOfWeek = new Date(now);
                                                       startOfWeek.setDate(now.getDate() - now.getDay());
                                                       const endOfWeek = new Date(startOfWeek);
@@ -1138,7 +1153,7 @@ export default function SpacePage() {
                                                           onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
                                                           className="accent-blue-600 w-4 h-4 rounded"
                                                         />
-                                                        {editingTaskId === item.tc_id ? (
+                                                        {!maximizedTodo && (editingTaskId === item.tc_id) ? (
                                                           <input
                                                             className="text-sm text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none"
                                                             value={editingTaskContent}
@@ -1230,6 +1245,13 @@ export default function SpacePage() {
                                                     [todo.todo_id]: e.target.value,
                                                   }))
                                                 }
+                                                onBlur={() => {                                     // ⬅ NEW
+                                                  setNewTaskContentMap(prev => {
+                                                    const updated = { ...prev };
+                                                    delete updated[todo.todo_id];                   // same effect as Esc
+                                                    return updated;
+                                                  });
+                                                }}
                                                 onKeyDown={async (e) => {
                                                   if (e.key === "Enter") {
                                                     const content = newTaskContentMap[todo.todo_id].trim();
@@ -1266,12 +1288,7 @@ export default function SpacePage() {
                                                         setTodos(updatedTodos);
                                                       }
 
-                                                      setNewTaskContentMap((prev) => {
-                                                        const updated = { ...prev };
-                                                        delete updated[todo.todo_id];
-                                                        return updated;
-                                                      });
-
+                                                      setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }));
                                                     }
                                                     catch (err) {
                                                       console.error("Failed to add task:", err);
@@ -1872,7 +1889,6 @@ export default function SpacePage() {
                         setEditingTodoId(null);
                       }
                     }}
-                    autoFocus
                   />
                 ) : (
                   <h2
@@ -1880,6 +1896,7 @@ export default function SpacePage() {
                     onClick={() => {
                       setEditingTodoId(maximizedTodo.todo_id);
                       setEditingName(maximizedTodo.name);
+                      console.log("Clicked")
                     }}
                     title="Click to rename"
                   >
@@ -1934,8 +1951,10 @@ export default function SpacePage() {
 
                     const isCurrent = (() => {
                       if (maximizedTodo.refresh_type === 'daily') {
-                        return now.toDateString() === itemDate.toDateString();
-                      } else if (maximizedTodo.refresh_type === 'weekly') {
+                        const diffMs = now.getTime() - itemDate.getTime();
+                        return diffMs < 24 * 60 * 60 * 1000;   // keep as current for 24 h
+                      }
+                      else if (maximizedTodo.refresh_type === 'weekly') {
                         const start = new Date(now);
                         start.setDate(now.getDate() - now.getDay());
                         const end = new Date(start);
@@ -1970,7 +1989,43 @@ export default function SpacePage() {
                             onChange={() => handleToggleCheck(maximizedTodo.todo_id, item.tc_id)}
                             className="accent-blue-600 w-4 h-4 rounded"
                           />
-                          <span className="text-sm text-gray-800 truncate w-full">{item.content}</span>
+                          {editingTaskId === item.tc_id ? (
+                            <input
+                              className="text-sm text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none"
+                              value={editingTaskContent}
+                              onChange={(e) => setEditingTaskContent(e.target.value)}
+
+                              onKeyDown={async (e) => {
+                                if (e.key === 'Enter') {
+                                  if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                    await updateCheckStatus({ ...item, content: editingTaskContent });
+                                    const userId = getUserId();
+                                    if (activeSubspace) {
+                                      const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+                                      setTodos(updatedTodos);
+                                      const fresh = updatedTodos.find(t => t.todo_id === maximizedTodo?.todo_id);
+                                      setMaximizedTodo(fresh ?? null);
+                                    }
+                                  }
+                                  setEditingTaskId(null);
+                                } else if (e.key === 'Escape') {
+                                  setEditingTaskId(null);
+                                  setEditingTaskContent(item.content);
+                                }
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className="text-sm text-gray-800 truncate w-full cursor-pointer"
+                              onClick={() => {
+                                setEditingTaskId(item.tc_id);
+                                setEditingTaskContent(item.content);
+                              }}
+                            >
+                              {item.content}
+                            </span>
+                          )}
                         </div>
 
                         <motion.button

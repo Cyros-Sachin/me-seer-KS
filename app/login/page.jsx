@@ -44,7 +44,7 @@ export default function LoginPage() {
 
   const handleSubmit = async () => {
     if (!validate()) return;
-
+    console.log("aya");
     try {
       const url = `${process.env.NEXT_PUBLIC_API_URL}/${isForgot ? 'forgot-password' : isSignup ? 'signup' : 'login'}`;
       const body = isForgot

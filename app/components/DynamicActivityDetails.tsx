@@ -65,6 +65,9 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
       if (item.a_id === 26) {
         item.a_id = 24;
       }
+      if ((item.a_id === 24 ||item.a_id === 25)&&realCollectiveId) {
+        return;
+      }
       try {
         const correctCollectiveId = (item.a_id === 29 || item.a_id === 33) ? realCollectiveId : collectiveId;
         const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${correctCollectiveId}`, {
