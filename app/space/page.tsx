@@ -846,7 +846,14 @@ export default function SpacePage() {
   const allCollapsed = todos.length > 0 && todos.every(todo =>
     collapsedTodos.includes(String(todo.todo_id))
   );
+  useEffect(() => {
+    if (!maximizedTodo) return;          // nothing maximised
 
+    const fresh = todos.find(t => t.todo_id === maximizedTodo.todo_id);
+    if (fresh && fresh !== maximizedTodo) {
+      setMaximizedTodo(fresh);           // trigger re‑render
+    }
+  }, [todos]);
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
       {/* Left Panel */}
@@ -951,39 +958,42 @@ export default function SpacePage() {
           )}
         </div>
         <div className="flex justify-end mb-4">
-          <button
-            onClick={cycleGridCols}
-            className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded shadow-sm transition"
-            title={`Change layout (${gridCols} per row)`}
-          >
-            <LayoutGrid className="w-4 h-4 text-gray-700" />
-            <span className="text-sm font-medium text-gray-700">{gridCols}</span>
-          </button>
-          <button
-            onClick={() => {
-              const allCollapsed = todos.every((todo) =>
-                collapsedTodos.includes(String(todo.todo_id))
-              );
-              if (allCollapsed) {
-                setCollapsedTodos([]); // expand all
-              } else {
-                setCollapsedTodos(todos.map((todo) => String(todo.todo_id))); // collapse all
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded shadow-sm transition text-gray-700 text-sm"
-          >
-            {todos.every((todo) => collapsedTodos.includes(String(todo.todo_id))) ? (
-              <>
-                <ChevronDown className="w-4 h-4" />
-                Expand All
-              </>
-            ) : (
-              <>
-                <ChevronUp className="w-4 h-4" />
-                Collapse All
-              </>
-            )}
-          </button>
+          {activeSpace && (
+            <>
+              <button
+                onClick={cycleGridCols}
+                className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded shadow-sm transition"
+                title={`Change layout (${gridCols} per row)`}
+              >
+                <LayoutGrid className="w-4 h-4 text-gray-700" />
+                <span className="text-sm font-medium text-gray-700">{gridCols}</span>
+              </button>
+              <button
+                onClick={() => {
+                  const allCollapsed = todos.every((todo) =>
+                    collapsedTodos.includes(String(todo.todo_id))
+                  );
+                  if (allCollapsed) {
+                    setCollapsedTodos([]); // expand all
+                  } else {
+                    setCollapsedTodos(todos.map((todo) => String(todo.todo_id))); // collapse all
+                  }
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded shadow-sm transition text-gray-700 text-sm"
+              >
+                {todos.every((todo) => collapsedTodos.includes(String(todo.todo_id))) ? (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Expand All
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    Collapse All
+                  </>
+                )}
+              </button>
+            </>)}
         </div>
 
         {/* Todo Cards */}
@@ -1302,6 +1312,7 @@ export default function SpacePage() {
                                                     });
                                                   }
                                                 }}
+                                                autoFocus
                                               />
                                             )}
 
@@ -2082,40 +2093,42 @@ export default function SpacePage() {
                       }))
                     }
                     onKeyDown={async (e) => {
+                      /* -------------- ENTER = add task -------------- */
                       if (e.key === "Enter") {
                         const content = newTaskContentMap[maximizedTodo.todo_id].trim();
                         if (!content) return;
 
+                        const userId = getUserId();
+                        const now = new Date().toISOString();
+                        const refresh_type = maximizedTodo.refresh_type || "daily";
+                        const version = "v1";
+
+                        const newTask = {
+                          tc_id: crypto.randomUUID(),
+                          content,
+                          checked: false,
+                          urgent: true,
+                          important: false,
+                          refresh_type,
+                          created_date: now,
+                          last_updated: now,
+                        };
+
+                        /* 1️⃣  Optimistic update */
+                        setTodos((prev) =>
+                          prev.map((t) =>
+                            t.todo_id === maximizedTodo.todo_id
+                              ? { ...t, contents: [newTask, ...(t as any).contents] }
+                              : t
+                          )
+                        );
+                        setMaximizedTodo((prev) =>
+                          prev ? { ...prev, contents: [newTask, ...(prev as any).contents] } : prev
+                        );
+
+                        /* 2️⃣  Persist to server */
                         try {
-                          const userId = getUserId();
-                          const now = new Date().toISOString();
-                          const refresh_type = maximizedTodo.refresh_type || "daily";
-                          const version = "v1";
-
-                          const newTask = {
-                            tc_id: crypto.randomUUID(),
-                            content,
-                            checked: false,
-                            urgent: true,
-                            important: false,
-                            refresh_type,
-                            created_date: now,
-                            last_updated: now,
-                          };
-
-                          setMaximizedTodo((prev: any) =>
-                            prev ? { ...prev, contents: [newTask, ...prev.contents] } : prev
-                          );
-
-                          setTodos((prev: any) =>
-                            prev.map((todo: any) =>
-                              todo.todo_id === maximizedTodo.todo_id
-                                ? { ...todo, contents: [newTask, ...todo.contents] }
-                                : todo
-                            )
-                          );
-
-                          await fetch(`https://meseer.com/dog/todo_content`, {
+                          await fetch("https://meseer.com/dog/todo_content", {
                             method: "POST",
                             headers: SpaceService.getHeaders(),
                             body: JSON.stringify({
@@ -2132,16 +2145,31 @@ export default function SpacePage() {
                             }),
                           });
 
-                          setNewTaskContentMap((prev) => {
-                            const updated = { ...prev };
-                            delete updated[maximizedTodo.todo_id];
-                            return updated;
-                          });
+                          /* 3️⃣  Refresh from server (keeps local state in sync) */
+                          if (activeSubspace) {
+                            const updatedTodos = await SpaceService.getTodoDataBySubspace(
+                              activeSubspace.subspace_id,
+                              userId
+                            );
+                            setTodos(updatedTodos);
+                            const updated = updatedTodos.find(
+                              (t) => t.todo_id === maximizedTodo.todo_id
+                            );
+                            if (updated) setMaximizedTodo(updated);
+                          }
                         } catch (err) {
                           console.error("Failed to add task:", err);
+                          // Optional: revert optimistic change if needed
                         }
+
+                        /* 4️⃣  Clear input */
+                        setNewTaskContentMap((prev) => ({
+                          ...prev,
+                          [maximizedTodo.todo_id]: "",
+                        }));
                       }
 
+                      /* -------------- ESC = cancel -------------- */
                       if (e.key === "Escape") {
                         setNewTaskContentMap((prev) => {
                           const updated = { ...prev };
@@ -2152,6 +2180,7 @@ export default function SpacePage() {
                     }}
                   />
                 )}
+
               </div>
             </div>
 
