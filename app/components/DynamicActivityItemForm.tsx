@@ -27,7 +27,7 @@ const DynamicActivityItemForm = ({
     goalName: string;
     tasks: any[];
   };
-  selectedTaskDetails?: { task_id: number; task_name: string }; // ✅ optional type
+  selectedTaskDetails?: { task_id: number; task_name: string ;collective_id : number}; // ✅ optional type
 }) => {
   const [template, setTemplate] = useState<any>({});
   const [values, setValues] = useState<Record<number, string>>({});
@@ -40,7 +40,6 @@ const DynamicActivityItemForm = ({
   const [subspaces, setSubspaces] = useState<{ subspace_id: number; name: string }[]>([]);
   const [selectedSubspace, setSelectedSubspace] = useState<{ subspace_id: number; name: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-
 
   useEffect(() => {
     if (!isOpen || !a_id) return;
@@ -363,7 +362,7 @@ const DynamicActivityItemForm = ({
         user_id: userId,
         event_time,
         description: selectedTaskDetails?.task_name || selectedSearchItem?.name || trigger,
-        cat_qty_id1: isSpecial ? selectedTaskDetails?.task_id : collectiveId,
+        cat_qty_id1: (isSpecial && a_id!=33) ? selectedTaskDetails?.task_id : (a_id==33 ? selectedTaskDetails?.collective_id :collectiveId),
         value1: "",
         value2: "",
         value3: "",
@@ -458,7 +457,7 @@ const DynamicActivityItemForm = ({
       }
 
       // 📡 Choose correct endpoint
-      const endpoint = (isSpecial && (a_id === 29 || a_id === 33))
+      const endpoint = (isSpecial && (a_id === 29))
         ? "https://meseer.com/dog//add-data/primary-mwb/"
         : "https://meseer.com/dog/user_activity_insert";
 

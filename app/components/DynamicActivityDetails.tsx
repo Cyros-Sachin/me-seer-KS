@@ -66,7 +66,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
         item.a_id = 24;
       }
       try {
-        const correctCollectiveId = item.a_id === 29 ? realCollectiveId : collectiveId;
+        const correctCollectiveId = (item.a_id === 29 || item.a_id === 33) ? realCollectiveId : collectiveId;
         const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${correctCollectiveId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
