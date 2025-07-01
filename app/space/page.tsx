@@ -322,17 +322,6 @@ export default function SpacePage() {
     visible: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: -10 },
   };
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingTodoId === maximizedTodo?.todo_id) {
-      const input = nameInputRef.current;
-      if (input) {
-        input.focus(); // Show cursor
-        input.setSelectionRange(input.value.length, input.value.length); // Place cursor at end
-      }
-    }
-  }, [editingTodoId, maximizedTodo]);
 
 
   useEffect(() => {
@@ -1039,8 +1028,14 @@ export default function SpacePage() {
                                     {/* Header */}
                                     <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
                                       <div className="flex items-center min-w-0">
-                                        {editingTodoId === todo.todo_id ? (
+                                        {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
                                           <input
+                                            ref={(el) => {
+                                              if (el) {
+                                                el.focus();                              // focus
+                                                el.setSelectionRange(el.value.length, el.value.length); // caret at end
+                                              }
+                                            }}
                                             className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
                                             value={editingName}
                                             onChange={(e) => setEditingName(e.target.value)}
@@ -1180,7 +1175,7 @@ export default function SpacePage() {
                                                               setEditingTaskId(null);
                                                             }}
                                                             onKeyDown={async (e) => {
-                                                              if (e.key === 'Enter') {
+                                                              if ((e.key === 'Enter')) {
                                                                 if (editingTaskContent.trim() && editingTaskContent !== item.content) {
                                                                   await updateCheckStatus({ ...item, content: editingTaskContent });
                                                                   const userId = getUserId();
@@ -1243,8 +1238,9 @@ export default function SpacePage() {
 
 
                                             {/* New Task Input */}
-                                            {newTaskContentMap[todo.todo_id] !== undefined && (
+                                            {!maximizedTodo && (newTaskContentMap[todo.todo_id] !== undefined) && (
                                               <input
+                                                autoFocus
                                                 type="text"
                                                 className="w-full border px-2 py-1 text-sm rounded"
                                                 placeholder="Enter task and press Enter"
@@ -1297,8 +1293,16 @@ export default function SpacePage() {
                                                         );
                                                         setTodos(updatedTodos);
                                                       }
-
-                                                      setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }));
+                                                      // Check if shift key was held
+                                                      if (e.shiftKey) {
+                                                        setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }));
+                                                      } else {
+                                                        setNewTaskContentMap(prev => {
+                                                          const updated = { ...prev };
+                                                          delete updated[todo.todo_id];
+                                                          return updated;
+                                                        });
+                                                      }
                                                     }
                                                     catch (err) {
                                                       console.error("Failed to add task:", err);
@@ -1312,7 +1316,7 @@ export default function SpacePage() {
                                                     });
                                                   }
                                                 }}
-                                                autoFocus
+
                                               />
                                             )}
 
@@ -2080,8 +2084,10 @@ export default function SpacePage() {
                   );
                 })()}
 
+                {/* ⬇ inside the maximised‑todo panel */}
                 {newTaskContentMap[maximizedTodo.todo_id] !== undefined && (
                   <input
+                    autoFocus
                     type="text"
                     className="w-full border px-2 py-1 text-sm rounded"
                     placeholder="Enter task and press Enter"
@@ -2092,17 +2098,25 @@ export default function SpacePage() {
                         [maximizedTodo.todo_id]: e.target.value,
                       }))
                     }
+                    /* -------- lose the box on click‑away -------- */
+                    onBlur={() =>
+                      setNewTaskContentMap((prev) => {
+                        const updated = { ...prev };
+                        delete updated[maximizedTodo.todo_id];
+                        return updated;
+                      })
+                    }
                     onKeyDown={async (e) => {
-                      /* -------------- ENTER = add task -------------- */
+                      /* ---------------- ENTER = add task ---------------- */
                       if (e.key === "Enter") {
                         const content = newTaskContentMap[maximizedTodo.todo_id].trim();
                         if (!content) return;
 
+                        /* 🔸 build task payload */
                         const userId = getUserId();
                         const now = new Date().toISOString();
                         const refresh_type = maximizedTodo.refresh_type || "daily";
                         const version = "v1";
-
                         const newTask = {
                           tc_id: crypto.randomUUID(),
                           content,
@@ -2114,7 +2128,7 @@ export default function SpacePage() {
                           last_updated: now,
                         };
 
-                        /* 1️⃣  Optimistic update */
+                        /* 1️⃣ optimistic UI update */
                         setTodos((prev) =>
                           prev.map((t) =>
                             t.todo_id === maximizedTodo.todo_id
@@ -2126,7 +2140,7 @@ export default function SpacePage() {
                           prev ? { ...prev, contents: [newTask, ...(prev as any).contents] } : prev
                         );
 
-                        /* 2️⃣  Persist to server */
+                        /* 2️⃣ persist to server */
                         try {
                           await fetch("https://meseer.com/dog/todo_content", {
                             method: "POST",
@@ -2145,7 +2159,7 @@ export default function SpacePage() {
                             }),
                           });
 
-                          /* 3️⃣  Refresh from server (keeps local state in sync) */
+                          /* 3️⃣ refresh from server for consistency */
                           if (activeSubspace) {
                             const updatedTodos = await SpaceService.getTodoDataBySubspace(
                               activeSubspace.subspace_id,
@@ -2159,17 +2173,27 @@ export default function SpacePage() {
                           }
                         } catch (err) {
                           console.error("Failed to add task:", err);
-                          // Optional: revert optimistic change if needed
+                          // (optional) revert optimistic update here
                         }
 
-                        /* 4️⃣  Clear input */
-                        setNewTaskContentMap((prev) => ({
-                          ...prev,
-                          [maximizedTodo.todo_id]: "",
-                        }));
+                        /* 4️⃣ keep or close the box */
+                        if (e.shiftKey) {
+                          /* Shift+Enter → save & leave a blank input */
+                          setNewTaskContentMap((prev) => ({
+                            ...prev,
+                            [maximizedTodo.todo_id]: "",
+                          }));
+                        } else {
+                          /* Enter → save & close */
+                          setNewTaskContentMap((prev) => {
+                            const updated = { ...prev };
+                            delete updated[maximizedTodo.todo_id];
+                            return updated;
+                          });
+                        }
                       }
 
-                      /* -------------- ESC = cancel -------------- */
+                      /* ---------------- ESC = cancel ---------------- */
                       if (e.key === "Escape") {
                         setNewTaskContentMap((prev) => {
                           const updated = { ...prev };
@@ -2180,7 +2204,6 @@ export default function SpacePage() {
                     }}
                   />
                 )}
-
               </div>
             </div>
 
