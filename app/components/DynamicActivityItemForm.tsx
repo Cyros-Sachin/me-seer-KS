@@ -27,7 +27,7 @@ const DynamicActivityItemForm = ({
     goalName: string;
     tasks: any[];
   };
-  selectedTaskDetails?: { task_id: number; task_name: string ;collective_id : number}; // ✅ optional type
+  selectedTaskDetails?: { task_id: number; task_name: string; collective_id: number }; // ✅ optional type
 }) => {
   const [template, setTemplate] = useState<any>({});
   const [values, setValues] = useState<Record<number, string>>({});
@@ -138,7 +138,9 @@ const DynamicActivityItemForm = ({
       return null;
 
     const itemMeta = items[0];
-    const label = (itemMeta.item_description || itemMeta.item_name || `Field ${index}`)
+    const itemId = Number(itemMeta.item_id);
+    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49 || itemId === 38; // show plain text input (for "What")
+    const label = (isWhatOverride ? itemMeta.item_name : itemMeta.item_description || itemMeta.item_name || `Field ${index}`)
       .replace(/^add\s+/i, "")
       .replace(/\bbased on.*$/i, "")
       .trim();
@@ -149,8 +151,6 @@ const DynamicActivityItemForm = ({
     ) {
       return null;
     }
-    const itemId = Number(itemMeta.item_id);
-    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49 || itemId === 38; // show plain text input (for "What")
     const isUnit = itemMeta.item_type?.toLowerCase()?.includes("unit");
     const isSearch = itemMeta.item_type?.toLowerCase()?.includes("search");
     const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
@@ -362,7 +362,7 @@ const DynamicActivityItemForm = ({
         user_id: userId,
         event_time,
         description: selectedTaskDetails?.task_name || selectedSearchItem?.name || trigger,
-        cat_qty_id1: (isSpecial && a_id!=33) ? selectedTaskDetails?.task_id : (a_id==33 ? selectedTaskDetails?.collective_id :collectiveId),
+        cat_qty_id1: (isSpecial && a_id != 33) ? selectedTaskDetails?.task_id : (a_id == 33 ? selectedTaskDetails?.collective_id : collectiveId),
         value1: "",
         value2: "",
         value3: "",
