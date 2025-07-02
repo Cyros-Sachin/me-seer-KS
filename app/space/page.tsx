@@ -2,18 +2,32 @@
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft, XCircle, X, ChevronLeft, ChevronUp, FileText, Clock } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, Sidebar, AlignLeft, XCircle, X, ChevronLeft, ChevronUp, FileText, Clock, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
 import SidebarPanel from "../components/SpaceSidebar"
 import { WordpadEditor } from "../components/WordpadEditor"
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  DropResult
-} from "@hello-pangea/dnd";
+import toast from "react-hot-toast";
 import { LayoutGrid } from "lucide-react"; // use any icon you like
+// At the top of your page
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
 
 // API Base URL
 import SideBar from "../components/SideBar";
@@ -301,20 +315,52 @@ export default function SpacePage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskContent, setEditingTaskContent] = useState<string>('');
   const [gridCols, setGridCols] = useState(3); // default: 3 per row
+  const sensors = useSensors(useSensor(PointerSensor));
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  function SortableTodo({
+    id,
+    children,
+  }: {
+    id: string;
+    children: (dragProps: {
+      setNodeRef: (el: HTMLElement | null) => void;
+      style: React.CSSProperties;
+      listeners: any;
+      attributes: any;
+      isDragging: boolean;
+    }) => React.ReactNode;
+  }) {
+    const {
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+      attributes,
+      listeners,
+    } = useSortable({ id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      zIndex: isDragging ? 10 : "auto",
+      position: "relative" as const,
+      boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : undefined,
+    };
+
+    return (
+      <motion.div
+        layout
+        animate={{ scale: isDragging ? 1.02 : 1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 24 }}
+      >
+        {children({ setNodeRef, style, listeners, attributes, isDragging })}
+      </motion.div>
+    );
+  }
 
   const cycleGridCols = () => {
     setGridCols((prev) => (prev >= 3 ? 1 : prev + 1)); // 1 → 2 → 3 → 4 → 1 ...
-  };
-
-  const handleDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
-    if (!destination) return;
-
-    const reordered = Array.from(todos);
-    const [moved] = reordered.splice(source.index, 1);
-    reordered.splice(destination.index, 0, moved);
-
-    setTodos(reordered);
   };
 
   const dropdownVariants = {
@@ -835,6 +881,47 @@ export default function SpacePage() {
   const allCollapsed = todos.length > 0 && todos.every(todo =>
     collapsedTodos.includes(String(todo.todo_id))
   );
+
+  const handleReuseItem = async (todoId: string, content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    const toastId = toast.loading("Reusing item...");
+
+    try {
+      const userId = getUserId();
+      const now = new Date().toISOString();
+      const refresh_type = todos.find(t => String(t.todo_id) === todoId)?.refresh_type || "daily";
+      const version = "v1";
+
+      await fetch(`https://meseer.com/dog/todo_content`, {
+        method: "POST",
+        headers: SpaceService.getHeaders(),
+        body: JSON.stringify({
+          todo_id: todoId,
+          user_id: userId,
+          content: trimmed,
+          checked: false,
+          urgent: true,
+          important: false,
+          version,
+          created_date: now,
+          last_updated: now,
+          refresh_type,
+        }),
+      });
+
+      if (activeSubspace) {
+        const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+        setTodos(updatedTodos);
+      }
+
+      toast.success("Task reused successfully!", { id: toastId });
+    } catch (err) {
+      console.error("Failed to reuse task:", err);
+      toast.error("Failed to reuse task.", { id: toastId });
+    }
+  };
   useEffect(() => {
     if (!maximizedTodo) return;          // nothing maximised
 
@@ -994,176 +1081,211 @@ export default function SpacePage() {
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
               {todos.length > 0 ? (
-                < DragDropContext onDragEnd={handleDragEnd}>
-                  <Droppable droppableId="todo-grid" direction="vertical">
-                    {(provided) => (
-                      <div
-                        className={`
-    grid gap-4
-    ${gridCols === 1 ? 'grid-cols-1' : ''}
-    ${gridCols === 2 ? 'grid-cols-2 gap-x-60' : ''}
-    ${gridCols === 3 ? 'grid-cols-3 gap-x-100' : ''}
-  `}
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                      >
-                        {todos.map((todo, index) => {
-                          const isCollapsed = collapsedTodos.includes(String(todo.todo_id));
-                          const currentView = todoViewMap[todo.todo_id] || 'unchecked';
-                          return (
-                            <Draggable key={String(todo.todo_id)} draggableId={String(todo.todo_id)} index={index}>
-                              {(provided) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                >
-                                  {/* ✅ Render your existing todo card here */}
-                                  <motion.div
-                                    key={todo.todo_id}
-                                    layout
-                                    transition={{ duration: 0.4 }}
-                                    className={`bg-white min-w-[320px] rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
-                                  >
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
-                                      <div className="flex items-center min-w-0">
-                                        {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
-                                          <input
-                                            ref={(el) => {
-                                              if (el) {
-                                                el.focus();                              // focus
-                                                el.setSelectionRange(el.value.length, el.value.length); // caret at end
-                                              }
-                                            }}
-                                            className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
-                                            value={editingName}
-                                            onChange={(e) => setEditingName(e.target.value)}
-                                            onBlur={() => {
-                                              if (editingName.trim() && editingName !== todo.name) {
-                                                handleRenameTodo(todo.todo_id, editingName.trim());
-                                              }
-                                              setEditingTodoId(null);
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") {
-                                                if (editingName.trim() && editingName !== todo.name) {
-                                                  handleRenameTodo(todo.todo_id, editingName.trim());
-                                                }
-                                                setEditingTodoId(null);
-                                              } else if (e.key === "Escape") {
-                                                setEditingName(todo.name);
-                                                setEditingTodoId(null);
-                                              }
-                                            }}
-                                            autoFocus
-                                          />
-                                        ) : (
-                                          <span
-                                            className="font-medium text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
-                                            onClick={() => {
-                                              setEditingTodoId(todo.todo_id);
-                                              setEditingName(todo.name);
-                                            }}
-                                            title="Click to rename"
-                                          >
-                                            {todo.name}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <Trash2
-                                        className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-                                        onClick={() => handleDeleteTodo(todo.todo_id)}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={({ active }) => {
+                    setActiveId(active.id as string);
+                  }}
+                  onDragEnd={({ active, over }) => {
+                    setActiveId(null);
+                    if (active.id !== over?.id) {
+                      const oldIndex = todos.findIndex(t => String(t.todo_id) === active.id);
+                      const newIndex = todos.findIndex(t => String(t.todo_id) === over?.id);
+                      const updated = arrayMove(todos, oldIndex, newIndex);
+                      setTodos(updated);
+                    }
+                  }}
+                >
+                  <SortableContext
+                    items={todos.map(todo => String(todo.todo_id))}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div
+                      className={`grid gap-4
+        ${gridCols === 1 ? 'grid-cols-1' : ''}
+        ${gridCols === 2 ? 'grid-cols-2 gap-x-60' : ''}
+        ${gridCols === 3 ? 'grid-cols-3 gap-x-100' : ''}`}
+                    >
+
+                      {todos.map((todo) => {
+                        const isCollapsed = collapsedTodos.includes(String(todo.todo_id));
+                        const currentView = todoViewMap[todo.todo_id] || 'unchecked';
+                        return (
+                          <SortableTodo key={todo.todo_id} id={String(todo.todo_id)}>
+                            {({ setNodeRef, style, listeners, attributes }) => (
+                              <motion.div
+                                key={todo.todo_id}
+                                layout
+                                transition={{ duration: 0.4 }}
+                                className={`bg-white min-w-[320px] rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
+                              >
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
+                                  <div className="flex items-center min-w-0">
+                                    {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
+                                      <input
+                                        ref={(el) => {
+                                          if (el) {
+                                            el.focus();                              // focus
+                                            el.setSelectionRange(el.value.length, el.value.length); // caret at end
+                                          }
+                                        }}
+                                        className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
+                                        value={editingName}
+                                        onChange={(e) => setEditingName(e.target.value)}
+                                        onBlur={() => {
+                                          if (editingName.trim() && editingName !== todo.name) {
+                                            handleRenameTodo(todo.todo_id, editingName.trim());
+                                          }
+                                          setEditingTodoId(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            if (editingName.trim() && editingName !== todo.name) {
+                                              handleRenameTodo(todo.todo_id, editingName.trim());
+                                            }
+                                            setEditingTodoId(null);
+                                          } else if (e.key === "Escape") {
+                                            setEditingName(todo.name);
+                                            setEditingTodoId(null);
+                                          }
+                                        }}
+                                        autoFocus
                                       />
-                                    </div>
+                                    ) : (
+                                      <span
+                                        className="font-medium text-gray-800 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                                        onClick={() => {
+                                          setEditingTodoId(todo.todo_id);
+                                          setEditingName(todo.name);
+                                        }}
+                                        title="Click to rename"
+                                      >
+                                        {todo.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Trash2
+                                    className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                    onClick={() => handleDeleteTodo(todo.todo_id)}
+                                  />
+                                </div>
 
-                                    {/* Collapsible Content */}
-                                    <AnimatePresence initial={false}>
-                                      {!isCollapsed && (
-                                        <motion.div
-                                          key={todo.todo_id}
-                                          initial={{ height: 0, opacity: 0 }}
-                                          animate={{ height: "auto", opacity: 1 }}
-                                          exit={{ height: 0, opacity: 0 }}
-                                          transition={{ duration: 0.4 }}
-                                          className="overflow-hidden"
-                                        >
-                                          <div className="px-3 py-4 space-y-2 h-60 overflow-y-auto">
-                                            {(() => {
-                                              const historyItems = (todo as any).contents || [];
-                                              const validRefreshType = ['daily', 'weekly', 'monthly'].includes(todo.refresh_type || '')
-                                                ? (todo.refresh_type as 'daily' | 'weekly' | 'monthly')
-                                                : 'daily';
+                                {/* Collapsible Content */}
+                                <AnimatePresence initial={false}>
+                                  {!isCollapsed && (
+                                    <motion.div
+                                      key={todo.todo_id}
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.4 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="px-3 py-4 space-y-2 h-60 overflow-y-auto">
+                                        {(() => {
+                                          const historyItems = (todo as any).contents || [];
+                                          const validRefreshType = ['daily', 'weekly', 'monthly'].includes(todo.refresh_type || '')
+                                            ? (todo.refresh_type as 'daily' | 'weekly' | 'monthly')
+                                            : 'daily';
 
-                                              const grouped = groupByRefreshTypeDate(historyItems, validRefreshType);
+                                          const grouped = groupByRefreshTypeDate(historyItems, validRefreshType);
 
-                                              return currentView === "history" ? (
-                                                Object.entries(grouped).map(([date, items]) => (
-                                                  <div key={date} className="mb-4 ">
-                                                    <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
-                                                    <ul className="mt-2 space-y-1">
-                                                      {items.map((item: any) => (
-                                                        <li key={item.tc_id} className="flex items-center gap-2">
+                                          return currentView === "history" ? (
+                                            [...Object.entries(grouped)]
+                                              .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime()) // 📉 descending
+                                              .map(([date, items]) => (
+                                                <div key={date} className="mb-4">
+                                                  <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
+                                                  <ul className="mt-2 space-y-1">
+                                                    {items.map((item: any) => (
+                                                      <li key={item.tc_id} className="flex items-center gap-2 justify-between">
+                                                        <div className="flex items-center gap-2">
                                                           <input type="checkbox" checked={item.checked} readOnly />
                                                           <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
                                                             {item.content}
                                                           </span>
-                                                        </li>
-                                                      ))}
-                                                    </ul>
-                                                  </div>
-                                                ))
-                                              ) : (
-                                                // fallback to your existing view logic for unchecked/checked
-                                                (todo as any).contents?.filter((item: any) => {
-                                                  const now = new Date();
-                                                  const itemDate = new Date(item.last_updated);
+                                                        </div>
 
-                                                  const isCurrent = (() => {
-                                                    if (todo.refresh_type === 'daily') {
-                                                      const diffMs = now.getTime() - itemDate.getTime();
-                                                      return diffMs < 24 * 60 * 60 * 1000;   // keep as current for 24 h
-                                                    }
-                                                    else if (todo.refresh_type === 'weekly') {
-                                                      const startOfWeek = new Date(now);
-                                                      startOfWeek.setDate(now.getDate() - now.getDay());
-                                                      const endOfWeek = new Date(startOfWeek);
-                                                      endOfWeek.setDate(startOfWeek.getDate() + 6);
-                                                      return itemDate >= startOfWeek && itemDate <= endOfWeek;
-                                                    } else if (todo.refresh_type === 'monthly') {
-                                                      return now.getMonth() === itemDate.getMonth() &&
-                                                        now.getFullYear() === itemDate.getFullYear();
-                                                    }
-                                                    return true;
-                                                  })();
+                                                        {/* ♻️ Reuse Button */}
+                                                        <button
+                                                          onClick={() => handleReuseItem(todo.todo_id, item.content)}
+                                                          className="p-1 rounded hover:bg-blue-100 text-blue-600 transition"
+                                                          title="Reuse this item"
+                                                        >
+                                                          <RotateCcw className="w-4 h-4" />
+                                                        </button>
+                                                      </li>
+                                                    ))}
 
-                                                  if (!isCurrent) return false;
-                                                  if (currentView === "unchecked") return !item.checked;
-                                                  if (currentView === "checked") return item.checked;
+                                                  </ul>
+                                                </div>
+                                              ))
+                                          )
+                                            : (
+                                              // fallback to your existing view logic for unchecked/checked
+                                              (todo as any).contents?.filter((item: any) => {
+                                                const now = new Date();
+                                                const itemDate = new Date(item.last_updated);
+
+                                                const isCurrent = (() => {
+                                                  if (todo.refresh_type === 'daily') {
+                                                    const diffMs = now.getTime() - itemDate.getTime();
+                                                    return diffMs < 24 * 60 * 60 * 1000;   // keep as current for 24 h
+                                                  }
+                                                  else if (todo.refresh_type === 'weekly') {
+                                                    const startOfWeek = new Date(now);
+                                                    startOfWeek.setDate(now.getDate() - now.getDay());
+                                                    const endOfWeek = new Date(startOfWeek);
+                                                    endOfWeek.setDate(startOfWeek.getDate() + 6);
+                                                    return itemDate >= startOfWeek && itemDate <= endOfWeek;
+                                                  } else if (todo.refresh_type === 'monthly') {
+                                                    return now.getMonth() === itemDate.getMonth() &&
+                                                      now.getFullYear() === itemDate.getFullYear();
+                                                  }
                                                   return true;
-                                                })
-                                                  .map((item: any) => (
-                                                    <motion.div
-                                                      key={`${todo.todo_id}-${item.tc_id}`}
-                                                      initial={{ opacity: 0, y: 5 }}
-                                                      animate={{ opacity: 1, y: 0 }}
-                                                      exit={{ opacity: 0, y: -5 }}
-                                                      transition={{ duration: 0.2 }}
-                                                      className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
-                                                    >
-                                                      <div className="flex items-center gap-3 overflow-hidden w-full">
+                                                })();
+
+                                                if (!isCurrent) return false;
+                                                if (currentView === "unchecked") return !item.checked;
+                                                if (currentView === "checked") return item.checked;
+                                                return true;
+                                              })
+                                                .map((item: any) => (
+                                                  <motion.div
+                                                    key={`${todo.todo_id}-${item.tc_id}`}
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -5 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="group flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition-all"
+                                                  >
+                                                    <div className="flex items-center gap-3 overflow-hidden w-full">
+                                                      <input
+                                                        type="checkbox"
+                                                        checked={item.checked}
+                                                        onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
+                                                        className="accent-blue-600 w-4 h-4 rounded"
+                                                      />
+                                                      {!maximizedTodo && (editingTaskId === item.tc_id) ? (
                                                         <input
-                                                          type="checkbox"
-                                                          checked={item.checked}
-                                                          onChange={() => handleToggleCheck(todo.todo_id, item.tc_id)}
-                                                          className="accent-blue-600 w-4 h-4 rounded"
-                                                        />
-                                                        {!maximizedTodo && (editingTaskId === item.tc_id) ? (
-                                                          <input
-                                                            className="text-sm text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none"
-                                                            value={editingTaskContent}
-                                                            onChange={(e) => setEditingTaskContent(e.target.value)}
-                                                            onBlur={async () => {
+                                                          className="text-sm text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none"
+                                                          value={editingTaskContent}
+                                                          onChange={(e) => setEditingTaskContent(e.target.value)}
+                                                          onBlur={async () => {
+                                                            if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                                              await updateCheckStatus({ ...item, content: editingTaskContent });
+                                                              const userId = getUserId();
+                                                              if (activeSubspace) {
+                                                                const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+                                                                setTodos(updatedTodos);
+                                                              }
+                                                            }
+                                                            setEditingTaskId(null);
+                                                          }}
+                                                          onKeyDown={async (e) => {
+                                                            if ((e.key === 'Enter')) {
                                                               if (editingTaskContent.trim() && editingTaskContent !== item.content) {
                                                                 await updateCheckStatus({ ...item, content: editingTaskContent });
                                                                 const userId = getUserId();
@@ -1173,229 +1295,226 @@ export default function SpacePage() {
                                                                 }
                                                               }
                                                               setEditingTaskId(null);
-                                                            }}
-                                                            onKeyDown={async (e) => {
-                                                              if ((e.key === 'Enter')) {
-                                                                if (editingTaskContent.trim() && editingTaskContent !== item.content) {
-                                                                  await updateCheckStatus({ ...item, content: editingTaskContent });
-                                                                  const userId = getUserId();
-                                                                  if (activeSubspace) {
-                                                                    const updatedTodos = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
-                                                                    setTodos(updatedTodos);
-                                                                  }
-                                                                }
-                                                                setEditingTaskId(null);
-                                                              } else if (e.key === 'Escape') {
-                                                                setEditingTaskId(null);
-                                                                setEditingTaskContent(item.content);
-                                                              }
-                                                            }}
-                                                            autoFocus
-                                                          />
-                                                        ) : (
-                                                          <span
-                                                            className="text-sm text-gray-800 truncate w-full cursor-pointer"
-                                                            onClick={() => {
-                                                              setEditingTaskId(item.tc_id);
+                                                            } else if (e.key === 'Escape') {
+                                                              setEditingTaskId(null);
                                                               setEditingTaskContent(item.content);
-                                                            }}
-                                                          >
-                                                            {item.content}
-                                                          </span>
-                                                        )}
-
-                                                      </div>
-                                                      <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={async () => {
-                                                          try {
-                                                            await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
-                                                              method: "DELETE",
-                                                              headers: SpaceService.getHeaders(),
-                                                            });
-                                                            const userId = getUserId();
-                                                            if (activeSubspace) {
-                                                              const updatedTodos = await SpaceService.getTodoDataBySubspace(
-                                                                activeSubspace.subspace_id,
-                                                                userId
-                                                              );
-                                                              setTodos(updatedTodos);
                                                             }
-                                                          } catch (err) {
-                                                            console.error("Failed to delete task:", err);
+                                                          }}
+                                                          autoFocus
+                                                        />
+                                                      ) : (
+                                                        <span
+                                                          className="text-sm text-gray-800 truncate w-full cursor-pointer"
+                                                          onClick={() => {
+                                                            setEditingTaskId(item.tc_id);
+                                                            setEditingTaskContent(item.content);
+                                                          }}
+                                                        >
+                                                          {item.content}
+                                                        </span>
+                                                      )}
+
+                                                    </div>
+                                                    <motion.button
+                                                      whileHover={{ scale: 1.1 }}
+                                                      whileTap={{ scale: 0.9 }}
+                                                      onClick={async () => {
+                                                        try {
+                                                          await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
+                                                            method: "DELETE",
+                                                            headers: SpaceService.getHeaders(),
+                                                          });
+                                                          const userId = getUserId();
+                                                          if (activeSubspace) {
+                                                            const updatedTodos = await SpaceService.getTodoDataBySubspace(
+                                                              activeSubspace.subspace_id,
+                                                              userId
+                                                            );
+                                                            setTodos(updatedTodos);
                                                           }
-                                                        }}
-                                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
-                                                        title="Delete Task"
-                                                      >
-                                                        ❌
-                                                      </motion.button>
-                                                    </motion.div>
-                                                  ))
-                                              );
-                                            })()}
+                                                        } catch (err) {
+                                                          console.error("Failed to delete task:", err);
+                                                        }
+                                                      }}
+                                                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 text-sm transition ml-2"
+                                                      title="Delete Task"
+                                                    >
+                                                      ❌
+                                                    </motion.button>
+                                                  </motion.div>
+                                                ))
+                                            );
+                                        })()}
 
 
-                                            {/* New Task Input */}
-                                            {!maximizedTodo && (newTaskContentMap[todo.todo_id] !== undefined) && (
-                                              <input
-                                                autoFocus
-                                                type="text"
-                                                className="w-full border px-2 py-1 text-sm rounded"
-                                                placeholder="Enter task and press Enter"
-                                                value={newTaskContentMap[todo.todo_id]}
-                                                onChange={(e) =>
-                                                  setNewTaskContentMap((prev) => ({
-                                                    ...prev,
-                                                    [todo.todo_id]: e.target.value,
-                                                  }))
-                                                }
-                                                onBlur={() => {                                     // ⬅ NEW
-                                                  setNewTaskContentMap(prev => {
-                                                    const updated = { ...prev };
-                                                    delete updated[todo.todo_id];                   // same effect as Esc
-                                                    return updated;
+                                        {/* New Task Input */}
+                                        {!maximizedTodo && (newTaskContentMap[todo.todo_id] !== undefined) && (
+                                          <input
+                                            autoFocus
+                                            type="text"
+                                            className="w-full border px-2 py-1 text-sm rounded"
+                                            placeholder="Enter task and press Enter"
+                                            value={newTaskContentMap[todo.todo_id]}
+                                            onChange={(e) =>
+                                              setNewTaskContentMap((prev) => ({
+                                                ...prev,
+                                                [todo.todo_id]: e.target.value,
+                                              }))
+                                            }
+                                            onBlur={() => {                                     // ⬅ NEW
+                                              setNewTaskContentMap(prev => {
+                                                const updated = { ...prev };
+                                                delete updated[todo.todo_id];                   // same effect as Esc
+                                                return updated;
+                                              });
+                                            }}
+                                            onKeyDown={async (e) => {
+                                              if (e.key === "Enter") {
+                                                const content = newTaskContentMap[todo.todo_id].trim();
+                                                if (!content) return;
+
+                                                try {
+                                                  const userId = getUserId();
+                                                  const now = new Date().toISOString();
+                                                  const refresh_type = todo.refresh_type || "daily"; // default fallback
+                                                  const version = "v1"; // hardcoded or adjust as needed
+
+                                                  await fetch(`https://meseer.com/dog/todo_content`, {
+                                                    method: "POST",
+                                                    headers: SpaceService.getHeaders(),
+                                                    body: JSON.stringify({
+                                                      todo_id: todo.todo_id,
+                                                      user_id: userId,
+                                                      content,
+                                                      checked: false,
+                                                      urgent: true,
+                                                      important: false,
+                                                      version,
+                                                      created_date: now,
+                                                      last_updated: now,
+                                                      refresh_type,
+                                                    }),
                                                   });
-                                                }}
-                                                onKeyDown={async (e) => {
-                                                  if (e.key === "Enter") {
-                                                    const content = newTaskContentMap[todo.todo_id].trim();
-                                                    if (!content) return;
 
-                                                    try {
-                                                      const userId = getUserId();
-                                                      const now = new Date().toISOString();
-                                                      const refresh_type = todo.refresh_type || "daily"; // default fallback
-                                                      const version = "v1"; // hardcoded or adjust as needed
-
-                                                      await fetch(`https://meseer.com/dog/todo_content`, {
-                                                        method: "POST",
-                                                        headers: SpaceService.getHeaders(),
-                                                        body: JSON.stringify({
-                                                          todo_id: todo.todo_id,
-                                                          user_id: userId,
-                                                          content,
-                                                          checked: false,
-                                                          urgent: true,
-                                                          important: false,
-                                                          version,
-                                                          created_date: now,
-                                                          last_updated: now,
-                                                          refresh_type,
-                                                        }),
-                                                      });
-
-                                                      if (activeSubspace) {
-                                                        const updatedTodos = await SpaceService.getTodoDataBySubspace(
-                                                          activeSubspace.subspace_id,
-                                                          userId
-                                                        );
-                                                        setTodos(updatedTodos);
-                                                      }
-                                                      // Check if shift key was held
-                                                      if (e.shiftKey) {
-                                                        setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }));
-                                                      } else {
-                                                        setNewTaskContentMap(prev => {
-                                                          const updated = { ...prev };
-                                                          delete updated[todo.todo_id];
-                                                          return updated;
-                                                        });
-                                                      }
-                                                    }
-                                                    catch (err) {
-                                                      console.error("Failed to add task:", err);
-                                                    }
+                                                  if (activeSubspace) {
+                                                    const updatedTodos = await SpaceService.getTodoDataBySubspace(
+                                                      activeSubspace.subspace_id,
+                                                      userId
+                                                    );
+                                                    setTodos(updatedTodos);
                                                   }
-                                                  if (e.key === "Escape") {
-                                                    setNewTaskContentMap((prev) => {
+                                                  // Check if shift key was held
+                                                  if (e.shiftKey) {
+                                                    setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }));
+                                                  } else {
+                                                    setNewTaskContentMap(prev => {
                                                       const updated = { ...prev };
                                                       delete updated[todo.todo_id];
                                                       return updated;
                                                     });
                                                   }
-                                                }}
+                                                }
+                                                catch (err) {
+                                                  console.error("Failed to add task:", err);
+                                                }
+                                              }
+                                              if (e.key === "Escape") {
+                                                setNewTaskContentMap((prev) => {
+                                                  const updated = { ...prev };
+                                                  delete updated[todo.todo_id];
+                                                  return updated;
+                                                });
+                                              }
+                                            }}
 
-                                              />
-                                            )}
+                                          />
+                                        )}
 
-                                          </div>
-                                        </motion.div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+
+                                {/* Footer */}
+                                <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50">
+                                  <div className="flex gap-2">
+                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                                      {todo.refresh_type}
+                                    </span>
+                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800">
+                                      {todoViewMap[todo.todo_id] || 'unchecked'}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }))}
+                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                      title="Add task"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleViewSwitch(todo.todo_id, "left")}
+                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                      title="Previous view"
+                                    >
+                                      <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleViewSwitch(todo.todo_id, "right")}
+                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                      title="Next view"
+                                    >
+                                      <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setMaximizedTodo(todo)}
+                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                      title="Maximize"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        setCollapsedTodos((prev) => {
+                                          const id = String(todo.todo_id);
+                                          return prev.includes(id)
+                                            ? prev.filter((existingId) => existingId !== id)
+                                            : [...prev, id];
+                                        })
+                                      }
+                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                      title={collapsedTodos.includes(String(todo.todo_id)) ? "Expand" : "Collapse"}
+                                    >
+                                      {collapsedTodos.includes(String(todo.todo_id)) ? (
+                                        <ChevronDown className="w-4 h-4" />
+                                      ) : (
+                                        <ChevronUp className="w-4 h-4" />
                                       )}
-                                    </AnimatePresence>
+                                    </button>
 
-                                    {/* Footer */}
-                                    <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50">
-                                      <div className="flex gap-2">
-                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">
-                                          {todo.refresh_type}
-                                        </span>
-                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800">
-                                          {todoViewMap[todo.todo_id] || 'unchecked'}
-                                        </span>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }))}
-                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                          title="Add task"
-                                        >
-                                          <Plus className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleViewSwitch(todo.todo_id, "left")}
-                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                          title="Previous view"
-                                        >
-                                          <ChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleViewSwitch(todo.todo_id, "right")}
-                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                          title="Next view"
-                                        >
-                                          <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          onClick={() => setMaximizedTodo(todo)}
-                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                          title="Maximize"
-                                        >
-                                          <Maximize2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            setCollapsedTodos((prev) => {
-                                              const id = String(todo.todo_id);
-                                              return prev.includes(id)
-                                                ? prev.filter((existingId) => existingId !== id)
-                                                : [...prev, id];
-                                            })
-                                          }
-                                          className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                          title={collapsedTodos.includes(String(todo.todo_id)) ? "Expand" : "Collapse"}
-                                        >
-                                          {collapsedTodos.includes(String(todo.todo_id)) ? (
-                                            <ChevronDown className="w-4 h-4" />
-                                          ) : (
-                                            <ChevronUp className="w-4 h-4" />
-                                          )}
-                                        </button>
-
-                                      </div>
-                                    </div>
-                                  </motion.div>
+                                  </div>
                                 </div>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+                              </motion.div>)}
+                          </SortableTodo>
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeId ? (
+                      <motion.div
+                        layout
+                        className="bg-white rounded-xl border border-gray-300 shadow-lg p-4 min-w-[320px]"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {todos.find(t => String(t.todo_id) === activeId)?.name ?? ''}
+                      </motion.div>
+                    ) : null}
+                  </DragOverlay>
+
+                </DndContext>
+
               ) : (
                 <></>
                 // <div className="col-span-full text-center py-10 text-gray-500">
@@ -1942,21 +2061,35 @@ export default function SpacePage() {
 
                     const grouped = groupByRefreshTypeDate(items, refreshType);
 
-                    return Object.entries(grouped).map(([date, group]) => (
-                      <div key={date}>
-                        <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
-                        <ul className="mt-2 space-y-1">
-                          {group.map((item: any) => (
-                            <li key={item.tc_id} className="flex items-center gap-2">
-                              <input type="checkbox" checked={item.checked} readOnly />
-                              <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
-                                {item.content}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ));
+                    return [...Object.entries(grouped)]
+                      .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime()) // ✅ descending sort
+                      .map(([date, items]) => (
+                        <div key={date}>
+                          <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
+                          <ul className="mt-2 space-y-1">
+                            {items.map((item: any) => (
+                              <li key={item.tc_id} className="flex items-center gap-2 justify-between">
+                                <div className="flex items-center gap-2">
+                                  <input type="checkbox" checked={item.checked} readOnly />
+                                  <span className={`text-sm ${item.checked ? 'line-through text-gray-600' : ''}`}>
+                                    {item.content}
+                                  </span>
+                                </div>
+
+                                {/* ♻️ Reuse Button */}
+                                <button
+                                  onClick={() => handleReuseItem(maximizedTodo.todo_id, item.content)}
+                                  className="p-1 rounded hover:bg-blue-100 text-blue-600 transition"
+                                  title="Reuse this item"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ));
+
                   }
 
                   // ✅ Show only current day's/week's/month's items in checked/unchecked
