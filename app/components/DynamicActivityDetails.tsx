@@ -47,10 +47,10 @@ type Props = {
   userId: string;
   collectiveId: number;
   activityItems: ActivityItem[];
-  realCollectiveId?: number; 
+  realCollectiveId?: number;
 };
 
-export default function DynamicActivityDetails({ userId, realCollectiveId,collectiveId, activityItems }: Props) {
+export default function DynamicActivityDetails({ userId, realCollectiveId, collectiveId, activityItems }: Props) {
   const [dataMap, setDataMap] = useState<Record<number, MWBEntry[]>>({});
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
@@ -65,7 +65,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
       if (item.a_id === 26) {
         item.a_id = 24;
       }
-      if ((item.a_id === 24 ||item.a_id === 25)&&realCollectiveId) {
+      if ((item.a_id === 24 || item.a_id === 25) && realCollectiveId) {
         return;
       }
       try {
@@ -109,6 +109,13 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
     if (!response.ok) throw new Error(`Failed with status ${response.status}`);
     return await response.json();
   };
+  const getFlagByAID = (a_id: number): string => {
+    if ([28, 29].includes(a_id)) return "PH";
+    if ([30, 31, 32, 33].includes(a_id)) return "PT";
+    if (a_id === 25) return "PH";
+    return "PN"; // default fallback
+  };
+
 
   const handleUpdateItem = async (item: MWBEntry) => {
     try {
@@ -141,8 +148,21 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
         description: editedValues.value2 || item.description || "",
         action: "UPDATE",
       };
-
-      if (item.a_id === 10) {
+      if ([301, 302].includes(item.at_id)) {
+        payload = {
+          ...payload,
+          flag: getFlagByAID(item.a_id),
+          cat_qty_id1: item.cat_qty_id1 ?? null,
+          value2: editedValues.value2 ?? item.value2 ?? "",
+          value3: editedValues.value3 ?? item.value3 ?? "",
+          value4: editedValues.value4 ?? item.value4 ?? "",
+          value5: editedValues.value5 ?? item.value5 ?? "",
+          value6: editedValues.value6 ?? item.value6 ?? "",
+          cat_qty_id3: editedValues.unit3 ? Number(editedValues.unit3) : null,
+          cat_qty_id4: editedValues.unit4 ? Number(editedValues.unit4) : null,
+        };
+      }
+      else if (item.a_id === 10) {
         payload = {
           ...payload,
           trigger: item.trigger ?? "meal",
@@ -191,6 +211,25 @@ export default function DynamicActivityDetails({ userId, realCollectiveId,collec
       await fetchAll();
     } catch (err) {
       console.error("Failed to update", err);
+    }
+  };
+
+  const handleDeleteItem = async (item: MWBEntry) => {
+    try {
+      const payload = {
+        a_id: item.a_id,
+        at_id: item.at_id,
+        flag: item.flag,
+        user_id: userId,
+        action: "DELETE",
+        cat_qty_id1: item.cat_qty_id1
+      };
+
+      await updatePrimaryMWBData(payload);
+      setEditingItemId(null);
+      await fetchAll();
+    } catch (err) {
+      console.error("Failed to delete item", err);
     }
   };
 
