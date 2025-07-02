@@ -7,6 +7,24 @@ export interface Task {
   color: string;
   todo_id?: number | null; // ✅ optional, matches API
   collective_id: string;
+  actions?: TaskAction[]; 
+}
+export interface TaskAction {
+  a_id: number;
+  at_id: number;
+  ua_id: number;
+  value1: string | null;
+  value2: string | null;
+  value3: string | null;
+  value4: string | null; // ISO datetime
+  value5: string | null;
+  value6: string | null;
+  cat_qty_id1?: any;
+  cat_qty_id2?: any;
+  cat_qty_id3?: any[];
+  cat_qty_id4?: any[];
+  cat_qty_id5?: any[];
+  cat_qty_id6?: any[];
 }
 
 export interface Goal {

@@ -27,7 +27,8 @@ import {
   fetchTodoItems,
   createCalendarEvent,
   updateCalendarEvent,
-  deleteCalendarEvent
+  deleteCalendarEvent,
+  fetchActionsForTasks
 } from "../lib/api"; // Adjust path if needed
 
 type UserInfo = {
@@ -52,16 +53,38 @@ interface Event {
   goalId?: string;
   taskId?: string;
   color?: string;
+  repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once';
 }
 
-interface Task {
+interface TaskAction {
+  a_id: number;
+  at_id: number;
+  ua_id: number;
+  value1: string | null;
+  value2: string | null;
+  value3: string | null;
+  value4: string | null; // ISO datetime
+  value5: string | null;
+  value6: string | null;
+  cat_qty_id1?: any;
+  cat_qty_id2?: any;
+  cat_qty_id3?: any[];
+  cat_qty_id4?: any[];
+  cat_qty_id5?: any[];
+  cat_qty_id6?: any[];
+}
+
+export interface Task {
   id: string;
-  goalId: string;
   title: string;
+  goalId: string;
+  collective_id: string;
   completed: boolean;
   color: string;
-  collective_id: string;
+  todo_id?: number | null;
+  actions?: TaskAction[]; // Add this
 }
+
 
 interface Goal {
   id: string;
@@ -89,6 +112,17 @@ const GoalsPage = () => {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [timeSlotClicked, setTimeSlotClicked] = useState<{ time: Date; day: Date } | null>(null);
   const goalsFromRedux = useSelector((state: RootState) => state.calendar.goals);
+  const [clickedTaskActions, setClickedTaskActions] = useState<any[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const selectedGoalIdFromSidebar = useSelector((state: RootState) => state.calendar.selectedGoalId);
+
+  const handleTaskClick = async (taskId: string) => {
+    const userId = getUserId();
+    const token = getUserToken();
+    setSelectedTaskId(taskId);
+    const actionsMap = await fetchActionsForTasks([taskId], userId, token);
+    setClickedTaskActions(actionsMap[taskId] || []);
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -98,20 +132,37 @@ const GoalsPage = () => {
         const token = getUserToken();
 
         const goals = await fetchGoalsAndTasks(userId, token);
-        console.log("Fetched goals:", goals.map(g => g.id)); // See if duplicate IDs
+        console.log("Fetched goals:", goals.map(g => g.id));
 
         if (!Array.isArray(goals)) {
           console.error("goals is not an array", goals);
           return;
         }
+
         const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
-        goals
-          .filter(g => !existingGoalIds.has(g.id))
-          .forEach(g => dispatch(addGoal(g)));
+        const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
 
-        for (const goal of goals) {
-          if (!goal) continue;
+        // Collect all taskIds from filtered goals
+        const allTasks = filteredGoals.flatMap(goal => goal.tasks);
+        const taskIds = allTasks.map(task => task.id);
 
+        // Fetch actions
+        const actionsByTaskId = await fetchActionsForTasks(taskIds, userId, token);
+
+        // Attach actions to tasks
+        const enrichedGoals = filteredGoals.map(goal => ({
+          ...goal,
+          tasks: goal.tasks.map(task => ({
+            ...task,
+            actions: actionsByTaskId[task.id] || []
+          }))
+        }));
+
+        // Dispatch enriched goals
+        enrichedGoals.forEach(g => dispatch(addGoal(g)));
+
+        // Optional: Load event data
+        for (const goal of enrichedGoals) {
           for (const task of goal.tasks) {
             if (typeof task.todo_id !== "number") continue;
             try {
@@ -119,7 +170,8 @@ const GoalsPage = () => {
               todos.forEach((e: Event) =>
                 dispatch(addEvent({
                   ...e,
-                  goalId: goal.id.toString(), // ✅ fix 2322
+                  goalId: goal.id,
+                  taskId: task.id,
                   color: goal.color
                 }))
               );
@@ -136,6 +188,24 @@ const GoalsPage = () => {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!showEventModal || !goals.length) return;
+
+    setCurrentEvent(prev => {
+      if (!prev) return prev;
+
+      const fallbackGoalId = prev.goalId || goals[0]?.id;
+      const goal = goals.find(g => g.id === fallbackGoalId);
+      const fallbackTaskId = prev.taskId || goal?.tasks?.[0]?.id || "";
+
+      return {
+        ...prev,
+        goalId: fallbackGoalId,
+        taskId: fallbackTaskId,
+      } as Event;
+    });
+  }, [showEventModal, goals]);
 
 
   // Generate time slots from 5:30 AM to 8:30 PM
@@ -304,8 +374,8 @@ const GoalsPage = () => {
               <div
                 key={goal.id}
                 className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-150 ${selectedGoalId === goal.id
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'hover:bg-gray-100 text-gray-800'
+                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  : 'hover:bg-gray-100 text-gray-800'
                   }`}
                 onClick={() => dispatch(selectGoal(goal.id))}
               >
@@ -318,8 +388,6 @@ const GoalsPage = () => {
             ))}
           </div>
         </div>
-
-
         {/* Tasks Section */}
         <div className='mt-10'>
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Tasks</h2>
@@ -341,8 +409,9 @@ const GoalsPage = () => {
                     {tasks.map(task => (
                       <div
                         key={task.id}
-                        className="ml-4 pl-2 border-l text-sm text-gray-700 py-1 flex items-center gap-2"
+                        className={`ml-4 pl-2 border-l text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-blue-50 font-medium' : ''}`}
                         draggable
+                        onClick={() => handleTaskClick(task.id)}
                         onDragStart={() => handleTaskDragStart(task)}
                       >
                         <div
@@ -360,6 +429,55 @@ const GoalsPage = () => {
             <p className="text-sm text-gray-400">No goal selected</p>
           )}
         </div>
+        {/* Actions Section */}
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Actions</h2>
+
+          {selectedGoalId ? (() => {
+            const selectedGoal = goals.find(g => g.id === selectedGoalId);
+            if (!selectedGoal) return <p className="text-sm text-gray-400">No goal selected</p>;
+
+            const actions = clickedTaskActions.map((action: TaskAction) => ({
+              ...action,
+              taskTitle: 'From Clicked Task',
+              taskColor: '#888' // or customize if you have access to color
+            }));
+
+            if (actions.length === 0) {
+              return <p className="text-sm text-gray-400">No actions available</p>;
+            }
+
+            return (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {actions.map((action: TaskAction, index) => {
+                  const displayName = action.cat_qty_id3?.[1]?.name || "Unnamed Action";
+                  const date = action.value4 ? new Date(action.value4).toLocaleString() : null;
+                  const duration = action.value5
+                    ? `${action.value5} ${action.cat_qty_id5?.find(x => x.Selected)?.name || ''}`
+                    : null;
+
+                  return (
+                    <div
+                      key={index}
+                      className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="text-sm text-gray-800 font-medium">
+                        {displayName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {date && <>📅 {date} </>}
+                        {duration && <>⏱ {duration}</>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })() : (
+            <p className="text-sm text-gray-400">No goal selected</p>
+          )}
+        </div>
+
       </div>
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -672,6 +790,57 @@ const GoalsPage = () => {
 
               <div className="p-5 space-y-5">
                 <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Goal</label>
+                  <select
+                    value={currentEvent.goalId}
+                    onChange={(e) => {
+                      const newGoalId = e.target.value;
+                      const newTaskId = goals.find(g => g.id === newGoalId)?.tasks?.[0]?.id || "";
+
+                      setCurrentEvent(prev => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          goalId: newGoalId,
+                          taskId: newTaskId,
+                        } as Event;
+                      });
+                    }}
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {goals.map(goal => (
+                      <option key={goal.id} value={goal.id}>
+                        {goal.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Task</label>
+                  <select
+                    value={currentEvent.taskId}
+                    onChange={(e) => {
+                      const newTaskId = e.target.value;
+                      setCurrentEvent(prev => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          taskId: newTaskId,
+                        } as Event;
+                      });
+                    }}
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {(goals.find(g => g.id === currentEvent.goalId)?.tasks || []).map(task => (
+                      <option key={task.collective_id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+
+                <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Title</label>
                   <input
                     type="text"
@@ -728,6 +897,29 @@ const GoalsPage = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Repeat</label>
+                  <select
+                    value={currentEvent.repeat || 'none'}
+                    onChange={(e) => {
+                      const newRepeat = e.target.value as Event['repeat'];
+                      setCurrentEvent(prev => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          repeat: newRepeat,
+                        } as Event;
+                      });
+                    }}
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="none">No repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="once">Just once</option>
+                  </select>
+                </div>
                 {currentEvent.color && (
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">Color</label>

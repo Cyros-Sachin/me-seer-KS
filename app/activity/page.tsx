@@ -300,6 +300,7 @@ const ActivityService = {
         flag: string;
         a_id: number;
         at_id: number;
+        cat_qty_id1 ?: number;
         action: "DELETE";
     }) => {
         const response = await fetch(`${API_BASE_URL}/update-delete-data/primary-mwb`, {
@@ -840,6 +841,47 @@ function ActivityPage() {
         trigger: "food_item",
     }));
 
+    const handleDeleteGoal = async () => {
+        try {
+            const userId = getUserId();
+            await ActivityService.updateOrDeletePrimaryMWBData({
+                a_id: 24,
+                at_id: 301,
+                flag: "P",
+                action: "DELETE",
+                cat_qty_id1: selectedGoalDetails?.goalId,
+                ua_id: selectedGoalDetails?.ua_id ?? 0 // optional: used only for frontend tracking
+            });
+
+            setShowGoal(false);
+            setSelectedGoalDetails(null);
+            await fetchGoalsTasks();
+        } catch (err) {
+            console.error("Failed to delete goal", err);
+            alert("Error deleting goal");
+        }
+    };
+
+    const handleDeleteTask = async () => {
+        try {
+            const userId = getUserId();
+            await ActivityService.updateOrDeletePrimaryMWBData({
+                ua_id: selectedTaskDetails?.ua_id,
+                a_id: 27,             // Task a_id
+                at_id: 301,
+                flag: "PP",
+                action: "DELETE"
+            });
+
+            setShowTask(false);
+            setSelectedTaskDetails(null);
+            await fetchGoalsTasks();
+        } catch (err) {
+            console.error("Failed to delete task", err);
+            alert("Error deleting task");
+        }
+    };
+
     return (
         <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
             {/* Left Panel */}
@@ -1147,9 +1189,9 @@ function ActivityPage() {
                                 return (
                                     <div key={goalId} className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
                                         <div className="flex justify-between items-center mb-4" onClick={() => {
-                                                    setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
-                                                    setShowGoal(true);
-                                                }}>
+                                            setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
+                                            setShowGoal(true);
+                                        }}>
                                             <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
                                             <button
                                                 onClick={() => {
@@ -1230,7 +1272,7 @@ function ActivityPage() {
                                         {activity.description || activity.name || 'Unnamed Activity'}
                                     </h3>
                                     <div className="flex justify-between items-center mt-2">
-                                        
+
                                         <button
                                             onClick={() => setActiveActivity(activity)}
                                             className="text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -1473,16 +1515,25 @@ function ActivityPage() {
                         <div className="max-w-4xl mx-auto space-y-6 py-12">
                             <div className="flex justify-between items-center">
                                 <h2 className="text-2xl font-bold">{selectedGoalDetails.goalName}</h2>
-                                <button
-                                    onClick={() => {
-                                        setShowGoal(false);
-                                        setSelectedGoalDetails(null);
-                                    }}
-                                    className="text-gray-500 hover:text-red-600 text-lg transition"
-                                >
-                                    ✕
-                                </button>
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={handleDeleteGoal}
+                                        className="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-sm"
+                                    >
+                                        Delete Goal
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowGoal(false);
+                                            setSelectedGoalDetails(null);
+                                        }}
+                                        className="text-gray-500 hover:text-red-600 text-lg transition"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
+
 
                             <div className="space-y-2">
                                 {selectedGoalDetails.tasks.map((task: any, index: number) => (
@@ -1520,16 +1571,25 @@ function ActivityPage() {
                         <div className="max-w-4xl mx-auto space-y-6 py-5">
                             <div className="flex justify-between items-center">
                                 <h2 className="text-2xl font-bold">{selectedTaskDetails.task_name}</h2>
-                                <button
-                                    onClick={() => {
-                                        setShowTask(false);
-                                        setSelectedTaskDetails(null);
-                                    }}
-                                    className="text-gray-500 hover:text-red-600 text-lg transition"
-                                >
-                                    ✕
-                                </button>
+                                <div className="flex gap-2 items-center">
+                                    <button
+                                        onClick={handleDeleteTask}
+                                        className="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-sm"
+                                    >
+                                        Delete Task
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowTask(false);
+                                            setSelectedTaskDetails(null);
+                                        }}
+                                        className="text-gray-500 hover:text-red-600 text-lg transition"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
+
 
                             <div className="space-y-2 text-gray-700 text-sm">
                                 <p><strong>Created:</strong> {new Date(selectedTaskDetails.created_timestamp).toLocaleString()}</p>
@@ -1541,7 +1601,7 @@ function ActivityPage() {
                                 userId={getUserId()}
                                 collectiveId={selectedTaskDetails.task_id}
                                 activityItems={enrichedItems}
-                                realCollectiveId = {selectedTaskDetails.collective_id}
+                                realCollectiveId={selectedTaskDetails.collective_id}
                             />
                         </div>
                     </motion.div>

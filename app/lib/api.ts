@@ -95,3 +95,41 @@ export const deleteCalendarEvent = async (eventId: string) => {
     throw err;
   }
 };
+
+export const fetchActionsForTasks = async (
+  taskIds: string[],
+  userId: string,
+  token: string
+): Promise<Record<string, any[]>> => {
+  const actionsByTask: Record<string, any[]> = {};
+  const fixedAIds = [30, 31, 32];
+
+  for (const taskId of taskIds) {
+    const allActions: any[] = [];
+
+    for (const aid of fixedAIds) {
+      try {
+        const res = await axios.get(
+          `https://meseer.com/dog/generic/get-it/${userId}/${aid}/${taskId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (Array.isArray(res.data)) {
+          allActions.push(...res.data);
+        }
+      } catch (err) {
+        console.error(`Failed to fetch actions for task ${taskId} with a_id ${aid}`, err);
+      }
+    }
+
+    actionsByTask[taskId] = allActions;
+  }
+
+  return actionsByTask;
+};
+
+
