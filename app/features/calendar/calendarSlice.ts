@@ -6,6 +6,7 @@ export interface Task {
   completed: boolean;
   color: string;
   todo_id?: number | null; // ✅ optional, matches API
+  collective_id: string;
 }
 
 export interface Goal {
@@ -29,7 +30,7 @@ export interface Event {
 }
 
 interface CalendarState {
-  selectedDate: Date;
+  selectedDate: string; // ✅ now it's serializable
   viewMode: 'day' | 'week' | 'month';
   events: Event[];
   goals: Goal[];
@@ -37,19 +38,20 @@ interface CalendarState {
 }
 
 const initialState: CalendarState = {
-  selectedDate: new Date(),
+  selectedDate: new Date().toISOString(), // ✅ string
   viewMode: 'week',
   events: [],
   goals: [],
   selectedGoalId: null,
 };
 
+
 const calendarSlice = createSlice({
   name: 'calendar',
   initialState,
   reducers: {
-    setSelectedDate(state: { selectedDate: Date; }, action: PayloadAction<string>) {
-      state.selectedDate = new Date(action.payload);
+    setSelectedDate(state, action: PayloadAction<string>) {
+      state.selectedDate = action.payload;
     },
     setViewMode(state: { viewMode: any; }, action: PayloadAction<'day' | 'week' | 'month'>) {
       state.viewMode = action.payload;

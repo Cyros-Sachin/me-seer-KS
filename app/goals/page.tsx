@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import { getUserId, getUserToken } from "../utils/auth";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, X, Settings, Calendar, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, Calendar, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
@@ -60,6 +60,7 @@ interface Task {
   title: string;
   completed: boolean;
   color: string;
+  collective_id: string;
 }
 
 interface Goal {
@@ -73,22 +74,20 @@ const GoalsPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
   const {
-    selectedDate,
+    selectedDate: selectedDateStr,
     viewMode,
     events,
     goals,
     selectedGoalId
   } = useSelector((state: RootState) => state.calendar);
 
+  const selectedDate = useMemo(() => new Date(selectedDateStr), [selectedDateStr]);
+
   // State for UI controls
   const [showEventModal, setShowEventModal] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-  const [newGoalTitle, setNewGoalTitle] = useState('');
-  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [timeSlotClicked, setTimeSlotClicked] = useState<{ time: Date; day: Date } | null>(null);
-  const [showGoalInput, setShowGoalInput] = useState(false);
-  const [showTaskInput, setShowTaskInput] = useState(false);
   const goalsFromRedux = useSelector((state: RootState) => state.calendar.goals);
 
   useEffect(() => {
@@ -259,66 +258,6 @@ const GoalsPage = () => {
     setCurrentEvent(null);
   };
 
-
-  // Handle goal creation
-  const handleGoalCreate = () => {
-    if (!newGoalTitle.trim()) return;
-
-    const colors = [
-      '#3b82f6', // blue
-      '#ef4444', // red
-      '#10b981', // green
-      '#f59e0b', // yellow
-      '#8b5cf6', // purple
-      '#ec4899'  // pink
-    ];
-
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-    dispatch(addGoal({
-      id: Date.now().toString(),
-      title: newGoalTitle,
-      color: randomColor,
-      tasks: []
-    }));
-
-    setNewGoalTitle('');
-    setShowGoalInput(false);
-  };
-
-  // Handle task creation
-  const handleTaskCreate = () => {
-    if (!newTaskTitle.trim() || !selectedGoalId) return;
-
-    const goal = goals.find(g => g.id === selectedGoalId);
-    if (!goal) return;
-
-    dispatch(addTask({
-      id: Date.now().toString(),
-      goalId: selectedGoalId,
-      title: newTaskTitle,
-      completed: false,
-      color: goal.color
-    }));
-
-    setNewTaskTitle('');
-    setShowTaskInput(false);
-  };
-
-  // Handle task toggle complete
-  const handleTaskToggleComplete = (taskId: string) => {
-    const task = goals
-      .flatMap(g => g.tasks)
-      .find(t => t.id === taskId);
-
-    if (!task) return;
-
-    dispatch(updateTask({
-      ...task,
-      completed: !task.completed
-    }));
-  };
-
   // Get events for a specific day and time slot
   const getEventsForSlot = (day: Date, time: Date) => {
     return events.filter(event => {
@@ -353,181 +292,75 @@ const GoalsPage = () => {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="w-64 border-r bg-white p-4 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Goals</h2>
-          <button
-            onClick={() => setShowGoalInput(true)}
-            className="p-1 text-blue-600 hover:bg-blue-50 rounded-full"
-          >
-            <Plus size={20} />
-          </button>
+        <div className="flex justify items-center mb-6">
+          <ChevronLeft className='mr-3 text-black' onClick={() => router.push('/main')} />
+          <h2 className="text-xl font-bold text-gray-800">My Planner</h2>
         </div>
-
-        {/* Goal Input */}
-        {showGoalInput && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-4"
-          >
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newGoalTitle}
-                onChange={(e) => setNewGoalTitle(e.target.value)}
-                placeholder="New goal title"
-                className="flex-1 border rounded px-2 py-1 text-sm"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleGoalCreate();
-                  if (e.key === 'Escape') {
-                    setShowGoalInput(false);
-                    setNewGoalTitle('');
-                  }
-                }}
-              />
-              <button
-                onClick={handleGoalCreate}
-                className="p-1 text-green-600 hover:bg-green-50 rounded"
-              >
-                <Check size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setShowGoalInput(false);
-                  setNewGoalTitle('');
-                }}
-                className="p-1 text-red-600 hover:bg-red-50 rounded"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Goals List */}
-        <div className="space-y-2">
-          {goals.map((goal) => (
-            <div key={goal.id} className="rounded-lg overflow-hidden">
+        {/* Goals Section */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Goals</h2>
+          <div className="space-y-1">
+            {goals.map(goal => (
               <div
-                className={`flex justify-between items-center p-2 cursor-pointer ${selectedGoalId === goal.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                key={goal.id}
+                className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-150 ${selectedGoalId === goal.id
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'hover:bg-gray-100 text-gray-800'
+                  }`}
                 onClick={() => dispatch(selectGoal(goal.id))}
               >
-                <div className="flex items-center">
-                  <div
-                    className="w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: goal.color }}
-                  />
-                  <span className="font-semibold text-black">{goal.title}</span>
-                </div>
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${selectedGoalId === goal.id ? 'rotate-180' : ''}`}
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: goal.color }}
                 />
+                <span className="truncate">{goal.title}</span>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Tasks for selected goal */}
-              {selectedGoalId === goal.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pl-6"
-                >
-                  {goal.tasks.length > 0 ? (
-                    <div className="space-y-1 py-1">
-                      {goal.tasks.map((task) => (
-                        <motion.div
-                          key={task.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex items-center p-1 rounded hover:bg-gray-50"
-                          draggable
-                          onDragStart={() => handleTaskDragStart(task)}
-                        >
-                          <button
-                            onClick={() => handleTaskToggleComplete(task.id)}
-                            className={`w-4 h-4 rounded mr-2 flex items-center justify-center ${task.completed ? 'bg-green-500 text-white' : 'border border-gray-300'}`}
-                          >
-                            {task.completed && <Check size={12} />}
-                          </button>
-                          <span
-                            className={`text-sm flex-1 ${task.completed ? 'line-through text-gray-500' : ''}`}
-                          >
-                            {task.title}
-                          </span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-500 py-2">No tasks yet</div>
-                  )}
 
-                  {/* Task Input */}
-                  {showTaskInput && selectedGoalId === goal.id && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="pt-1"
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={newTaskTitle}
-                          onChange={(e) => setNewTaskTitle(e.target.value)}
-                          placeholder="New task title"
-                          className="flex-1 border rounded px-2 py-1 text-sm"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleTaskCreate();
-                            if (e.key === 'Escape') {
-                              setShowTaskInput(false);
-                              setNewTaskTitle('');
-                            }
-                          }}
+        {/* Tasks Section */}
+        <div className='mt-10'>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Tasks</h2>
+          {selectedGoalId ? (() => {
+            const selectedGoal = goals.find(g => g.id === selectedGoalId);
+            if (!selectedGoal) return <p className="text-sm text-gray-400">No goal selected</p>;
+
+            const groupedTasks = selectedGoal.tasks.reduce((acc: Record<string, Task[]>, task) => {
+              const key = task.collective_id || 'Uncategorized';
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(task);
+              return acc;
+            }, {});
+
+            return (
+              <div className="space-y-6">
+                {Object.entries(groupedTasks).map(([collectiveId, tasks]) => (
+                  <div key={collectiveId}>
+                    {tasks.map(task => (
+                      <div
+                        key={task.id}
+                        className="ml-4 pl-2 border-l text-sm text-gray-700 py-1 flex items-center gap-2"
+                        draggable
+                        onDragStart={() => handleTaskDragStart(task)}
+                      >
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: task.color }}
                         />
-                        <button
-                          onClick={handleTaskCreate}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
-                        >
-                          <Check size={18} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowTaskInput(false);
-                            setNewTaskTitle('');
-                          }}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                        >
-                          <X size={18} />
-                        </button>
+                        {task.title}
                       </div>
-                    </motion.div>
-                  )}
-
-                  {/* Add Task Button */}
-                  {(!showTaskInput || selectedGoalId !== goal.id) && (
-                    <button
-                      onClick={() => {
-                        dispatch(selectGoal(goal.id));
-                        setShowTaskInput(true);
-                      }}
-                      className="flex items-center text-xs text-blue-600 mt-1 ml-6 hover:underline"
-                    >
-                      <Plus size={14} className="mr-1" />
-                      Add task
-                    </button>
-                  )}
-                </motion.div>
-              )}
-            </div>
-          ))}
+                    ))}
+                  </div>
+                ))}
+              </div>
+            );
+          })() : (
+            <p className="text-sm text-gray-400">No goal selected</p>
+          )}
         </div>
       </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Calendar Header */}
@@ -763,7 +596,7 @@ const GoalsPage = () => {
                       eventDate.getFullYear() === date.getFullYear()
                     );
                   });
-                  const dayNumber = useMemo(() => date.getDate(), [date]);
+                  const dayNumber = date.getDate();
                   return (
                     <div
                       key={i}
@@ -820,52 +653,46 @@ const GoalsPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50"
             onClick={() => setShowEventModal(false)}
           >
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
+              initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl w-full max-w-md"
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 border-b">
-                <h3 className="text-lg font-semibold">
+              <div className="p-5 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-800">
                   {currentEvent.id ? 'Edit Event' : 'Create Event'}
                 </h3>
               </div>
-              <div className="p-4 space-y-4">
+
+              <div className="p-5 space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
-                  </label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Title</label>
                   <input
                     type="text"
                     value={currentEvent.title}
                     onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        title: e.target.value
-                      })
+                      setCurrentEvent({ ...currentEvent, title: e.target.value })
                     }
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
+                    placeholder="Event title"
                     autoFocus
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Category</label>
                   <select
                     value={currentEvent.category}
                     onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        category: e.target.value as EventCategory
-                      })
+                      setCurrentEvent({ ...currentEvent, category: e.target.value as EventCategory })
                     }
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     <option value="exercise">Exercise</option>
                     <option value="eating">Eating</option>
@@ -875,84 +702,72 @@ const GoalsPage = () => {
                     <option value="social">Social</option>
                   </select>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Time
-                    </label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Start Time</label>
                     <input
                       type="datetime-local"
                       value={new Date(currentEvent.start).toISOString().slice(0, 16)}
                       onChange={(e) =>
-                        setCurrentEvent({
-                          ...currentEvent,
-                          start: new Date(e.target.value)
-                        })
+                        setCurrentEvent({ ...currentEvent, start: new Date(e.target.value) })
                       }
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Time
-                    </label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">End Time</label>
                     <input
                       type="datetime-local"
                       value={new Date(currentEvent.end).toISOString().slice(0, 16)}
                       onChange={(e) =>
-                        setCurrentEvent({
-                          ...currentEvent,
-                          end: new Date(e.target.value)
-                        })
+                        setCurrentEvent({ ...currentEvent, end: new Date(e.target.value) })
                       }
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
                     />
                   </div>
                 </div>
+
                 {currentEvent.color && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Color
-                    </label>
-                    <div className="flex items-center">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Color</label>
+                    <div className="flex items-center space-x-3">
                       <div
-                        className="w-6 h-6 rounded-full mr-2"
+                        className="w-6 h-6 rounded-full border"
                         style={{ backgroundColor: currentEvent.color }}
                       />
                       <input
                         type="color"
                         value={currentEvent.color}
                         onChange={(e) =>
-                          setCurrentEvent({
-                            ...currentEvent,
-                            color: e.target.value
-                          })
+                          setCurrentEvent({ ...currentEvent, color: e.target.value })
                         }
-                        className="w-8 h-8"
+                        className="w-10 h-10 p-0 border-none bg-transparent"
                       />
                     </div>
                   </div>
                 )}
               </div>
-              <div className="p-4 border-t flex justify-between">
+
+              <div className="flex justify-between items-center border-t border-gray-200 p-4">
                 {currentEvent.id && (
                   <button
                     onClick={handleEventDelete}
-                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded"
+                    className="text-sm text-red-600 hover:underline"
                   >
                     Delete
                   </button>
                 )}
-                <div className="flex space-x-2 ml-auto">
+                <div className="flex gap-2 ml-auto">
                   <button
                     onClick={() => setShowEventModal(false)}
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
+                    className="px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleEventSave}
-                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded"
+                    className="px-4 py-2 text-sm rounded-lg text-white bg-blue-600 hover:bg-blue-700"
                   >
                     Save
                   </button>
@@ -962,6 +777,7 @@ const GoalsPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 };
