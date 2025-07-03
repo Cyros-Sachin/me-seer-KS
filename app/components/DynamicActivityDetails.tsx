@@ -110,10 +110,11 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
     return await response.json();
   };
   const getFlagByAID = (a_id: number): string => {
-    if ([28, 29].includes(a_id)) return "PH";
+    if ([28, 25].includes(a_id)) return "PN";
     if ([30, 31, 32, 33].includes(a_id)) return "PT";
-    if (a_id === 25) return "PH";
-    return "PN"; // default fallback
+    if (a_id === 24) return "P";
+    if (a_id === 29) return "PH";
+    return ""; // default fallback
   };
 
 
@@ -148,21 +149,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
         description: editedValues.value2 || item.description || "",
         action: "UPDATE",
       };
-      if ([301, 302].includes(item.at_id)) {
-        payload = {
-          ...payload,
-          flag: getFlagByAID(item.a_id),
-          cat_qty_id1: item.cat_qty_id1 ?? null,
-          value2: editedValues.value2 ?? item.value2 ?? "",
-          value3: editedValues.value3 ?? item.value3 ?? "",
-          value4: editedValues.value4 ?? item.value4 ?? "",
-          value5: editedValues.value5 ?? item.value5 ?? "",
-          value6: editedValues.value6 ?? item.value6 ?? "",
-          cat_qty_id3: editedValues.unit3 ? Number(editedValues.unit3) : null,
-          cat_qty_id4: editedValues.unit4 ? Number(editedValues.unit4) : null,
-        };
-      }
-      else if (item.a_id === 10) {
+      if (item.a_id === 10) {
         payload = {
           ...payload,
           trigger: item.trigger ?? "meal",
@@ -182,8 +169,11 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       } else {
         payload = {
           ...payload,
+          flag: getFlagByAID(item.a_id),
           cat_qty_id1: item.cat_qty_id1 ?? null,
-          cat_qty_id2: item.cat_qty_id2 ?? null,
+          cat_qty_id2: Array.isArray(item.cat_qty_id2)
+            ? item.cat_qty_id2.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+            : item.cat_qty_id2 ?? null,
           cat_qty_id3:
             item.a_id === 9
               ? Number(editedValues.unit3) || item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id || null
@@ -205,7 +195,10 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           value6: editedValues.value6 ?? item.value6 ?? "",
         };
       }
-
+      if(item.a_id===31){
+        // payload.value4 = editedValues.unit4;
+        payload.cat_qty_id4 = parseInt(editedValues.unit4);
+      }
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
       await fetchAll();
@@ -317,6 +310,32 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                             className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50"
                           />
                         )}
+                      </div>
+                    );
+                  }
+                  if (aId === 31 && i === 4 && isEditing) {
+                    const options = Array.isArray(unitList) ? unitList : [];
+                    const selectedOption = options.find((u: any) => u?.Selected || u?.flag === "selected");
+
+                    return (
+                      <div key={`val${i}`} className="space-y-1">
+                        <label className="text-xs font-medium text-gray-500">Days in week</label>
+                        <select
+                          value={editedValues[`unit${i}`] ?? String(selectedOption?.cat_id || "")}
+                          onChange={(e) =>
+                            setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                          }
+                          className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                        >
+                          <option value="">Select</option>
+                          {options
+                            .filter((opt) => opt?.cat_id)
+                            .map((opt, idx) => (
+                              <option key={idx} value={opt.cat_id}>
+                                {opt.name}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                     );
                   }

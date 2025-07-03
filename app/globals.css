@@ -71,20 +71,36 @@ body {
   margin-bottom: 0.5rem;
 }
 /* calendarStyles.css */
+/* Enhanced React Calendar Styles */
 .react-calendar {
-  @apply scale-[0.85] origin-top-left max-w-[180px];
+  @apply w-full border-none bg-white rounded-xl shadow-sm p-3;
+  font-family: inherit;
 }
 
 .react-calendar__navigation {
-  @apply flex justify-between items-center mb-2 text-gray-700 font-semibold;
+  @apply flex justify-between items-center mb-3;
 }
 
-.react-calendar__navigation button {
-  @apply p-2 hover:bg-gray-100 rounded transition;
+.react-calendar__navigation__label {
+  @apply text-sm font-medium text-gray-700 hover:bg-transparent cursor-default;
+}
+
+.react-calendar__navigation__arrow {
+  @apply p-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors;
+  min-width: 24px;
+  min-height: 24px;
 }
 
 .react-calendar__month-view__weekdays {
-  @apply grid grid-cols-7 text-xs font-medium text-center text-gray-400 mb-1;
+  @apply grid grid-cols-7 text-xs font-medium text-center text-gray-500 mb-2;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  @apply py-1;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
 }
 
 .react-calendar__month-view__days {
@@ -92,20 +108,48 @@ body {
 }
 
 .react-calendar__tile {
-  @apply h-7 w-7 text-[10px];
+  @apply text-xs text-black p-1 rounded-full aspect-square flex items-center justify-center transition-colors;
+}
+
+.react-calendar__tile:enabled:hover {
+  @apply bg-gray-100;
 }
 
 .react-calendar__tile--now {
-  @apply bg-blue-600 text-white font-bold;
+  @apply bg-blue-100 text-blue-600 font-semibold;
 }
 
 .react-calendar__tile--active {
-  @apply bg-blue-500 text-white font-semibold shadow-inner;
+  @apply bg-blue-600 text-white font-semibold;
+}
+
+.react-calendar__tile--hasActive {
+  @apply bg-blue-100;
 }
 
 .react-calendar__tile--rangeStart,
 .react-calendar__tile--rangeEnd {
-  @apply bg-blue-500 text-white rounded-md;
+  @apply bg-blue-600 text-white;
+}
+
+.react-calendar__tile--range {
+  @apply bg-blue-100;
+}
+
+.react-calendar__tile--rangeStart {
+  @apply rounded-r-none;
+}
+
+.react-calendar__tile--rangeEnd {
+  @apply rounded-l-none;
+}
+
+.react-calendar__tile--rangeBothEnds {
+  @apply rounded-none;
+}
+
+.react-calendar__tile--neighboringMonth {
+  @apply text-gray-400;
 }
 /* Custom scrollbar styles */
 .custom-scrollbar::-webkit-scrollbar {

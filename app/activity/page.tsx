@@ -296,7 +296,7 @@ const ActivityService = {
     },
 
     updateOrDeletePrimaryMWBData: async (payload: {
-        ua_id: number;
+        ua_id?: number;
         flag: string;
         a_id: number;
         at_id: number;
@@ -847,10 +847,9 @@ function ActivityPage() {
             await ActivityService.updateOrDeletePrimaryMWBData({
                 a_id: 24,
                 at_id: 301,
-                flag: "P",
+                flag: 'P',
                 action: "DELETE",
-                cat_qty_id1: selectedGoalDetails?.goalId,
-                ua_id: selectedGoalDetails?.ua_id ?? 0 // optional: used only for frontend tracking
+                cat_qty_id1: (selectedGoalDetails?.goalId),
             });
 
             setShowGoal(false);
@@ -868,8 +867,8 @@ function ActivityPage() {
             await ActivityService.updateOrDeletePrimaryMWBData({
                 ua_id: selectedTaskDetails?.ua_id,
                 a_id: 27,             // Task a_id
-                at_id: 301,
-                flag: "PP",
+                at_id: 302,
+                flag: "PH",
                 action: "DELETE"
             });
 

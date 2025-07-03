@@ -383,18 +383,31 @@ const GoalsPage = () => {
           <ChevronLeft className='mr-3 text-black' onClick={() => router.push('/main')} />
           <h2 className="text-xl font-bold text-gray-800">My Planner</h2>
         </div>
-        <div className="mb-4">
+        <div className="mb-6">
           <ReactCalendar
             value={sidebarDate}
             onChange={handleSidebarDateChange}
             selectRange={false}
             calendarType="gregory"
-            className="rounded-lg border shadow-sm text-black"
-            tileClassName={({ date }) =>
-              date.toDateString() === new Date().toDateString()
-                ? 'bg-blue-500 text-white rounded-full'
+            className="!border-none !shadow-sm"
+            tileClassName={({ date, view }) =>
+              view === 'month' && date.toDateString() === new Date().toDateString()
+                ? '!bg-blue-600 !text-white font-bold'
                 : undefined
             }
+            navigationLabel={({ date }) => (
+              <span className="text-sm font-medium text-gray-700">
+                {date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </span>
+            )}
+            formatShortWeekday={(locale, date) =>
+              ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()]
+            }
+            minDetail="month"
+            nextLabel={<ChevronRight size={16} className="text-gray-500" />}
+            prevLabel={<ChevronLeft size={16} className="text-gray-500" />}
+            next2Label={null}
+            prev2Label={null}
           />
         </div>
         {/* Goals Section */}
