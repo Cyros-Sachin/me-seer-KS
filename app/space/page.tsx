@@ -1115,13 +1115,16 @@ export default function SpacePage() {
                           <SortableTodo key={todo.todo_id} id={String(todo.todo_id)}>
                             {({ setNodeRef, style, listeners, attributes }) => (
                               <motion.div
+                                ref={setNodeRef}
                                 key={todo.todo_id}
                                 layout
                                 transition={{ duration: 0.4 }}
                                 className={`bg-white min-w-[320px] rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                               >
                                 {/* Header */}
-                                <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
+                                <div
+                                  {...listeners} {...attributes}
+                                  className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group" >
                                   <div className="flex items-center min-w-0">
                                     {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
                                       <input
