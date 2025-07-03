@@ -1,8 +1,11 @@
 import axios from "axios";
+// ✅ Import from the actual Redux slice
+import type { Event as CalendarEvent } from '@/app/features/calendar/calendarSlice';
 
 const BASE_URL = "https://meseer.com";
 
 import { Goal, Task } from "../features/calendar/calendarSlice"; // ✅ import both
+type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
 
 export const fetchGoalsAndTasks = async (userId: string, token: string): Promise<Goal[]> => {
   const res = await axios.get(`${BASE_URL}/dog/get_all_goals_tasks/${userId}`, {
@@ -132,4 +135,44 @@ export const fetchActionsForTasks = async (
   return actionsByTask;
 };
 
+export function mapActionToEvent(
+  action: any,
+  taskId: string,
+  goalId: string,
+  color: string
+): CalendarEvent | null {
+  const parsedDate = parseCustomDateTime(action.value3);
+  if (!parsedDate) return null;
+
+  return {
+    id: `action-${action.a_id}`,
+    title: action.value2 || 'Unnamed Action',
+    start: parsedDate.toISOString(),
+    end: new Date(parsedDate.getTime() + 60 * 60 * 1000).toISOString(),
+    category: 'work', // Or cast if needed: 'work' as CalendarEvent['category']
+    goalId,
+    taskId,
+    color,
+    allDay: true,
+  };
+}
+
+// Helper to parse "20/11/2025 00:00"
+export function parseCustomDateTime(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  const [dd, mm, rest] = dateStr.split('/');
+  if (!rest) return null;
+  const [yyyy, hhmm] = rest.split(' ');
+  const [hh, min] = hhmm?.split(':') ?? [];
+
+  const parsed = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+
+export async function fetchEvents(userId: string, taskId: string, collectiveId: string) {
+  const response = await fetch(`https://meseer.com/dog/generic/get-it/${userId}/33/${collectiveId}`);
+  if (!response.ok) throw new Error("Failed to fetch action events");
+  return response.json();
+}
 

@@ -39,12 +39,13 @@ export type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' 
 export interface Event {
   id: string;
   title: string;
-  start: Date;
-  end: Date;
+  start: string;
+  end: string;
   category: EventCategory;
   goalId?: string;
   taskId?: string;
   color?: string;
+  allDay?: boolean;
 }
 
 interface CalendarState {

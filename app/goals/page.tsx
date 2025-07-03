@@ -28,7 +28,9 @@ import {
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
-  fetchActionsForTasks
+  fetchActionsForTasks,
+  mapActionToEvent,
+  fetchEvents
 } from "../lib/api"; // Adjust path if needed
 import { Calendar as ReactCalendar, CalendarProps } from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; // still needed
@@ -49,8 +51,8 @@ type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'soci
 interface Event {
   id: string;
   title: string;
-  start: Date;
-  end: Date;
+  start: string;
+  end: string;
   category: EventCategory;
   goalId?: string;
   taskId?: string;
@@ -118,6 +120,12 @@ const GoalsPage = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const selectedGoalIdFromSidebar = useSelector((state: RootState) => state.calendar.selectedGoalId);
   const [sidebarDate, setSidebarDate] = useState<Date>(new Date());
+  function toLocalDateTimeInputValue(dateStr: string): string {
+    const d = new Date(dateStr);
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - offset * 60000);
+    return localDate.toISOString().slice(0, 16); // e.g., "2025-07-03T14:30"
+  }
 
   const handleTaskClick = async (taskId: string) => {
     const userId = getUserId();
@@ -135,62 +143,57 @@ const GoalsPage = () => {
         const token = getUserToken();
 
         const goals = await fetchGoalsAndTasks(userId, token);
-        console.log("Fetched goals:", goals.map(g => g.id));
+        console.log("✅ Fetched goals:", goals.map(g => g.id));
 
         if (!Array.isArray(goals)) {
-          console.error("goals is not an array", goals);
+          console.error("❌ goals is not an array", goals);
           return;
         }
 
         const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
         const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
 
-        // Collect all taskIds from filtered goals
-        const allTasks = filteredGoals.flatMap(goal => goal.tasks);
-        const taskIds = allTasks.map(task => task.id);
+        // Dispatch goals directly
+        filteredGoals.forEach(g => dispatch(addGoal(g)));
 
-        // Fetch actions
-        const actionsByTaskId = await fetchActionsForTasks(taskIds, userId, token);
-
-        // Attach actions to tasks
-        const enrichedGoals = filteredGoals.map(goal => ({
-          ...goal,
-          tasks: goal.tasks.map(task => ({
-            ...task,
-            actions: actionsByTaskId[task.id] || []
-          }))
-        }));
-
-        // Dispatch enriched goals
-        enrichedGoals.forEach(g => dispatch(addGoal(g)));
-
-        // Optional: Load event data
-        for (const goal of enrichedGoals) {
+        // Now for each task, fetch events
+        for (const goal of filteredGoals) {
           for (const task of goal.tasks) {
-            if (typeof task.todo_id !== "number") continue;
+            const collectiveId = task.collective_id;
+
+            if (!collectiveId) continue;
+
             try {
-              const todos = await fetchTodoItems(task.todo_id, userId, token);
-              todos.forEach((e: Event) =>
-                dispatch(addEvent({
-                  ...e,
-                  goalId: goal.id,
-                  taskId: task.id,
-                  color: goal.color
-                }))
-              );
-            } catch (err) {
-              console.error("Failed to fetch items for", task.todo_id);
+              const eventsData = await fetchEvents(userId, '33', collectiveId);
+              console.log(`📨 Raw actions for task "${task.title}"`, eventsData);
+
+              eventsData.forEach((action: any) => {
+                const event = mapActionToEvent(action, task.id, goal.id, goal.color);
+                console.log("🧩 Mapped event:", event);
+                if (event) {
+                  const safeEvent = {
+                    ...event,
+                    start: new Date(event.start).toISOString(),
+                    end: new Date(event.end).toISOString(),
+                  };
+                  dispatch(addEvent(safeEvent));
+                }
+
+              });
+            } catch (error) {
+              console.error(`❌ Failed to fetch events for collectiveId ${collectiveId}`, error);
             }
           }
         }
 
       } catch (err) {
-        console.error("User auth info missing or invalid", err);
+        console.error("🚨 Error in loadData:", err);
       }
     };
 
     loadData();
   }, []);
+
 
   useEffect(() => {
     if (!showEventModal || !goals.length) return;
@@ -212,13 +215,14 @@ const GoalsPage = () => {
 
 
   // Generate time slots from 5:30 AM to 8:30 PM
-  const timeSlots = Array.from({ length: 31 }, (_, i) => {
-    const hour = Math.floor(i / 2) + 5;
-    const minute = i % 2 === 0 ? 30 : 0;
+  const timeSlots = Array.from({ length: 48 }, (_, i) => {
+    const hour = Math.floor(i / 2);          // 0 to 23
+    const minute = i % 2 === 0 ? 0 : 30;     // 0, 30
     const date = new Date(selectedDate);
     date.setHours(hour, minute, 0, 0);
     return date;
   });
+
 
   // Get the current week based on selected date
   const getWeekDays = () => {
@@ -256,24 +260,25 @@ const GoalsPage = () => {
 
   // Handle time slot click
   const handleTimeSlotClick = (time: Date, day: Date) => {
-    const start = new Date(day);
-    start.setHours(time.getHours(), time.getMinutes());
+    const startDate = new Date(day);
+    startDate.setHours(time.getHours(), time.getMinutes());
 
-    const end = new Date(start);
-    end.setHours(start.getHours() + 1);
+    const endDate = new Date(startDate);
+    endDate.setHours(startDate.getHours() + 1);
 
     setCurrentEvent({
       id: '',
       title: '',
-      start,
-      end,
+      start: startDate.toISOString(), // ✅ convert to string
+      end: endDate.toISOString(),     // ✅ convert to string
       category: 'work',
-      color: '#3b82f6' // Default blue color
+      color: '#3b82f6',
     });
 
     setTimeSlotClicked({ time, day });
     setShowEventModal(true);
   };
+
 
   // Handle task drag start
   const handleTaskDragStart = (task: Task) => {
@@ -293,8 +298,8 @@ const GoalsPage = () => {
     setCurrentEvent({
       id: '',
       title: draggedTask.title,
-      start,
-      end,
+      start: start.toISOString(),
+      end: end.toISOString(),
       category: 'work',
       goalId: draggedTask.goalId,
       taskId: draggedTask.id,
@@ -466,7 +471,7 @@ const GoalsPage = () => {
             const actions = clickedTaskActions.map((action: TaskAction) => ({
               ...action,
               taskTitle: 'From Clicked Task',
-              taskColor: '#888' // or customize if you have access to color
+              taskColor: '#888'
             }));
 
             if (actions.length === 0) {
@@ -474,7 +479,7 @@ const GoalsPage = () => {
             }
 
             return (
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
                 {actions.map((action: TaskAction, index) => {
                   const displayName = action.cat_qty_id3?.[1]?.name || "Unnamed Action";
                   const date = action.value4 ? new Date(action.value4).toLocaleString() : null;
@@ -483,18 +488,30 @@ const GoalsPage = () => {
                     : null;
 
                   return (
-                    <div
+                    <motion.div
                       key={index}
-                      className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-gray-100 transition-colors"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="bg-white border border-gray-200 shadow-sm rounded-xl p-3 hover:shadow-md transition-shadow"
                     >
-                      <div className="text-sm text-gray-800 font-medium">
-                        {displayName}
+                      <div className="flex justify-between items-start">
+                        <h4 className="text-sm font-semibold text-gray-800">{displayName}</h4>
+                        <span className="text-[10px] text-gray-400 uppercase">#{action.a_id}</span>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {date && <>📅 {date} </>}
-                        {duration && <>⏱ {duration}</>}
+                      <div className="mt-1 text-xs text-gray-600 space-y-0.5">
+                        {date && (
+                          <div className="flex items-center gap-1">
+                            <Clock size={12} /> <span>{date}</span>
+                          </div>
+                        )}
+                        {duration && (
+                          <div className="flex items-center gap-1">
+                            <Tag size={12} /> <span>{duration}</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -515,7 +532,7 @@ const GoalsPage = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => navigateDate('prev')}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-1 rounded-full hover:bg-gray-100 text-black"
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -527,7 +544,7 @@ const GoalsPage = () => {
                 </button>
                 <button
                   onClick={() => navigateDate('next')}
-                  className="p-1 rounded-full hover:bg-gray-100"
+                  className="p-1 rounded-full hover:bg-gray-100 text-black"
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -588,7 +605,41 @@ const GoalsPage = () => {
                       {day.getDate()}
                     </div>
                   </div>
+
                 ))}
+              </div>
+              <div className="grid grid-cols-8 border-b bg-gray-50 text-xs">
+                <div className="border-r p-1 text-right text-gray-600 font-semibold">All-day</div>
+                {weekDays.map((day) => {
+                  const dayStr = day.toDateString();
+                  const allDayEvents = events.filter(event => {
+                    const eventDate = new Date(event.start).toDateString();
+                    const match = event.allDay && eventDate === dayStr;
+                    if (match) {
+                      console.log(`📌 All-day event matched for ${dayStr}:`, event);
+                    }
+                    return match;
+                  });
+
+                  return (
+                    <div key={dayStr} className="border-r px-1 py-0.5 space-y-1">
+                      {allDayEvents.map(event => (
+                        <div
+                          key={event.id}
+                          className="bg-blue-100 text-white px-2 py-0.5 rounded text-xs truncate cursor-pointer"
+                          style={{ backgroundColor: event.color || '#3b82f6' }}
+                          onClick={() => {
+                            setCurrentEvent(event);
+                            setShowEventModal(true);
+                          }}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+                    </div>
+                  );
+
+                })}
               </div>
 
               {/* Time slots */}
@@ -600,11 +651,12 @@ const GoalsPage = () => {
                       key={time.toString()}
                       className="h-12 border-b flex items-start justify-end pr-2"
                     >
-                      <span className="text-xs text-gray-500 -mt-2">
+                      <span className="text-xs text-gray-500">
                         {formatTime(time)}
                       </span>
                     </div>
                   ))}
+
                 </div>
 
                 {/* Day columns */}
@@ -629,12 +681,12 @@ const GoalsPage = () => {
                           onClick={() => handleTimeSlotClick(time, day)}
                           onDragOver={(e) => e.preventDefault()}
                         >
-                          {slotEvents.map((event) => (
+                          {slotEvents.filter(event => !event.allDay).map((event) => (
                             <motion.div
                               key={event.id}
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
-                              className={`absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden`}
+                              className="absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden"
                               style={{
                                 top: `${((new Date(event.start).getMinutes() / 60) * 100)}%`,
                                 height: `${((new Date(event.end).getTime() - new Date(event.start).getTime()) / (1000 * 60 * 60) * 100)}%`,
@@ -660,8 +712,25 @@ const GoalsPage = () => {
                         </div>
                       );
                     })}
+
+                    {/* 🔴 Now line — only on today's column */}
+                    {day.toDateString() === new Date().toDateString() && (() => {
+                      const now = new Date();
+                      const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
+                      const topOffset = (minutesSinceMidnight / (24 * 60)) * 100;
+
+                      return (
+                        <div
+                          className="absolute left-0 right-0 h-[1px] bg-red-500 z-30"
+                          style={{ top: `${topOffset}%` }}
+                        >
+                          <div className="absolute w-2 h-2 bg-red-500 rounded-full -top-1 left-[-4px]"></div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
+
               </div>
             </div>
           )}
@@ -669,31 +738,63 @@ const GoalsPage = () => {
           {/* Day view (simplified for example) */}
           {viewMode === 'day' && (
             <div className="h-full flex flex-col">
-              <div className="border-b p-4 text-center font-medium">
+
+              {/* Date Header */}
+              <div className="border-b p-4 text-center font-medium text-black">
                 {formatDate(selectedDate)}
               </div>
-              <div className="flex-1 grid grid-cols-1 overflow-auto">
-                <div className="border-r">
-                  {timeSlots.map((time) => (
-                    <div
-                      key={time.toString()}
-                      className="h-12 border-b relative"
-                      onClick={() => handleTimeSlotClick(time, selectedDate)}
-                    >
-                      <div className="absolute left-0 top-0 bottom-0 w-16 flex items-start justify-end pr-2">
-                        <span className="text-xs text-gray-500 -mt-2">
-                          {formatTime(time)}
-                        </span>
+
+              {/* All-day Events Row */}
+              <div className="border-b grid grid-cols-12 bg-gray-50 text-xs">
+                <div className="col-span-2 text-right pr-2 py-2 text-gray-600 font-semibold">All-day</div>
+                <div className="col-span-10 py-2 space-y-1">
+                  {events
+                    .filter(event => {
+                      const eventDate = new Date(event.start).toDateString();
+                      return event.allDay && eventDate === selectedDate.toDateString();
+                    })
+                    .map(event => (
+                      <div
+                        key={event.id}
+                        className="w-full max-w-xs bg-green-700 text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
+                        style={{ backgroundColor: event.color || '#0f9d58' }}
+                        onClick={() => {
+                          setCurrentEvent(event);
+                          setShowEventModal(true);
+                        }}
+                      >
+                        {event.title}
                       </div>
-                      <div className="ml-16 h-full">
-                        {getEventsForSlot(selectedDate, time).map((event) => (
+                    ))}
+                </div>
+              </div>
+
+              {/* Time Grid */}
+              <div className="flex-1 overflow-auto">
+                {timeSlots.map((time) => (
+                  <div
+                    key={time.toString()}
+                    className="flex h-12 border-b items-start"
+                    onClick={() => handleTimeSlotClick(time, selectedDate)}
+                  >
+                    {/* Time Label */}
+                    <div className="w-18 flex-shrink-0 text-right pr-2 pt-1">
+                      <span className="text-xs text-gray-500">{formatTime(time)}</span>
+                    </div>
+
+                    {/* Event Cell */}
+                    <div className="flex-1 h-full relative">
+                      {getEventsForSlot(selectedDate, time)
+                        .filter(event => !event.allDay)
+                        .map((event) => (
                           <motion.div
                             key={event.id}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className={`h-full mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden`}
+                            className="absolute left-1 right-1 top-1 bottom-1 px-2 py-1 rounded text-xs text-white font-medium overflow-hidden"
                             style={{
                               backgroundColor: event.color || '#3b82f6',
+                              zIndex: 10
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -707,20 +808,20 @@ const GoalsPage = () => {
                             </div>
                           </motion.div>
                         ))}
-                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
+
 
           {/* Month view (simplified for example) */}
           {viewMode === 'month' && (
             <div className="h-full p-4">
               <div className="grid grid-cols-7 gap-1">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="text-center font-medium text-sm py-2">
+                  <div key={day} className="text-black text-center font-medium text-sm py-2">
                     {day}
                   </div>
                 ))}
@@ -757,7 +858,7 @@ const GoalsPage = () => {
                       <div className="space-y-1 mt-1">
                         {dayEvents.slice(0, 2).map(event => (
                           <div
-                            key={event.id || `${date.toISOString()}-${event.title}`}
+                            key={`${date.toISOString()}-${event.title}`}
                             role="button"
                             tabIndex={0}
                             className="text-xs p-1 rounded truncate hover:opacity-90 transition cursor-pointer"
@@ -865,7 +966,6 @@ const GoalsPage = () => {
                   </select>
                 </div>
 
-
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Title</label>
                   <input
@@ -903,9 +1003,9 @@ const GoalsPage = () => {
                     <label className="block text-sm font-medium text-gray-600 mb-1">Start Time</label>
                     <input
                       type="datetime-local"
-                      value={new Date(currentEvent.start).toISOString().slice(0, 16)}
+                      value={toLocalDateTimeInputValue(currentEvent.start)}
                       onChange={(e) =>
-                        setCurrentEvent({ ...currentEvent, start: new Date(e.target.value) })
+                        setCurrentEvent({ ...currentEvent, start: new Date(e.target.value).toISOString() })
                       }
                       className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
                     />
@@ -914,9 +1014,9 @@ const GoalsPage = () => {
                     <label className="block text-sm font-medium text-gray-600 mb-1">End Time</label>
                     <input
                       type="datetime-local"
-                      value={new Date(currentEvent.end).toISOString().slice(0, 16)}
+                      value={toLocalDateTimeInputValue(currentEvent.end)}
                       onChange={(e) =>
-                        setCurrentEvent({ ...currentEvent, end: new Date(e.target.value) })
+                        setCurrentEvent({ ...currentEvent, end: new Date(e.target.value).toISOString() })
                       }
                       className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
                     />
