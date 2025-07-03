@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import { getUserId, getUserToken } from "../utils/auth";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, Calendar, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
@@ -30,6 +30,8 @@ import {
   deleteCalendarEvent,
   fetchActionsForTasks
 } from "../lib/api"; // Adjust path if needed
+import { Calendar as ReactCalendar, CalendarProps } from 'react-calendar';
+import 'react-calendar/dist/Calendar.css'; // still needed
 
 type UserInfo = {
   access_token: string;
@@ -115,6 +117,7 @@ const GoalsPage = () => {
   const [clickedTaskActions, setClickedTaskActions] = useState<any[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const selectedGoalIdFromSidebar = useSelector((state: RootState) => state.calendar.selectedGoalId);
+  const [sidebarDate, setSidebarDate] = useState<Date>(new Date());
 
   const handleTaskClick = async (taskId: string) => {
     const userId = getUserId();
@@ -358,13 +361,36 @@ const GoalsPage = () => {
     return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  const handleSidebarDateChange: CalendarProps['onChange'] = (value, _event) => {
+    const date = Array.isArray(value) ? value[0] : value;
+    if (date instanceof Date) {
+      setSidebarDate(date);
+      dispatch(setSelectedDate(date.toISOString()));
+    }
+  };
+
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-white p-4 overflow-y-auto">
+      <div className="w-64 border-r bg-white p-4 overflow-y-auto custom-scrollbar">
         <div className="flex justify items-center mb-6">
           <ChevronLeft className='mr-3 text-black' onClick={() => router.push('/main')} />
           <h2 className="text-xl font-bold text-gray-800">My Planner</h2>
+        </div>
+        <div className="mb-4">
+          <ReactCalendar
+            value={sidebarDate}
+            onChange={handleSidebarDateChange}
+            selectRange={false}
+            calendarType="gregory"
+            className="rounded-lg border shadow-sm text-black"
+            tileClassName={({ date }) =>
+              date.toDateString() === new Date().toDateString()
+                ? 'bg-blue-500 text-white rounded-full'
+                : undefined
+            }
+          />
         </div>
         {/* Goals Section */}
         <div className="mb-6">
