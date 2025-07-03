@@ -300,7 +300,7 @@ const ActivityService = {
         flag: string;
         a_id: number;
         at_id: number;
-        cat_qty_id1 ?: number;
+        cat_qty_id1?: number;
         action: "DELETE";
     }) => {
         const response = await fetch(`${API_BASE_URL}/update-delete-data/primary-mwb`, {
@@ -1237,52 +1237,48 @@ function ActivityPage() {
                         </div>
                     )
                 ) : (
-                    // Regular Activity UI
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {userActivities.map((activity) => (
-                            <motion.div
-                                key={activity.ua_id}
-                                whileHover={{ y: -2 }}
-                                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                            >
-                                <div className="relative aspect-square bg-gray-100">
-                                    <Trash2
-                                        className="absolute top-2 right-2 z-10 w-5 h-5 p-1 bg-white rounded-full text-red-500 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-                                        onClick={() => handleDeleteData(activity)}
-                                    />
-                                    {(() => {
-                                        const key = (activity.name || activity.description || "").toLowerCase();
-                                        const image = activityImageMap[key];
-                                        return image ? (
-                                            <img
-                                                src={image}
-                                                alt={key}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">
-                                                📋
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                                <div className="p-4">
-                                    <h3 className="font-medium text-gray-800 truncate">
-                                        {activity.description || activity.name || 'Unnamed Activity'}
-                                    </h3>
-                                    <div className="flex justify-between items-center mt-2">
+                    <div className="space-y-3">
+                        {userActivities.map((activity) => {
+                            const key = (activity.name || activity.description || "").toLowerCase();
+                            const image = activityImageMap[key];
 
+                            return (
+                                <motion.div
+                                    key={activity.ua_id}
+                                    whileHover={{ scale: 1.01 }}
+                                    className="flex items-center justify-between px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer group"
+                                >
+                                    {/* Left side: Image or emoji */}
+                                    <div className="flex items-center gap-3">
+                                        {image ? (
+                                            <img src={image} alt={key} className="w-10 h-10 rounded-md object-cover" />
+                                        ) : (
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-md text-lg">🍽️</div>
+                                        )}
+                                        <div className="flex flex-col">
+                                            <div className="font-medium text-gray-800">{activity.description || activity.name}</div>
+                                            
+                                        </div>
+                                    </div>
+
+                                    {/* Right side: actions */}
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
                                         <button
                                             onClick={() => setActiveActivity(activity)}
-                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                            className="text-sm text-blue-600 hover:text-blue-800"
                                         >
-                                            View Details
+                                            View
                                         </button>
+                                        <Trash2
+                                            className="w-4 h-4 text-red-500 hover:text-red-700"
+                                            onClick={() => handleDeleteData(activity)}
+                                        />
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))}
+                                </motion.div>
+                            );
+                        })}
                     </div>
+
                 )}
             </div>
 
