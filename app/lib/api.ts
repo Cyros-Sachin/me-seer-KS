@@ -32,6 +32,7 @@ export const fetchGoalsAndTasks = async (userId: string, token: string): Promise
           id: task.task_id.toString(),                // Required as string
           collective_id: task.collective_id.toString(),                // Required as string
           title: task.task_name,
+          todo_id : task?.todo_id,
           goalId: task.goal_id.toString(),            // Required as string
           completed: false,                           // Default value since not in API
           color: getRandomColor(),                    // Generate or inherit from goal

@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import { getUserId, getUserToken } from "../utils/auth";
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
@@ -34,7 +34,9 @@ import {
 } from "../lib/api"; // Adjust path if needed
 import { Calendar as ReactCalendar, CalendarProps } from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; // still needed
-
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragOverlay } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 type UserInfo = {
   access_token: string;
   email: string;
@@ -89,12 +91,30 @@ export interface Task {
   actions?: TaskAction[]; // Add this
 }
 
-
 interface Goal {
   id: string;
   title: string;
   color: string;
   tasks: Task[];
+}
+
+interface TodoContent {
+  tc_id: number;
+  content: string;
+  checked: boolean;
+  urgent?: boolean;
+  important?: boolean;
+  version?: string;
+  created_date?: string;
+  last_updated?: string;
+  refresh_type?: string;
+}
+
+interface Todo {
+  todo_id: string;
+  name: string;
+  refresh_type?: string;
+  contents?: TodoContent[];
 }
 
 const GoalsPage = () => {
@@ -122,6 +142,214 @@ const GoalsPage = () => {
   const [allActions, setAllActions] = useState<Record<string, any[]>>({});
   const [sidebarDate, setSidebarDate] = useState<Date>(new Date());
   const timeGridRef = useRef<HTMLDivElement>(null);
+  // Add these state variables inside the GoalsPage component
+  const [selectedTaskTodo, setSelectedTaskTodo] = useState<Todo | null>(null);
+  const [newTaskContent, setNewTaskContent] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskContent, setEditingTaskContent] = useState("");
+  const [todoView, setTodoView] = useState<'unchecked' | 'checked' | 'history'>('unchecked');
+  const sensors = useSensors(useSensor(PointerSensor));
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const handleTaskClick = async (taskId: string) => {
+    const userId = getUserId();
+    const token = getUserToken();
+    setSelectedTaskId(taskId);
+
+    const allTasks = goals.flatMap(g => g.tasks);
+    const task = allTasks.find(t => t.id === taskId);
+
+    if (!task || !task.todo_id) {
+      setSelectedTaskTodo(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://meseer.com/dog/todos/${task.todo_id}/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+
+      const data = await response.json();
+
+      let finalTodo: Todo = {
+        todo_id: task.todo_id.toString(),
+        name: "Untitled",
+        contents: [],
+        refresh_type: "daily"
+      };
+
+      if (data.todo_data && Array.isArray(data.todo_data)) {
+        // CASE 1: grouped format (object with keys like "304, Check 1")
+        const group = data.todo_data.find((obj: any) =>
+          typeof obj === 'object' && Object.keys(obj).length > 0
+        );
+        if (group) {
+          const [key, rawContents] = Object.entries(group)[0];
+          const contents = rawContents as TodoContent[];
+
+          finalTodo = {
+            todo_id: key.split(',')[0].trim(),
+            name: key.split(',').slice(1).join(',').trim() || "Untitled",
+            contents,
+            refresh_type: contents?.[0]?.refresh_type || "daily"
+          };
+        }
+
+      } else if (Array.isArray(data)) {
+        // CASE 2: flat array of todos (like your current JSON)
+        finalTodo = {
+          todo_id: data[0]?.todo_id?.toString() || task.todo_id.toString(),
+          name: data[0]?.name || "Untitled",
+          contents: data,
+          refresh_type: data[0]?.refresh_type || "daily"
+        };
+      }
+
+      setSelectedTaskTodo(finalTodo);
+    } catch (err) {
+      console.error("Error fetching todo:", err);
+      setSelectedTaskTodo({
+        todo_id: task.todo_id.toString(),
+        name: "Untitled",
+        contents: [],
+        refresh_type: "daily"
+      });
+    }
+  };
+
+  // Add these helper functions for todo operations
+  const handleToggleCheck = async (tcId: number) => {
+    if (!selectedTaskTodo) return;
+
+    setSelectedTaskTodo(prev => {
+      if (!prev) return prev;
+
+      const updatedContents = (prev as any).contents.map((item: any) => {
+        if (item.tc_id === tcId) {
+          const updatedItem = {
+            ...item,
+            checked: !item.checked
+          };
+          updateCheckStatus(updatedItem);
+          return updatedItem;
+        }
+        return item;
+      });
+
+      return { ...prev, contents: updatedContents };
+    });
+  };
+
+  const updateCheckStatus = async (item: TodoContent) => {
+    try {
+      const token = getUserToken();
+      await fetch(`https://meseer.com/dog/todo_content/${item.tc_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: item.content,
+          checked: item.checked,
+          urgent: item.urgent ?? false,
+          important: item.important ?? false
+        })
+      });
+    } catch (err) {
+      console.error('Failed to update todo:', err);
+    }
+  };
+
+  const handleAddTask = async () => {
+    if (!selectedTaskTodo || !newTaskContent.trim()) return;
+
+    const userId = getUserId();
+    const token = getUserToken();
+    const now = new Date().toISOString();
+
+    try {
+      const response = await fetch(`https://meseer.com/dog/todo_content`, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          todo_id: selectedTaskTodo.todo_id,
+          user_id: userId,
+          content: newTaskContent.trim(),
+          checked: false,
+          urgent: true,
+          important: false,
+          version: "v1",
+          created_date: now,
+          last_updated: now,
+          refresh_type: selectedTaskTodo.refresh_type || "daily",
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh the todo data
+        const refreshResponse = await fetch(`https://meseer.com/dog/get-todo-wordpad/lastest-version/${userId}/${selectedTaskId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          const todos: Todo[] = [];
+          data.todo_data.forEach((todoObj: Record<string, Todo[]>) => {
+            Object.values(todoObj).forEach(todoArray => {
+              todos.push(...todoArray);
+            });
+          });
+
+          if (todos.length > 0) {
+            setSelectedTaskTodo(todos[0]);
+          }
+        }
+
+        setNewTaskContent("");
+      }
+    } catch (err) {
+      console.error("Failed to add task:", err);
+    }
+  };
+
+  const handleDeleteTask = async (tcId: number) => {
+    if (!selectedTaskTodo) return;
+
+    try {
+      const token = getUserToken();
+      await fetch(`https://meseer.com/dog/todo_content/${tcId}`, {
+        method: "DELETE",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Update local state
+      setSelectedTaskTodo(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          contents: (prev as any).contents.filter((item: any) => item.tc_id !== tcId)
+        };
+      });
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  };
+
   const scrollToCurrentTime = () => {
     const container = timeGridRef.current;
     if (!container) return;
@@ -150,12 +378,6 @@ const GoalsPage = () => {
     const localDate = new Date(d.getTime() - offset * 60000);
     return localDate.toISOString().slice(0, 16); // e.g., "2025-07-03T14:30"
   }
-
-  const handleTaskClick = async (taskId: string) => {
-    const userId = getUserId();
-    const token = getUserToken();
-    setSelectedTaskId(taskId);
-  };
 
   useEffect(() => {
     if (viewMode === 'day' || viewMode === 'week') {
@@ -533,7 +755,6 @@ const GoalsPage = () => {
               acc[key].push(task);
               return acc;
             }, {});
-
             return (
               <div className="space-y-6">
                 {Object.entries(groupedTasks).map(([collectiveId, tasks]) => (
@@ -561,7 +782,149 @@ const GoalsPage = () => {
             <p className="text-sm text-gray-400">No goal selected</p>
           )}
         </div>
+        {/* Selected Task Todo Section */}
+        {selectedTaskTodo && (
+          <div className="mt-6 border-t pt-4">
+            <h3 className="text-md font-bold text-gray-900 mb-2">Todos</h3>
+            <h3 className="text-md font-semibold text-gray-800 mb-2">Task Todo</h3>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              {/* Todo Header */}
+              <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
+                <span className="font-medium text-sm text-gray-500">{selectedTaskTodo.name}</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setTodoView(prev =>
+                      prev === 'unchecked' ? 'checked' :
+                        prev === 'checked' ? 'history' : 'unchecked'
+                    )}
+                    className="p-1 text-gray-500 hover:text-blue-600"
+                    title="Change view"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
+              {/* Todo Content */}
+              <div className="max-h-64 overflow-y-auto p-2">
+                {/* Filter tasks based on view */}
+                {(() => {
+                  const items = selectedTaskTodo?.contents || [];
+
+                  if (todoView === 'history') {
+                    const grouped = items.reduce((acc: Record<string, TodoContent[]>, item: TodoContent) => {
+                      const date = new Date(item.last_updated || '').toLocaleDateString();
+                      if (!acc[date]) acc[date] = [];
+                      acc[date].push(item);
+                      return acc;
+                    }, {});
+
+                    return Object.entries(grouped).map(([date, tasks]) => (
+                      <div key={date} className="mb-3">
+                        <div className="text-xs text-gray-500 font-medium mb-1">{date}</div>
+                        {tasks.map((task) => (
+                          <div key={task.tc_id} className="flex items-center gap-2 p-1 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={task.checked}
+                              onChange={() => handleToggleCheck(task.tc_id)}
+                              className="h-3 w-3"
+                            />
+                            <span className={`text-gray-600 ${task.checked ? 'line-through text-gray-400' : ''}`}>
+                              {task.content}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ));
+                  } else {
+                    return items
+                      .filter((item) => todoView === 'unchecked' ? !item.checked : item.checked)
+                      .map((item) => (
+                        <div key={item.tc_id} className="flex items-center justify-between p-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={item.checked}
+                              onChange={() => handleToggleCheck(item.tc_id)}
+                              className="h-3 w-3"
+                            />
+                            {editingTaskId === item.tc_id ? (
+                              <input
+                                type="text"
+                                value={editingTaskContent}
+                                onChange={(e) => setEditingTaskContent(e.target.value)}
+                                onBlur={() => {
+                                  if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                    updateCheckStatus({ ...item, content: editingTaskContent });
+                                  }
+                                  setEditingTaskId(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                      updateCheckStatus({ ...item, content: editingTaskContent });
+                                    }
+                                    setEditingTaskId(null);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingTaskId(null);
+                                  }
+                                }}
+                                className="text-sm border-b border-gray-300 focus:outline-none w-full"
+                                autoFocus
+                              />
+                            ) : (
+                              <span
+                                className={`cursor-pointer text-gray-600 ${item.checked ? 'line-through text-gray-400' : ''}`}
+                                onClick={() => {
+                                  setEditingTaskId(item.tc_id);
+                                  setEditingTaskContent(item.content);
+                                }}
+                              >
+                                {item.content}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteTask(item.tc_id)}
+                            className="text-red-400 hover:text-red-600 text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ));
+                  }
+                })()}
+
+                {/* Add new task input */}
+                {newTaskContent !== null && (
+                  <div className="p-1">
+                    <input
+                      type="text"
+                      value={newTaskContent}
+                      onChange={(e) => setNewTaskContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddTask();
+                        } else if (e.key === 'Escape') {
+                          setNewTaskContent("");
+                        }
+                      }}
+                      placeholder="Add task and press Enter"
+                      className="w-full text-sm text-gray-600 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Todo Footer */}
+              <div className="px-3 py-1 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
+                <span>{todoView} view</span>
+                <span>{selectedTaskTodo.refresh_type}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">

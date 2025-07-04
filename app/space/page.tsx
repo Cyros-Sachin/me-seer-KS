@@ -1122,9 +1122,9 @@ export default function SpacePage() {
                               >
                                 {/* Header */}
                                 <div
-                                  {...listeners} {...attributes}
+                                  
                                   className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group" >
-                                  <div className="flex items-center min-w-0">
+                                  <div {...listeners} {...attributes} className="flex items-center min-w-0">
                                     {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
                                       <input
                                         ref={(el) => {

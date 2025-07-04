@@ -858,15 +858,16 @@ function ActivityPage() {
         }
     };
 
-    const handleDeleteTask = async () => {
+    const handleDeleteTask = async (taskId: any) => {
         try {
             const userId = getUserId();
             await ActivityService.updateOrDeletePrimaryMWBData({
                 ua_id: selectedTaskDetails?.ua_id,
-                a_id: 27,             // Task a_id
+                a_id: 28,             // Task a_id
                 at_id: 302,
                 flag: "PH",
-                action: "DELETE"
+                action: "DELETE",
+                cat_qty_id1: taskId,
             });
 
             setShowTask(false);
@@ -1243,7 +1244,7 @@ function ActivityPage() {
                                 <motion.div
                                     key={activity.ua_id}
                                     whileHover={{ scale: 1.01 }}
-                                    className="flex items-center justify-between px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer group"
+                                    className="flex items-center max-w-xl justify-between px-4 py-3 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer group"
                                 >
                                     {/* Left side: Image or emoji */}
                                     <div className="flex items-center gap-3">
@@ -1565,7 +1566,7 @@ function ActivityPage() {
                                 <h2 className="text-2xl font-bold">{selectedTaskDetails.task_name}</h2>
                                 <div className="flex gap-2 items-center">
                                     <button
-                                        onClick={handleDeleteTask}
+                                        onClick={()=>handleDeleteTask(selectedTaskDetails.task_id)}
                                         className="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-sm"
                                     >
                                         Delete Task
