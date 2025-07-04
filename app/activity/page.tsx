@@ -142,7 +142,6 @@ const ActivityService = {
             headers: ActivityService.getHeaders()
         });
         const data = await response.json();
-        console.log(data);
         return data || [];
     },
 
@@ -604,7 +603,6 @@ function ActivityPage() {
                 const userId = getUserId();
                 const pinned = await ActivityService.getPinnedActivities(userId, selectedActivityType);
                 setPinnedActivities(pinned);
-                console.log(pinned);
 
                 // Select first pinned activity by default if available
                 // if (pinned.length > 0) {
@@ -703,7 +701,6 @@ function ActivityPage() {
 
     const handlePinnedActivityClick = (activity: PinnedActivity) => {
         // Don't select it by default
-        console.log("Pinned clicked:", activity.name.toLowerCase());
 
         switch (activity.name.toLowerCase()) {
             case 'create meal':

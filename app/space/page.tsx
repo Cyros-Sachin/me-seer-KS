@@ -121,7 +121,6 @@ const SpaceService = {
       headers: SpaceService.getHeaders()
     });
     const data = await response.json();
-    console.log(data);
     return data;
   },
 
@@ -2033,7 +2032,6 @@ export default function SpacePage() {
                     onClick={() => {
                       setEditingTodoId(maximizedTodo.todo_id);
                       setEditingName(maximizedTodo.name);
-                      console.log("Clicked")
                     }}
                     title="Click to rename"
                   >

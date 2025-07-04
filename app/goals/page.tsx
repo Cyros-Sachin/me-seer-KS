@@ -119,7 +119,31 @@ const GoalsPage = () => {
   const [clickedTaskActions, setClickedTaskActions] = useState<any[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const selectedGoalIdFromSidebar = useSelector((state: RootState) => state.calendar.selectedGoalId);
+  const [allActions, setAllActions] = useState<Record<string, any[]>>({});
   const [sidebarDate, setSidebarDate] = useState<Date>(new Date());
+  const timeGridRef = useRef<HTMLDivElement>(null);
+  const scrollToCurrentTime = () => {
+    const container = timeGridRef.current;
+    if (!container) return;
+
+    const now = new Date();
+    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
+
+    // Total minutes covered by your timeSlots (5:30 AM to 8:30 PM)
+    const startMinutes = 5 * 60 + 30; // 5:30 AM in minutes
+    const endMinutes = 20 * 60 + 30;  // 8:30 PM in minutes
+    const totalVisibleMinutes = endMinutes - startMinutes;
+
+    const containerHeight = container.scrollHeight;
+    const relativeMinutes = minutesSinceMidnight - startMinutes;
+
+    // Calculate top offset in pixels
+    const topOffset = (relativeMinutes / totalVisibleMinutes) * containerHeight;
+
+    // Scroll so the line is in the middle of the visible area
+    container.scrollTop = topOffset - container.clientHeight / 2;
+  };
+
   function toLocalDateTimeInputValue(dateStr: string): string {
     const d = new Date(dateStr);
     const offset = d.getTimezoneOffset();
@@ -131,9 +155,16 @@ const GoalsPage = () => {
     const userId = getUserId();
     const token = getUserToken();
     setSelectedTaskId(taskId);
-    const actionsMap = await fetchActionsForTasks([taskId], userId, token);
-    setClickedTaskActions(actionsMap[taskId] || []);
   };
+
+  useEffect(() => {
+    if (viewMode === 'day' || viewMode === 'week') {
+      // Delay to ensure DOM has rendered
+      setTimeout(() => {
+        scrollToCurrentTime();
+      }, 100);
+    }
+  }, [viewMode, selectedDate]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -143,7 +174,6 @@ const GoalsPage = () => {
         const token = getUserToken();
 
         const goals = await fetchGoalsAndTasks(userId, token);
-        console.log("✅ Fetched goals:", goals.map(g => g.id));
 
         if (!Array.isArray(goals)) {
           console.error("❌ goals is not an array", goals);
@@ -152,6 +182,9 @@ const GoalsPage = () => {
 
         const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
         const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
+        const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
+        const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
+        setAllActions(actionsMap);
 
         // Dispatch goals directly
         filteredGoals.forEach(g => dispatch(addGoal(g)));
@@ -165,11 +198,9 @@ const GoalsPage = () => {
 
             try {
               const eventsData = await fetchEvents(userId, '33', collectiveId);
-              console.log(`📨 Raw actions for task "${task.title}"`, eventsData);
 
               eventsData.forEach((action: any) => {
                 const event = mapActionToEvent(action, task.id, goal.id, goal.color);
-                console.log("🧩 Mapped event:", event);
                 if (event) {
                   const safeEvent = {
                     ...event,
@@ -194,7 +225,6 @@ const GoalsPage = () => {
     loadData();
   }, []);
 
-
   useEffect(() => {
     if (!showEventModal || !goals.length) return;
 
@@ -213,6 +243,9 @@ const GoalsPage = () => {
     });
   }, [showEventModal, goals]);
 
+  useEffect(() => {
+    scrollToCurrentTime();
+  }, []);
 
   // Generate time slots from 5:30 AM to 8:30 PM
   const timeSlots = Array.from({ length: 48 }, (_, i) => {
@@ -374,6 +407,61 @@ const GoalsPage = () => {
     }
   };
 
+  const getActionsForDay = (day: Date, allActions: Record<string, any[]>, goals: Goal[]): {
+    title: string;
+    color: string;
+    time: string;
+    durationMinutes: number;
+  }[] => {
+    const actions: {
+      title: string;
+      color: string;
+      time: string;
+      durationMinutes: number;
+    }[] = [];
+
+    const weekdayName = day.toLocaleDateString('en-US', { weekday: 'long' });
+
+    for (const goal of goals) {
+      for (const task of goal.tasks) {
+        const taskActions = allActions[task.id] || [];
+
+        for (const action of taskActions) {
+          const title = action.value3 || "Action";
+          const color = task.color || "#3b82f6";
+          const timeStr = (action.value5 || "00:00").trim();
+          const [hh, mm] = timeStr.split(":").map(Number);
+          if (isNaN(hh) || isNaN(mm)) continue;
+
+          const unit = action.cat_qty_id6?.find((u: any) => u.Selected)?.name || "mins";
+          let duration = parseInt(action.value6 || "30");
+          if (isNaN(duration)) duration = 30;
+          if (unit === "hours") duration *= 60;
+
+          const isWeekly = Array.isArray(action.cat_qty_id4) &&
+            action.cat_qty_id4.some((e: any) => e.Selected);
+          const weekdays = isWeekly
+            ? action.cat_qty_id4.filter((e: any) => e.Selected).map((e: any) => e.name)
+            : [];
+
+          if (weekdays.includes(weekdayName)) {
+            actions.push({
+              title,
+              color,
+              time: timeStr,
+              durationMinutes: duration,
+            });
+          }
+        }
+      }
+    }
+
+    return actions;
+  };
+
+  const addMinutes = (date: Date, minutes: number): Date => {
+    return new Date(date.getTime() + minutes * 60000);
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -467,66 +555,6 @@ const GoalsPage = () => {
                     ))}
                   </div>
                 ))}
-              </div>
-            );
-          })() : (
-            <p className="text-sm text-gray-400">No goal selected</p>
-          )}
-        </div>
-        {/* Actions Section */}
-        <div className="mt-10">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Actions</h2>
-
-          {selectedGoalId ? (() => {
-            const selectedGoal = goals.find(g => g.id === selectedGoalId);
-            if (!selectedGoal) return <p className="text-sm text-gray-400">No goal selected</p>;
-
-            const actions = clickedTaskActions.map((action: TaskAction) => ({
-              ...action,
-              taskTitle: 'From Clicked Task',
-              taskColor: '#888'
-            }));
-
-            if (actions.length === 0) {
-              return <p className="text-sm text-gray-400">No actions available</p>;
-            }
-
-            return (
-              <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
-                {actions.map((action: TaskAction, index) => {
-                  const displayName = action.cat_qty_id3?.[1]?.name || "Unnamed Action";
-                  const date = action.value4 ? new Date(action.value4).toLocaleString() : null;
-                  const duration = action.value5
-                    ? `${action.value5} ${action.cat_qty_id5?.find(x => x.Selected)?.name || ''}`
-                    : null;
-
-                  return (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: index * 0.05 }}
-                      className="bg-white border border-gray-200 shadow-sm rounded-xl p-3 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex justify-between items-start">
-                        <h4 className="text-sm font-semibold text-gray-800">{displayName}</h4>
-                        <span className="text-[10px] text-gray-400 uppercase">#{action.a_id}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-gray-600 space-y-0.5">
-                        {date && (
-                          <div className="flex items-center gap-1">
-                            <Clock size={12} /> <span>{date}</span>
-                          </div>
-                        )}
-                        {duration && (
-                          <div className="flex items-center gap-1">
-                            <Tag size={12} /> <span>{duration}</span>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
               </div>
             );
           })() : (
@@ -627,15 +655,59 @@ const GoalsPage = () => {
                   const dayStr = day.toDateString();
                   const allDayEvents = events.filter(event => {
                     const eventDate = new Date(event.start).toDateString();
-                    const match = event.allDay && eventDate === dayStr;
-                    if (match) {
-                      console.log(`📌 All-day event matched for ${dayStr}:`, event);
-                    }
-                    return match;
+                    return event.allDay && eventDate === dayStr;
                   });
+
+                  // 🆕 Get actions that match this day and have no specific time
+                  const actionsForDay = (() => {
+                    const result: { title: string; color: string }[] = [];
+
+                    for (const goal of goals) {
+                      for (const task of goal.tasks) {
+                        const actions = allActions[task.id] || [];
+
+                        actions.forEach(action => {
+                          const title = action.value3 || "Action";
+                          const color = task.color;
+
+                          const repeat = (() => {
+                            if (action.value4?.includes('/')) return 'daily';
+                            if (Array.isArray(action.cat_qty_id4) && action.cat_qty_id4.some((e: any) => e.Selected)) return 'weekly';
+                            if (!isNaN(Number(action.value4))) return 'monthly';
+                            return 'once';
+                          })();
+
+                          if (repeat === 'daily' && action.value4) {
+                            const actionDate = new Date(action.value4);
+                            if (actionDate.toDateString() === day.toDateString() && !action.value5) {
+                              result.push({ title, color });
+                            }
+                          }
+
+                          if (repeat === 'weekly') {
+                            const weekdays = action.cat_qty_id4?.filter((e: any) => e.Selected).map((e: any) => e.name);
+                            const weekdayName = day.toLocaleDateString('en-US', { weekday: 'long' });
+                            if (weekdays?.includes(weekdayName) && !action.value5) {
+                              result.push({ title, color });
+                            }
+                          }
+
+                          if (repeat === 'monthly' && action.value4) {
+                            const dayNum = parseInt(action.value4);
+                            if (day.getDate() === dayNum && !action.value5) {
+                              result.push({ title, color });
+                            }
+                          }
+                        });
+                      }
+                    }
+
+                    return result;
+                  })();
 
                   return (
                     <div key={dayStr} className="border-r px-1 py-0.5 space-y-1">
+                      {/* Existing all-day events */}
                       {allDayEvents.map(event => (
                         <div
                           key={event.id}
@@ -649,14 +721,24 @@ const GoalsPage = () => {
                           {event.title}
                         </div>
                       ))}
+
+                      {/* 🆕 Actions that fall on this day but have no time */}
+                      {actionsForDay.map((action, i) => (
+                        <div
+                          key={`action-${i}-${dayStr}`}
+                          className="bg-purple-600 text-white px-2 py-0.5 rounded text-xs truncate"
+                          style={{ backgroundColor: action.color }}
+                        >
+                          {action.title}
+                        </div>
+                      ))}
                     </div>
                   );
-
                 })}
               </div>
 
               {/* Time slots */}
-              <div className="flex-1 grid grid-cols-8 overflow-auto">
+              <div className="flex-1 grid grid-cols-8 overflow-auto" ref={timeGridRef}>
                 {/* Time column */}
                 <div className="border-r">
                   {timeSlots.map((time) => (
@@ -725,7 +807,32 @@ const GoalsPage = () => {
                         </div>
                       );
                     })}
+                    {getActionsForDay(day, allActions, goals).map((action, index) => {
+                      const [hh, mm] = action.time.split(':').map(Number);
+                      const startMins = hh * 60 + mm;
+                      const topOffset = (startMins / (24 * 60)) * 100;
+                      const heightPercent = (action.durationMinutes / (24 * 60)) * 100;
 
+                      return (
+                        <motion.div
+                          key={`action-${index}-${day.toISOString()}`}
+                          className="absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden"
+                          style={{
+                            top: `${topOffset}%`,
+                            height: `${heightPercent}%`,
+                            backgroundColor: action.color,
+                            zIndex: 6,
+                          }}
+                        >
+                          <div className="truncate">{action.title}</div>
+                          <div className="text-xs opacity-80">
+                            {action.time} — {formatTime(
+                              addMinutes(new Date(day.setHours(hh, mm, 0, 0)), action.durationMinutes)
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                     {/* 🔴 Now line — only on today's column */}
                     {day.toDateString() === new Date().toDateString() && (() => {
                       const now = new Date();
@@ -757,146 +864,253 @@ const GoalsPage = () => {
                 {formatDate(selectedDate)}
               </div>
 
-              {/* All-day Events Row */}
+              {/* All-day row */}
               <div className="border-b grid grid-cols-12 bg-gray-50 text-xs">
-                <div className="col-span-2 text-right pr-2 py-2 text-gray-600 font-semibold">All-day</div>
+                <div className="col-span-2 text-right pr-2 py-2 text-gray-600 font-semibold">
+                  All-day
+                </div>
                 <div className="col-span-10 py-2 space-y-1">
                   {events
-                    .filter(event => {
-                      const eventDate = new Date(event.start).toDateString();
-                      return event.allDay && eventDate === selectedDate.toDateString();
-                    })
-                    .map(event => (
+                    .filter(ev =>
+                      ev.allDay &&
+                      new Date(ev.start).toDateString() === selectedDate.toDateString()
+                    )
+                    .map(ev => (
                       <div
-                        key={event.id}
-                        className="w-full max-w-xs bg-green-700 text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
-                        style={{ backgroundColor: event.color || '#0f9d58' }}
+                        key={ev.id}
+                        className="w-full max-w-xs text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
+                        style={{ backgroundColor: ev.color || '#0f9d58' }}
                         onClick={() => {
-                          setCurrentEvent(event);
+                          setCurrentEvent(ev);
                           setShowEventModal(true);
                         }}
                       >
-                        {event.title}
+                        {ev.title}
                       </div>
                     ))}
                 </div>
               </div>
 
               {/* Time Grid */}
-              <div className="flex-1 overflow-auto">
-                {timeSlots.map((time) => (
-                  <div
-                    key={time.toString()}
-                    className="flex h-12 border-b items-start"
-                    onClick={() => handleTimeSlotClick(time, selectedDate)}
-                  >
-                    {/* Time Label */}
-                    <div className="w-18 flex-shrink-0 text-right pr-2 pt-1">
-                      <span className="text-xs text-gray-500">{formatTime(time)}</span>
-                    </div>
+              <div className="flex-1 overflow-auto relative" ref={timeGridRef}>
+                {/* 💡 Add a relative wrapper to hold both time grid and actions */}
+                <div className="relative">
+                  {timeSlots.map((time) => (
+                    <div
+                      key={time.toString()}
+                      className="flex h-12 border-b items-start"
+                      onClick={() => handleTimeSlotClick(time, selectedDate)}
+                    >
+                      {/* Time Label */}
+                      <div className="w-18 flex-shrink-0 text-right pr-2 pt-1">
+                        <span className="text-xs text-gray-500">{formatTime(time)}</span>
+                      </div>
 
-                    {/* Event Cell */}
-                    <div className="flex-1 h-full relative">
-                      {getEventsForSlot(selectedDate, time)
-                        .filter(event => !event.allDay)
-                        .map((event) => (
-                          <motion.div
-                            key={event.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="absolute left-1 right-1 top-1 bottom-1 px-2 py-1 rounded text-xs text-white font-medium overflow-hidden"
-                            style={{
-                              backgroundColor: event.color || '#3b82f6',
-                              zIndex: 10
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCurrentEvent(event);
-                              setShowEventModal(true);
-                            }}
-                          >
-                            <div className="truncate">{event.title}</div>
-                            <div className="text-xs opacity-80">
-                              {formatTime(new Date(event.start))} - {formatTime(new Date(event.end))}
-                            </div>
-                          </motion.div>
-                        ))}
+                      {/* Event Cell */}
+                      <div className="flex-1 h-full relative">
+                        {getEventsForSlot(selectedDate, time)
+                          .filter(event => !event.allDay)
+                          .map((event) => (
+                            <motion.div
+                              key={event.id}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="absolute left-1 right-1 top-1 bottom-1 px-2 py-1 rounded text-xs text-white font-medium overflow-hidden"
+                              style={{
+                                backgroundColor: event.color || '#3b82f6',
+                                zIndex: 10
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentEvent(event);
+                                setShowEventModal(true);
+                              }}
+                            >
+                              <div className="truncate">{event.title}</div>
+                              <div className="text-xs opacity-80">
+                                {formatTime(new Date(event.start))} - {formatTime(new Date(event.end))}
+                              </div>
+                            </motion.div>
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                  {/* 🔴 Now line for Day View */}
+                  {selectedDate.toDateString() === new Date().toDateString() && (() => {
+                    const now = new Date();
+                    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
+                    const topOffset = (minutesSinceMidnight / (24 * 60)) * 100;
+
+                    return (
+                      <div
+                        className="absolute left-[80px] right-0 h-[1px] bg-red-500 z-30"
+                        style={{ top: `${topOffset}%` }}
+                      >
+                        <div className="absolute w-2 h-2 bg-red-500 rounded-full -top-1 left-[-4px]"></div>
+                      </div>
+                    );
+                  })()}
+                  {/* ✅ Render all actions once per day — positioned accurately */}
+                  {getActionsForDay(selectedDate, allActions, goals).map((action, index) => {
+                    const [hh, mm] = action.time.split(':').map(Number);
+                    const startMins = hh * 60 + mm;
+                    const topOffset = (startMins / (24 * 60)) * 100;
+                    const heightPercent = (action.durationMinutes / (24 * 60)) * 100;
+
+                    return (
+                      <motion.div
+                        key={`action-${index}-${selectedDate.toISOString()}`}
+                        className="absolute left-[80px] right-2 p-1 rounded text-xs text-white font-semibold overflow-hidden"
+                        style={{
+                          top: `${topOffset}%`,
+                          height: `${heightPercent}%`,
+                          backgroundColor: action.color,
+                          zIndex: 6,
+                        }}
+                      >
+                        <div className="truncate">{action.title}</div>
+                        <div className="text-[10px] opacity-80">
+                          {action.time} — {formatTime(
+                            addMinutes(new Date(selectedDate.setHours(hh, mm, 0, 0)), action.durationMinutes)
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
-
 
           {/* Month view (simplified for example) */}
           {viewMode === 'month' && (
             <div className="h-full p-4">
               <div className="grid grid-cols-7 gap-1">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="text-black text-center font-medium text-sm py-2">
-                    {day}
+
+                {/* weekday labels */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                  <div key={d} className="text-black text-center font-medium text-sm py-2">
+                    {d}
                   </div>
                 ))}
+
+                {/* 42 calendar cells */}
                 {Array.from({ length: 42 }).map((_, i) => {
-                  const date = new Date(selectedDate);
-                  date.setDate(1);
-                  date.setDate(date.getDate() - date.getDay() + i);
+                  const cellDate = new Date(selectedDate);
+                  cellDate.setDate(1);
+                  cellDate.setDate(cellDate.getDate() - cellDate.getDay() + i);
 
-                  const isCurrentMonth = date.getMonth() === new Date(selectedDate).getMonth();
-                  const isToday = date.toDateString() === new Date().toDateString();
+                  const isCurrentMonth = cellDate.getMonth() === new Date(selectedDate).getMonth();
+                  const isToday = cellDate.toDateString() === new Date().toDateString();
 
-                  const dayEvents = events.filter(event => {
-                    const eventDate = new Date(event.start);
+                  /* ───── Events in this cell ───── */
+                  const dayEvents = events.filter(ev => {
+                    const d = new Date(ev.start);
                     return (
-                      eventDate.getDate() === date.getDate() &&
-                      eventDate.getMonth() === date.getMonth() &&
-                      eventDate.getFullYear() === date.getFullYear()
+                      d.getDate() === cellDate.getDate() &&
+                      d.getMonth() === cellDate.getMonth() &&
+                      d.getFullYear() === cellDate.getFullYear()
                     );
                   });
-                  const dayNumber = date.getDate();
+
+                  /* ───── Actions in this cell ───── */
+                  const actionsForDate = goals.flatMap(goal =>
+                    goal.tasks.flatMap(task =>
+                      (allActions[task.id] || []).filter(action => {
+                        /* determine repeat type */
+                        const repeat = (() => {
+                          if (action.value4?.includes('/')) return 'daily';
+
+                          const cat4 = action.cat_qty_id4 || [];
+
+                          // Weekly: cat_qty_id4 includes item_name === "Days"
+                          if (cat4.some((e: any) => e.item_name === 'Days')) return 'weekly';
+
+                          // Monthly: cat_qty_id4 includes item_name === "day of month"
+                          if (cat4.some((e: any) => e.item_name === 'day of month')) return 'monthly';
+
+                          return 'once';
+                        })();
+
+                        /* daily */
+                        if (repeat === 'daily') {
+                          return new Date(action.value4).toDateString() === cellDate.toDateString();
+                        }
+
+                        /* weekly */
+                        if (repeat === 'weekly') {
+                          const weekdays = action.cat_qty_id4
+                            ?.filter((e: any) => e.Selected)
+                            .map((e: any) => e.name);
+                          const wdName = cellDate.toLocaleDateString('en-US', { weekday: 'long' });
+                          return weekdays?.includes(wdName);
+                        }
+
+                        /* monthly */
+                        if (repeat === 'monthly') {
+                          const dayNum = Number(action.value4);
+                          return dayNum >= 1 && dayNum <= 31 && cellDate.getDate() === dayNum;
+                        }
+
+                        return false;
+                      }).map(action => ({
+                        title: action.value3 || 'Action',
+                        color: task.color
+                      }))
+                    )
+                  );
+
+                  /* ───── Cell UI ───── */
                   return (
                     <div
                       key={i}
-                      className={`border rounded min-h-24 p-1 transition-all duration-200 ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                        } ${isToday ? 'border-blue-500' : ''}`}
+                      className={`border rounded min-h-24 p-1 transition-all duration-200
+              ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}
+              ${isToday ? 'border-blue-500' : ''}`}
                     >
-                      <div
-                        className={`text-right text-sm ${isCurrentMonth ? 'text-gray-700' : 'text-gray-400'
-                          } ${isToday ? 'font-bold' : ''}`}
-                      >
-                        {date.getDate()}
+                      {/* date number */}
+                      <div className={`text-right text-sm
+              ${isCurrentMonth ? 'text-gray-700' : 'text-gray-400'}
+              ${isToday ? 'font-bold' : ''}`}>
+                        {cellDate.getDate()}
                       </div>
 
+                      {/* event & action pills */}
                       <div className="space-y-1 mt-1">
-                        {dayEvents.slice(0, 2).map(event => (
+
+                        {/* events (max 2) */}
+                        {dayEvents.slice(0, 2).map(ev => (
                           <div
-                            key={`${date.toISOString()}-${event.title}`}
-                            role="button"
-                            tabIndex={0}
-                            className="text-xs p-1 rounded truncate hover:opacity-90 transition cursor-pointer"
-                            style={{
-                              backgroundColor: event.color || '#3b82f6',
-                              color: 'white',
-                            }}
-                            onClick={() => {
-                              setCurrentEvent(event);
-                              setShowEventModal(true);
-                            }}
+                            key={`${cellDate.toISOString()}-${ev.id}`}
+                            className="text-xs p-1 rounded truncate cursor-pointer hover:opacity-90 transition"
+                            style={{ backgroundColor: ev.color || '#3b82f6', color: 'white' }}
+                            onClick={() => { setCurrentEvent(ev); setShowEventModal(true); }}
                           >
-                            {event.title?.slice(0, 25) || "Untitled"}
+                            {(ev.title || 'Untitled').slice(0, 25)}
                           </div>
                         ))}
 
-                        {dayEvents.length > 2 && (
+                        {/* actions (max 2 minus events already shown) */}
+                        {actionsForDate.slice(0, 2 - Math.min(2, dayEvents.length)).map((act, idx) => (
+                          <div
+                            key={`act-${idx}-${cellDate.toDateString()}`}
+                            className="text-xs p-1 rounded truncate text-white"
+                            style={{ backgroundColor: act.color }}
+                          >
+                            {act.title.slice(0, 25)}
+                          </div>
+                        ))}
+
+                        {/* overflow badge */}
+                        {(dayEvents.length + actionsForDate.length) > 2 && (
                           <div className="text-xs text-gray-500 text-center">
-                            +{dayEvents.length - 2} more
+                            +{(dayEvents.length + actionsForDate.length) - 2} more
                           </div>
                         )}
+
                       </div>
                     </div>
                   );
-
                 })}
               </div>
             </div>
@@ -1114,7 +1328,3 @@ const GoalsPage = () => {
 };
 
 export default GoalsPage;
-
-function fetchCalendarEvents(userId: string) {
-  throw new Error('Function not implemented.');
-}
