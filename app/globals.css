@@ -170,3 +170,17 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e0 #f1f1f1;
 }
+/* styles/globals.css */
+.toast-animated {
+  animation: toast-slide-in 0.5s ease-out;
+}
+
+@keyframes toast-slide-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.toast-progress {
+  height: 3px;
+  background: linear-gradient(to right, #4f46e5, #10b981);
+}

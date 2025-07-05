@@ -80,12 +80,6 @@ const Sidebar = () => {
                 {/* Mobile Header */}
                 <div className="fixed top-0 left-0 w-full bg-white border-b border-gray-100 flex justify-between items-center p-4 z-50 shadow-sm">
                     <div className="flex items-center">
-                        <button 
-                            onClick={() => setExpanded(!expanded)}
-                            className="mr-3 text-gray-600"
-                        >
-                            {expanded ? <X size={20} /> : <Menu size={20} />}
-                        </button>
                         <img src="/icons/logo.png" className="h-6 w-6" alt="Logo" />
                         <h2 className="ml-2 text-lg font-semibold text-gray-800">MeSeer</h2>
                     </div>
@@ -128,29 +122,6 @@ const Sidebar = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Mobile Sidebar */}
-                {expanded && (
-                    <div className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white z-40 shadow-lg border-r border-gray-100 transition-all duration-300 ease-in-out">
-                        <div className="p-4">
-                            <ul className="space-y-2">
-                                {items.map((item, index) => (
-                                    <li key={index}>
-                                        <button
-                                            onClick={() => handleNavigation(item.path)}
-                                            className={`w-full text-left px-3 py-2 rounded-md flex items-center ${activeItem === item.path ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
-                                        >
-                                            <span className={`mr-3 ${activeItem === item.path ? 'text-blue-500' : 'text-gray-500'}`}>
-                                                {item.icon}
-                                            </span>
-                                            {item.label}
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                )}
 
                 {/* Mobile Bottom Nav */}
                 <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 z-50 shadow-lg">

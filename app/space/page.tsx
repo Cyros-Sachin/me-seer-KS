@@ -31,6 +31,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 // API Base URL
 import SideBar from "../components/SideBar";
+import { triggerToast } from "../components/CustomToast";
 const API_BASE_URL = 'https://meseer.com/dog';
 type SubspaceAction = 'create' | 'edit' | 'delete' | null;
 type UserInfo = {
@@ -416,6 +417,9 @@ export default function SpacePage() {
         setError(null);
         const data = await SpaceService.getSpaces();
         setSpaces(data);
+        if (data.length > 0) {
+          setActiveSpace(data[0]);
+        }
       } catch (err) {
         console.error('Error fetching spaces:', err);
         setError(`Failed to load spaces: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -538,15 +542,19 @@ export default function SpacePage() {
       last_state: false,
     };
 
-
+    const toastId = triggerToast.loading('Creating todo...');
     try {
       await SpaceService.createTodo(todoData);
       const data = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
+      triggerToast.success('Todo created!');
       setTodos(data);
     } catch (err) {
+      triggerToast.error('Failed to delete todo');
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error("Error creating todo:", message);
       setError('Failed to create todo');
+    } finally {
+      toast.dismiss(toastId);
     }
   };
 
@@ -603,22 +611,27 @@ export default function SpacePage() {
       console.error('Failed to update todo:', err);
     }
   };
+
   const handleDeleteTodo = async (todoId: string) => {
     if (!confirm('Are you sure you want to delete this todo?')) return;
-
+    const toastId = triggerToast.loading('Deleting todo...');
     try {
       const userId = getUserId();
       await SpaceService.deleteTodo(todoId, userId);
-
+      triggerToast.success('Todo deleted!');
       if (activeSubspace) {
         const data = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
         setTodos(data);
       }
     } catch (err) {
       setError('Failed to delete todo');
+      triggerToast.error('Failed to delete todo');
       console.error('Error deleting todo:', err);
+    } finally {
+      toast.dismiss(toastId);
     }
   };
+
   const handleSubspaceAction = (action: SubspaceAction, subspace?: Subspace) => {
     setSubspaceAction(action);
     setCurrentSubspace(subspace || null);
@@ -682,6 +695,7 @@ export default function SpacePage() {
       console.error('Error deleting subspace:', err);
     }
   };
+
   const handleViewSwitch = (todoId: string, direction: 'left' | 'right') => {
     const views: ('unchecked' | 'checked' | 'history')[] = ['unchecked', 'checked', 'history'];
     const current = todoViewMap[todoId] || 'unchecked';
@@ -730,11 +744,12 @@ export default function SpacePage() {
       console.error("Rename failed:", error);
     }
   };
+
   const handleCreateWordpad = async (refreshType: 'daily' | 'weekly' | 'monthly') => {
     if (!activeSpace || !activeSubspace) return;
 
     const userId = getUserId();
-
+    const toastId = triggerToast.loading('Creating Wordpad...');
     try {
       await SpaceService.createWordpad({
         space_id: activeSpace.space_id,
@@ -744,7 +759,7 @@ export default function SpacePage() {
         refresh_type: refreshType,
         last_state: true
       });
-
+      triggerToast.success('Wordpad created!');
       // Refresh wordpads
       const wordpadsData = await SpaceService.getWordpadsBySubspace(activeSubspace.subspace_id, userId);
       const wordpadsWithContent = await Promise.all(wordpadsData.map(async (wordpad: Wordpad) => {
@@ -755,12 +770,16 @@ export default function SpacePage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error("Error creating wordpad:", message);
+      triggerToast.error('Failed to create Wordpad');
       setError('Failed to create wordpad');
-    }
+    }finally {
+    toast.dismiss(toastId);
+  }
   };
 
   const handleDeleteWordpad = async (wordpadId: string) => {
     if (!confirm('Are you sure you want to delete this wordpad?')) return;
+    const toastId = triggerToast.loading('Deleting Wordpad...');
 
     try {
       const userId = getUserId();
@@ -774,10 +793,14 @@ export default function SpacePage() {
         }));
         setWordpads(wordpadsWithContent);
       }
+      triggerToast.success('Wordpad deleted!');
     } catch (err) {
       setError('Failed to delete wordpad');
+      triggerToast.error('Failed to delete wordpad');
       console.error('Error deleting wordpad:', err);
-    }
+    }finally {
+    toast.dismiss(toastId);
+  }
   };
 
   const handleSaveWordpadContent = async (wordpadId: string, content: string) => {
@@ -921,6 +944,7 @@ export default function SpacePage() {
       toast.error("Failed to reuse task.", { id: toastId });
     }
   };
+
   useEffect(() => {
     if (!maximizedTodo) return;          // nothing maximised
 
@@ -929,6 +953,7 @@ export default function SpacePage() {
       setMaximizedTodo(fresh);           // trigger re‑render
     }
   }, [todos]);
+  
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
       {/* Left Panel */}
@@ -1122,7 +1147,7 @@ export default function SpacePage() {
                               >
                                 {/* Header */}
                                 <div
-                                  
+
                                   className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group" >
                                   <div {...listeners} {...attributes} className="flex items-center min-w-0">
                                     {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
@@ -1740,6 +1765,7 @@ export default function SpacePage() {
           </>
         )}
       </div>
+      
       {maximizedWordpad && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
