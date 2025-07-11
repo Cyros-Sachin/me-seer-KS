@@ -199,7 +199,7 @@ const Sidebar = () => {
                                 <User className="w-4 h-4" />
                             </div>
                             {expanded && (
-                                <div className="ml-3 text-left">
+                                <div className="ml-3 text-left" onClick={() => router.push('/settings')}>
                                     <p className="text-sm font-medium text-gray-800 truncate">{data?.name}</p>
                                     <p className="text-xs text-gray-500 truncate">{data?.email}</p>
                                 </div>

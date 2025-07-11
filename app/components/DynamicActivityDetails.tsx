@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SquareCheck, Pencil } from "lucide-react";
+import { SquareCheck, Pencil, Trash2 } from "lucide-react";
+import { it } from "node:test";
 
 const API_BASE_URL = "https://meseer.com/dog";
 
@@ -10,6 +11,7 @@ type ActivityItem = {
   name: string;
   flag: string;
   trigger: string;
+  ua_id?: number;
 };
 
 type UnitOption = {
@@ -22,6 +24,7 @@ type UnitOption = {
 };
 
 type MWBEntry = {
+  action_id?: number | "None";
   ua_id: number;
   a_id: number;
   at_id: number;
@@ -70,15 +73,130 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       }
       try {
         const correctCollectiveId = (item.a_id === 29 || item.a_id === 33) ? realCollectiveId : collectiveId;
+
         const res = await fetch(`${API_BASE_URL}/generic/get-it/${userId}/${item.a_id}/${correctCollectiveId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
-        const json = await res.json();
 
-        const entriesArray = json ? Object.values(json) : [];
-        result[item.a_id] = entriesArray as MWBEntry[];
+        const json = await res.json();
+        const entriesArray = json ? Object.values(json) as MWBEntry[] : [];
+
+        // ✅ FILTERING LOGIC FOR a_id === 29
+        let filteredEntries = entriesArray;
+        if (item.a_id === 29) {
+          const taskId = collectiveId; // Using at_id as the taskId
+          filteredEntries = entriesArray.filter((entry) => entry.cat_qty_id1 === taskId);
+        }
+        if ([30, 31, 32].includes(item.a_id)) {
+          const res = await fetch(`${API_BASE_URL}/get_actions/${collectiveId}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+
+          const actions = await res.json();
+          const filteredActions = actions.filter((a: any) => a.action_type === item.a_id);
+
+          // Map to MWBEntry format
+          result[item.a_id] = filteredActions.map((action: any) => ({
+            action_id: action.action_id,
+            ua_id: action.ua_id,
+            a_id: action.action_type,
+            at_id: action.task_id,
+            flag: "PT",
+            trigger: "action",
+            user_id: userId,
+            description: action.name || "",
+            value1: action.name || "",
+            value2: "",
+            value3: "",
+            value4: action.action_timestamp,
+            value5: action.duration_value,
+            value6: "",
+            cat_qty_id1: "None",
+            cat_qty_id2: [
+              {
+                item_description: "Repeat",
+                item_id: "58",
+                item_name: "Repeat",
+                item_type: "category",
+              },
+              {
+                cat_id: 128,
+                name: "Yes",
+                flag: action.repeat_status === "128" ? "selected" : undefined,
+              },
+              {
+                cat_id: 129,
+                name: "No",
+                flag: action.repeat_status === "129" ? "selected" : undefined,
+              },
+            ],
+            cat_qty_id3: [
+              {
+                item_description: "Name or title for a given entity",
+                item_id: "38",
+                item_name: "name",
+                item_type: "unit",
+              },
+              {
+                unit_id: 23,
+                name: "text",
+              },
+            ],
+            cat_qty_id4: [
+              {
+                item_description: "add a date time",
+                item_id: "53",
+                item_name: "date time",
+                item_type: "unit",
+              },
+              {
+                unit_id: 58,
+                name: "mm/dd/yyyy HH:mm",
+              },
+            ],
+            cat_qty_id5: [
+              {
+                item_description: "duration of action",
+                item_id: "54",
+                item_name: "duration",
+                item_type: "unit",
+              },
+              {
+                unit_id: 56,
+                name: "mins",
+              },
+              {
+                unit_id: 57,
+                name: "hours",
+                flag: action.duration_unit === 57 ? "selected" : undefined,
+              },
+            ],
+            cat_qty_id6: [
+              {
+                item_id: "None",
+                item_name: "None",
+                name: "item_id doesn't exist",
+              },
+            ],
+          }));
+
+          // Fetch and store template
+          const templateRes = await fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          const templateJson = await templateRes.json();
+          setTemplateMap((prev) => ({ ...prev, [item.a_id]: templateJson }));
+
+          continue;
+        }
+
+        result[item.a_id] = filteredEntries;
 
         const templateRes = await fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
           headers: {
@@ -109,21 +227,21 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
     if (!response.ok) throw new Error(`Failed with status ${response.status}`);
     return await response.json();
   };
+
   const getFlagByAID = (a_id: number): string => {
-    if ([28, 25].includes(a_id)) return "PN";
+    if ([9].includes(a_id)) return "PN";
     if ([30, 31, 32, 33].includes(a_id)) return "PT";
     if (a_id === 24) return "P";
-    if (a_id === 29) return "PH";
+    if ([29, 12, 13, 14, 15, 16, 17, 18, 19, 25, 28].includes(a_id)) return "PH";
     return ""; // default fallback
   };
-
 
   const handleUpdateItem = async (item: MWBEntry) => {
     try {
       const getCollectiveId = (list: unknown): number | undefined => {
         return Array.isArray(list) ? list[0]?.collective_id : undefined;
       };
-
+      const event_time = new Date().toISOString().slice(0, 19);
       const getCatId = (list: unknown, i: number): number | undefined => {
         if (!Array.isArray(list)) return undefined;
         return editedValues[`unit${i}`]
@@ -195,7 +313,13 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           value6: editedValues.value6 ?? item.value6 ?? "",
         };
       }
-      if(item.a_id===31){
+      if (item.a_id === 30 || item.a_id === 31 || item.a_id === 32) {
+        payload.at_id = 302;
+        payload.cat_qty_id1 = item.at_id;
+        payload.cat_qty_id4 = 58;
+        payload.action_timestamp = event_time;
+      }
+      if (item.a_id === 31) {
         // payload.value4 = editedValues.unit4;
         payload.cat_qty_id4 = parseInt(editedValues.unit4);
       }
@@ -210,14 +334,25 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
   const handleDeleteItem = async (item: MWBEntry) => {
     try {
       const payload = {
+        ua_id: item.ua_id,
         a_id: item.a_id,
         at_id: item.at_id,
         flag: item.flag,
-        user_id: userId,
         action: "DELETE",
         cat_qty_id1: item.cat_qty_id1
       };
-
+      if (item.a_id === 29 || item.a_id === 28 || item.a_id === 25) {
+        payload.flag = "PH";
+      }
+      if (item.a_id === 10) {
+        payload.cat_qty_id1 = collectiveId;
+      }
+      if (item.a_id === 29 || item.a_id === 30) {
+        payload.at_id = 302;
+      }
+      if (item.a_id === 30) {
+        payload.cat_qty_id1 = item.action_id;
+      }
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
       await fetchAll();
@@ -258,13 +393,20 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
 
         return (
           <div key={item.a_id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
-            <h3 className="text-md font-semibold text-gray-800 p-4 border-b border-gray-100">
-              {item.name}
-            </h3>
+            <div className="flex items-center">
+              <h3 className="text-md font-semibold text-gray-800 p-4 border-b border-gray-100">
+                {item.name}
+              </h3>
+            </div>
             <div className="space-y-3 p-4">
               {itemData.map((entry) => {
                 const isEditing = editingItemId === entry.ua_id;
-                const indices = entry.a_id === 13 ? [1, 2, 3, 4, 6] : [1, 2, 3, 4, 5, 6];
+                const indices = entry.a_id === 13
+                  ? [1, 2, 3, 4, 6]
+                  : [30, 31, 32].includes(entry.a_id)
+                    ? [1, 3, 4, 5, 6] // ⛔️ skip 2 (Repeat)
+                    : [1, 2, 3, 4, 5, 6];
+
 
                 const renderFields = indices.flatMap((i) => {
                   const value = entry[`value${i}` as keyof MWBEntry];
@@ -361,6 +503,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                             `Field ${i}`)
                             .replace(/^add\s+/i, "")
                             .replace(/\bbased on.*$/i, "")
+                            .replace(/^None$/i, "Name") 
                             .trim()}
                         </label>
                         {isEditing ? (
@@ -412,6 +555,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                     </div>
                   );
                 });
+                const goalmeta = (item.a_id === 24);
                 if (renderFields.length === 0) return null;
                 return (
                   <div
@@ -421,7 +565,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                     {renderFields}
 
                     <div className="flex justify-end">
-                      {isEditing ? (
+                      {isEditing ? (<div className="flex justify-end items-center gap-2 mt-2">
                         <button
                           className="text-green-600 hover:text-green-800 text-sm flex items-center gap-1 px-3 py-1 rounded-md hover:bg-green-50"
                           onClick={() => handleUpdateItem(entry)}
@@ -429,6 +573,16 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                           <SquareCheck className="h-4 w-4" />
                           <span>Save</span>
                         </button>
+                        {!goalmeta && <button
+                          className="p-1 rounded hover:bg-red-50"
+                          onClick={() => handleDeleteItem(entry)}
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-700" />
+                        </button>}
+
+                      </div>
+
                       ) : (
                         <button
                           className="text-gray-500 hover:text-gray-700 text-sm flex items-center gap-1 px-3 py-1 rounded-md hover:bg-gray-50"

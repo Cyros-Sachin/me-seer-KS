@@ -340,7 +340,8 @@ const DynamicActivityItemForm = ({
 
       // 🟨 Define flags for special a_ids
       const specialAids: Record<number, string> = {
-        28: "PN",  // task metadata
+        25: "PH", 
+        28: "PH",  // task metadata
         29: "PH",  // Build task
         30: "PT",  // Add action
         31: "PT",  // Weekly action
@@ -356,7 +357,7 @@ const DynamicActivityItemForm = ({
       const payload: any = {
         a_id,
         at_id: finalAtId,
-        flag: isSpecial ? specialAids[a_id] : "PN",
+        flag: isSpecial ? specialAids[a_id] : "PH",
         trigger,
         is_active: isSpecial ? "Y" : true,
         user_id: userId,
@@ -447,20 +448,27 @@ const DynamicActivityItemForm = ({
       // Override fields for special MWB a_ids
       if (a_id === 25) {
         payload.cat_qty_id1 = selectedGoalDetails?.goalId || 0;
+        payload.at_id = 301;
       }
-
-
+      if (a_id === 30 || a_id === 31 || a_id === 32) {
+        payload.action_timestamp = event_time;
+      }
       // ⬇️ Only override if subspace was selected
       if (selectedSubspace) {
         payload.cat_qty_id5 = selectedSubspace.subspace_id;
         payload.value5 = selectedSubspace.name;
       }
-
+      if (a_id === 9) {
+        payload.flag = "PN";
+      }
       // 📡 Choose correct endpoint
-      const endpoint = (isSpecial && (a_id === 29))
-        ? "https://meseer.com/dog//add-data/primary-mwb/"
-        : "https://meseer.com/dog/user_activity_insert";
+      let endpoint = (isSpecial && (a_id === 28 || a_id === 25))
+      ? "https://meseer.com/dog/user_activity_insert"
+        : "https://meseer.com/dog//add-data/primary-mwb/";
 
+      if (!isSpecial) {
+        endpoint = "https://meseer.com/dog/user_activity_insert";
+      }
       await fetch(endpoint, {
         method: "POST",
         headers: {

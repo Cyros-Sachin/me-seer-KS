@@ -34,7 +34,7 @@ export default function LoginPage() {
   // Auto-focus on email input on mount
   useEffect(() => {
     emailRef.current?.focus();
-    
+
     // Check for remembered email
     const rememberedEmail = Cookies.get("rememberedEmail");
     if (rememberedEmail) {
@@ -45,7 +45,7 @@ export default function LoginPage() {
   // Debounced email validation
   const validateEmail = debounce((email) => {
     if (!email) return;
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
@@ -57,42 +57,42 @@ export default function LoginPage() {
   // Password strength calculator
   const calculatePasswordStrength = (password) => {
     if (!password) return 0;
-    
+
     let strength = 0;
     if (password.length >= 8) strength += 1;
     if (/[A-Z]/.test(password)) strength += 1;
     if (/[0-9]/.test(password)) strength += 1;
     if (/[^A-Za-z0-9]/.test(password)) strength += 1;
-    
+
     return strength;
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const fieldValue = type === 'checkbox' ? checked : value;
-    
+
     setFormData(prev => ({ ...prev, [name]: fieldValue }));
     setErrors(prev => ({ ...prev, [name]: "" }));
-    
+
     // Special field handling
     if (name === 'email') {
       validateEmail(value);
     }
-    
+
     if (name === 'password') {
       setPasswordStrength(calculatePasswordStrength(value));
     }
-    
+
     if (name === 'name' && isSignup) {
       // Auto-capitalize first letter of each word in name
       if (value && value !== formData.name) {
-        const capitalized = value.split(' ').map(word => 
+        const capitalized = value.split(' ').map(word =>
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
         setFormData(prev => ({ ...prev, name: capitalized }));
       }
     }
-    
+
     if (name === 'phone' && isSignup) {
       // Auto-format phone number
       const cleaned = value.replace(/\D/g, '');
@@ -103,27 +103,27 @@ export default function LoginPage() {
 
   const validate = () => {
     const newErrors = {};
-    
+
     // Email validation
     if (!formData.email) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
-    
+
     // Password validation
     if (!isForgot && !formData.password) {
       newErrors.password = "Password is required";
     } else if (!isForgot && isSignup && formData.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters";
     }
-    
+
     // Signup specific validations
     if (isSignup) {
       if (!formData.name) newErrors.name = "Name is required";
       if (!/^\d{10}$/.test(formData.phone)) newErrors.phone = "Valid 10-digit phone number required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -133,9 +133,9 @@ export default function LoginPage() {
       toast.error("Please fix the errors in the form");
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       const url = `${process.env.NEXT_PUBLIC_API_URL}/${isForgot ? 'forgot-password' : isSignup ? 'signup' : 'login'}`;
       const body = isForgot
@@ -145,25 +145,25 @@ export default function LoginPage() {
           : { email: formData.email, password: formData.password };
 
       const res = await axios.post(url, body);
-      
+
       if (!isForgot) {
         // Set cookie expiration based on remember me
         const expires = formData.rememberMe ? 30 : 7; // 30 days if remember me is checked
-        
+
         Cookies.set("token", res.data.access_token, { expires });
         Cookies.set("userInfo", JSON.stringify(res.data), { expires });
-        
+
         // Store email if remember me is checked
         if (formData.rememberMe) {
           Cookies.set("rememberedEmail", formData.email, { expires: 30 });
         } else {
           Cookies.remove("rememberedEmail");
         }
-        
+
         toast.success(`${isSignup ? "Registered" : "Logged in"} successfully! Redirecting...`, {
           duration: 2000
         });
-        
+
         setTimeout(() => {
           router.push(`${isSignup ? "/login" : "/main"}`);
         }, 1500);
@@ -174,16 +174,27 @@ export default function LoginPage() {
         setIsForgot(false);
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || "Something went wrong";
+      const status = err.response?.status;
+      let errorMessage = "Something went wrong";
+
+      if (status === 401) {
+        errorMessage = "Wrong credentials. Please check your email or password.";
+      } else if (status === 400) {
+        errorMessage = "Already registered !!";
+      }else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+
       toast.error(errorMessage, {
-        duration: 3000
+        duration: 3000,
       });
-      
-      // Handle specific errors
+
+      // Handle field-specific errors (like validation errors)
       if (err.response?.data?.errors) {
         setErrors(err.response.data.errors);
       }
-    } finally {
+    }
+    finally {
       setIsLoading(false);
     }
   };
@@ -204,7 +215,7 @@ export default function LoginPage() {
         toast.success("Logged in successfully with Google! Redirecting...", {
           duration: 2000
         });
-        
+
         setTimeout(() => {
           router.push("/main");
         }, 1500);
@@ -285,11 +296,11 @@ export default function LoginPage() {
           <div className="space-y-3 mt-4">
             {isSignup && (
               <div>
-                <input 
-                  name="name" 
-                  onChange={handleChange} 
-                  value={formData.name} 
-                  placeholder="Full Name" 
+                <input
+                  name="name"
+                  onChange={handleChange}
+                  value={formData.name}
+                  placeholder="Full Name"
                   className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400 text-black"
                 />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -330,13 +341,13 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                
+
                 {/* Password strength indicator */}
                 {isSignup && formData.password && (
                   <div className="mt-1">
                     <div className="flex gap-1 h-1">
                       {[1, 2, 3, 4].map((i) => (
-                        <div 
+                        <div
                           key={i}
                           className={`h-full w-full rounded-full ${i <= passwordStrength ? getStrengthColor(passwordStrength) : 'bg-gray-200'}`}
                         ></div>
@@ -344,13 +355,13 @@ export default function LoginPage() {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       {passwordStrength === 0 ? '' :
-                       passwordStrength === 1 ? 'Weak' :
-                       passwordStrength === 2 ? 'Fair' :
-                       passwordStrength === 3 ? 'Good' : 'Strong'}
+                        passwordStrength === 1 ? 'Weak' :
+                          passwordStrength === 2 ? 'Fair' :
+                            passwordStrength === 3 ? 'Good' : 'Strong'}
                     </p>
                   </div>
                 )}
-                
+
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
               </div>
             )}
@@ -358,34 +369,34 @@ export default function LoginPage() {
             {isSignup && (
               <>
                 <div>
-                  <input 
-                    name="phone" 
-                    onChange={handleChange} 
-                    value={formData.phone} 
-                    placeholder="Phone Number" 
+                  <input
+                    name="phone"
+                    onChange={handleChange}
+                    value={formData.phone}
+                    placeholder="Phone Number"
                     className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400 text-black"
                     type="tel"
                     maxLength="10"
                   />
                   {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                 </div>
-                
+
                 <div>
-                  <input 
-                    name="payment_type" 
-                    onChange={handleChange} 
-                    value={formData.payment_type} 
-                    placeholder="Payment Type (e.g., Credit Card, PayPal)" 
+                  <input
+                    name="payment_type"
+                    onChange={handleChange}
+                    value={formData.payment_type}
+                    placeholder="Payment Type (e.g., Credit Card, PayPal)"
                     className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400 text-black"
                   />
                 </div>
-                
+
                 <div>
-                  <input 
-                    name="payment_details" 
-                    onChange={handleChange} 
-                    value={formData.payment_details} 
-                    placeholder="Payment Details" 
+                  <input
+                    name="payment_details"
+                    onChange={handleChange}
+                    value={formData.payment_details}
+                    placeholder="Payment Details"
                     className="input w-full border border-gray-300 p-2 rounded placeholder:text-gray-400 text-black"
                   />
                 </div>
@@ -426,7 +437,7 @@ export default function LoginPage() {
           </button>
 
           <div className="flex justify-between mt-4 text-sm text-blue-600 cursor-pointer">
-            <span 
+            <span
               onClick={() => {
                 setIsForgot(false);
                 setIsSignup(prev => !prev);
@@ -438,7 +449,7 @@ export default function LoginPage() {
             </span>
 
             {!isSignup && (
-              <span 
+              <span
                 onClick={() => {
                   setIsForgot(true);
                   setIsSignup(false);

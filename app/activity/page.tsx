@@ -2,7 +2,7 @@
 import Cookies from "js-cookie";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from 'react';
-import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie, Sidebar, AlignLeft, XCircle, X, ArrowLeft } from 'lucide-react';
+import { Mic, ChevronRight, ChevronDown, Plus, Edit, Hash, Eye, Repeat, Trash2, Settings, Pencil, CirclePlus, SquareChevronRight, SquareChevronLeft, Maximize2, Trash, Trash2Icon, SquareCheck, Cookie, Sidebar, AlignLeft, XCircle, X, ArrowLeft, Flag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from "react";
 import SideBar from "../components/SideBar";
@@ -36,6 +36,7 @@ type ActivityItem = {
     a_id: number;
     at_id: number;
     name: string;
+    ua_id: number;
 };
 
 type PinnedActivity = {
@@ -728,7 +729,8 @@ function ActivityPage() {
                 ua_id: activity.ua_id,
                 flag: activity.flag,      // usually 'P'
                 a_id: activity.a_id,      // 8 for meal
-                at_id: activity.at_id,    // 1 for meal-type
+                at_id: activity.at_id,
+                cat_qty_id1: activity.collective_id,  // 1 for meal-type
                 action: "DELETE"
             });
 
@@ -846,7 +848,8 @@ function ActivityPage() {
                 at_id: 301,
                 flag: 'P',
                 action: "DELETE",
-                cat_qty_id1: (selectedGoalDetails?.goalId),
+                cat_qty_id1: parseInt(selectedGoalDetails?.goalId),
+                ua_id: (selectedGoalDetails.ua_id)
             });
 
             setShowGoal(false);
@@ -862,10 +865,9 @@ function ActivityPage() {
         try {
             const userId = getUserId();
             await ActivityService.updateOrDeletePrimaryMWBData({
-                ua_id: selectedTaskDetails?.ua_id,
-                a_id: 28,             // Task a_id
-                at_id: 302,
-                flag: "PH",
+                a_id: 27,             // Task a_id
+                at_id: 301,
+                flag: "PP",
                 action: "DELETE",
                 cat_qty_id1: taskId,
             });
@@ -1185,13 +1187,15 @@ function ActivityPage() {
 
                                 return (
                                     <div key={goalId} className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-                                        <div className="flex justify-between items-center mb-4" onClick={() => {
-                                            setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
-                                            setShowGoal(true);
-                                        }}>
-                                            <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
+                                        <div className="flex justify-between items-center">
+                                            <div className="mb-4" onClick={() => {
+                                                setSelectedGoalDetails({ goalId, goalName, tasks }); // for goal
+                                                setShowGoal(true);
+                                            }}>
+                                                <h2 className="text-xl font-bold text-gray-800">{goalName}</h2>
+                                            </div>
                                             <button
-                                                onClick={() => {
+                                                onClick={(e) => {
                                                     setSelectedGoalId(goalId);
                                                     setShowTaskDialog(true);
                                                 }}
@@ -1255,7 +1259,7 @@ function ActivityPage() {
                                         )}
                                         <div className="flex flex-col">
                                             <div className="font-medium text-gray-800">{activity.description || activity.name}</div>
-                                            
+
                                         </div>
                                     </div>
 
@@ -1566,7 +1570,7 @@ function ActivityPage() {
                                 <h2 className="text-2xl font-bold">{selectedTaskDetails.task_name}</h2>
                                 <div className="flex gap-2 items-center">
                                     <button
-                                        onClick={()=>handleDeleteTask(selectedTaskDetails.task_id)}
+                                        onClick={() => handleDeleteTask(selectedTaskDetails.task_id)}
                                         className="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded text-sm"
                                     >
                                         Delete Task

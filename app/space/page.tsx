@@ -772,9 +772,9 @@ export default function SpacePage() {
       console.error("Error creating wordpad:", message);
       triggerToast.error('Failed to create Wordpad');
       setError('Failed to create wordpad');
-    }finally {
-    toast.dismiss(toastId);
-  }
+    } finally {
+      toast.dismiss(toastId);
+    }
   };
 
   const handleDeleteWordpad = async (wordpadId: string) => {
@@ -798,9 +798,9 @@ export default function SpacePage() {
       setError('Failed to delete wordpad');
       triggerToast.error('Failed to delete wordpad');
       console.error('Error deleting wordpad:', err);
-    }finally {
-    toast.dismiss(toastId);
-  }
+    } finally {
+      toast.dismiss(toastId);
+    }
   };
 
   const handleSaveWordpadContent = async (wordpadId: string, content: string) => {
@@ -953,7 +953,7 @@ export default function SpacePage() {
       setMaximizedTodo(fresh);           // trigger re‑render
     }
   }, [todos]);
-  
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 text-gray-900">
       {/* Left Panel */}
@@ -1221,7 +1221,27 @@ export default function SpacePage() {
 
                                           return currentView === "history" ? (
                                             [...Object.entries(grouped)]
-                                              .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime()) // 📉 descending
+                                              .sort(([a], [b]) => {
+                                                const getSortableDate = (key: string) => {
+                                                  if (validRefreshType === 'daily') {
+                                                    // key: "Monday, 17/06/2025"
+                                                    const datePart = key.split(', ')[1]; // "17/06/2025"
+                                                    const [day, month, year] = datePart.split('/').map(Number);
+                                                    return new Date(year, month - 1, day).getTime();
+                                                  } else if (validRefreshType === 'weekly') {
+                                                    // key: "Week of 23/06/2025"
+                                                    const datePart = key.replace('Week of ', '').trim(); // "23/06/2025"
+                                                    const [day, month, year] = datePart.split('/').map(Number);
+                                                    return new Date(year, month - 1, day).getTime();
+                                                  } else {
+                                                    // key: "June 2025" → parseable by Date
+                                                    return new Date(key).getTime();
+                                                  }
+                                                };
+
+                                                return getSortableDate(b) - getSortableDate(a); // Descending order
+                                              })
+
                                               .map(([date, items]) => (
                                                 <div key={date} className="mb-4">
                                                   <div className="bg-gray-200 px-2 py-1 text-sm font-semibold rounded">{date}</div>
@@ -1765,7 +1785,7 @@ export default function SpacePage() {
           </>
         )}
       </div>
-      
+
       {maximizedWordpad && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
