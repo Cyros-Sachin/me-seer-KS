@@ -470,14 +470,11 @@ const GoalsPage = () => {
   }, []);
 
   // Generate time slots from 5:30 AM to 8:30 PM
-  const timeSlots = Array.from({ length: 48 }, (_, i) => {
-    const hour = Math.floor(i / 2);          // 0 to 23
-    const minute = i % 2 === 0 ? 0 : 30;     // 0, 30
+  const timeSlots = Array.from({ length: 24 }, (_, i) => {
     const date = new Date(selectedDate);
-    date.setHours(hour, minute, 0, 0);
+    date.setHours(i, 0, 0, 0);
     return date;
   });
-
 
   // Get the current week based on selected date
   const getWeekDays = () => {
@@ -1570,24 +1567,6 @@ const GoalsPage = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Category</label>
-                  <select
-                    value={currentEvent.category}
-                    onChange={(e) =>
-                      setCurrentEvent({ ...currentEvent, category: e.target.value as EventCategory })
-                    }
-                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="exercise">Exercise</option>
-                    <option value="eating">Eating</option>
-                    <option value="work">Work</option>
-                    <option value="relax">Relax</option>
-                    <option value="family">Family</option>
-                    <option value="social">Social</option>
-                  </select>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">Start Time</label>
@@ -1636,25 +1615,7 @@ const GoalsPage = () => {
                     <option value="once">Just once</option>
                   </select>
                 </div>
-                {currentEvent.color && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Color</label>
-                    <div className="flex items-center space-x-3">
-                      <div
-                        className="w-6 h-6 rounded-full border"
-                        style={{ backgroundColor: currentEvent.color }}
-                      />
-                      <input
-                        type="color"
-                        value={currentEvent.color}
-                        onChange={(e) =>
-                          setCurrentEvent({ ...currentEvent, color: e.target.value })
-                        }
-                        className="w-10 h-10 p-0 border-none bg-transparent"
-                      />
-                    </div>
-                  </div>
-                )}
+
               </div>
 
               <div className="flex justify-between items-center border-t border-gray-200 p-4">
