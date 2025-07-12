@@ -510,7 +510,7 @@ function ActivityPage() {
             setError('Failed to create workout');
         }
     };
-    const updations = [30, 31, 32, 33];
+    const updations = [30, 31, 32];
 
     const handleActivityItemClick = (item: ActivityItem) => {
         if (updations.includes(item.a_id)) {

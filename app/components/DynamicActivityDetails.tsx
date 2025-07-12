@@ -347,6 +347,9 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       if (item.a_id === 10) {
         payload.cat_qty_id1 = collectiveId;
       }
+      if (item.a_id === 33) {
+        payload.flag = "PT";
+      }
       if (item.a_id === 29 || item.a_id === 30) {
         payload.at_id = 302;
       }
@@ -403,7 +406,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                 const isEditing = editingItemId === entry.ua_id;
                 const indices = entry.a_id === 13
                   ? [1, 2, 3, 4, 6]
-                  : [30, 31, 32].includes(entry.a_id)
+                  : [30, 31, 32,33].includes(entry.a_id)
                     ? [1, 3, 4, 5, 6] // ⛔️ skip 2 (Repeat)
                     : [1, 2, 3, 4, 5, 6];
 

@@ -1493,13 +1493,16 @@ export default function SpacePage() {
                                     </span>
                                   </div>
                                   <div className="flex gap-2">
-                                    <button
-                                      onClick={() => setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }))}
-                                      className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                      title="Add task"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </button>
+                                    {(todoViewMap[todo.todo_id] || 'unchecked') === 'unchecked' && (
+                                      <button
+                                        onClick={() => setNewTaskContentMap(prev => ({ ...prev, [todo.todo_id]: '' }))}
+                                        className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                        title="Add task"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                    )}
+
                                     <button
                                       onClick={() => handleViewSwitch(todo.todo_id, "left")}
                                       className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
