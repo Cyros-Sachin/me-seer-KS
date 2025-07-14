@@ -350,10 +350,10 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       if (item.a_id === 33) {
         payload.flag = "PT";
       }
-      if (item.a_id === 29 || item.a_id === 30) {
+      if (item.a_id === 29 || item.a_id === 30 || item.a_id === 31 || item.a_id === 32) {
         payload.at_id = 302;
       }
-      if (item.a_id === 30) {
+      if (item.a_id === 30 || item.a_id === 31 || item.a_id === 32) {
         payload.cat_qty_id1 = item.action_id;
       }
       await updatePrimaryMWBData(payload);
