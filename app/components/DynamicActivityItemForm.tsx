@@ -340,7 +340,7 @@ const DynamicActivityItemForm = ({
 
       // 🟨 Define flags for special a_ids
       const specialAids: Record<number, string> = {
-        25: "PH", 
+        25: "PH",
         28: "PH",  // task metadata
         29: "PH",  // Build task
         30: "PT",  // Add action
@@ -375,6 +375,7 @@ const DynamicActivityItemForm = ({
         cat_qty_id4: 0,
         cat_qty_id5: 0,
         cat_qty_id6: 0,
+        by_datetime_value: "",
       };
 
       for (let i = 1; i <= 6; i++) {
@@ -415,10 +416,10 @@ const DynamicActivityItemForm = ({
             payload[`value${i}`] = selected; // example: "14:30"
           } else if (isDateTimeField && selected) {
             // datetime-local (2025-06-30T14:30)
-            const [datePart, timePart] = selected.split("T");
-            const [yyyy, mm, dd] = datePart.split("-");
-            const formatted = `${dd}/${mm}/${yyyy} ${timePart}`;
-            payload[`value${i}`] = formatted;
+            // const [datePart, timePart] = selected.split("T");
+            // const [yyyy, mm, dd] = datePart.split("-");
+            // const formatted = `${mm}/${dd}/${yyyy} ${timePart}`;
+            payload[`value${i}`] = selected;
           }
           else if (isDateField && selected) {
             // fallback date
@@ -450,9 +451,103 @@ const DynamicActivityItemForm = ({
         payload.cat_qty_id1 = selectedGoalDetails?.goalId || 0;
         payload.at_id = 301;
       }
-      if (a_id === 30 || a_id === 31 || a_id === 32) {
+      if (a_id === 30) {
+        // Case: Single DateTime (e.g., Add Action)
         payload.action_timestamp = event_time;
+        payload.by_datetime_value = values[4] || ""; // assuming item_id4 is a datetime-local field
       }
+
+      if (a_id === 31) {
+        const selectedDayCatId = Number(values[4]); // Day dropdown (cat_id 76-82)
+        const selectedTime = values[5]; // HH:mm format
+
+        const dayNameMap: Record<number, number> = {
+          76: 1, // Monday
+          77: 2,
+          78: 3,
+          79: 4,
+          80: 5,
+          81: 6,
+          82: 0, // Sunday
+        };
+
+        const targetDayIndex = dayNameMap[selectedDayCatId];
+
+        if (!isNaN(targetDayIndex) && selectedTime) {
+          const now = new Date();
+          const currentDay = now.getDay();
+          const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
+
+          const targetDate = new Date();
+          targetDate.setDate(now.getDate() + daysUntilTarget);
+
+          // Set hours and minutes from selected time
+          const [hourStr, minStr] = selectedTime.split(":");
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minStr, 10);
+
+          if (!isNaN(hour) && !isNaN(minute)) {
+            targetDate.setHours(hour);
+            targetDate.setMinutes(minute);
+            targetDate.setSeconds(0);
+            targetDate.setMilliseconds(0);
+
+            payload.by_datetime_value = targetDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+            payload.action_timestamp = event_time;
+
+          } else {
+            console.error("Invalid time format for weekly recurrence.");
+          }
+        } else {
+          console.error("Missing or invalid day/time selection for weekly recurrence.");
+        }
+      }
+
+      if (a_id === 32) {
+        const selectedDay = Number(quantities[4]); // day of month from unit input
+        const selectedTime = values[5]; // time input (HH:mm)
+
+        console.log("📅 Monthly selectedDay:", selectedDay);
+        console.log("🕒 Monthly selectedTime:", selectedTime);
+
+        if (selectedDay && selectedTime && /^\d{2}:\d{2}$/.test(selectedTime)) {
+          const now = new Date();
+          let targetMonth = now.getMonth();
+          let targetYear = now.getFullYear();
+
+          if (selectedDay <= now.getDate()) {
+            // Move to next month if day has already passed
+            targetMonth += 1;
+            if (targetMonth > 11) {
+              targetMonth = 0;
+              targetYear += 1;
+            }
+          }
+
+          const targetDate = new Date(targetYear, targetMonth, selectedDay);
+          const [hourStr, minuteStr] = selectedTime.split(":");
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minuteStr, 10);
+
+          if (!isNaN(hour) && !isNaN(minute)) {
+            targetDate.setHours(hour, minute, 0, 0);
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+            const dd = String(targetDate.getDate()).padStart(2, "0");
+            const hh = String(targetDate.getHours()).padStart(2, "0");
+            const min = String(targetDate.getMinutes()).padStart(2, "0");
+
+            payload.by_datetime_value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+            payload.action_timestamp = event_time;
+
+          } else {
+            console.error("⛔ Invalid time format in monthly recurrence");
+          }
+        } else {
+          console.error("⛔ Missing or invalid input for monthly recurrence");
+        }
+      }
+
       // ⬇️ Only override if subspace was selected
       if (selectedSubspace) {
         payload.cat_qty_id5 = selectedSubspace.subspace_id;
@@ -463,7 +558,7 @@ const DynamicActivityItemForm = ({
       }
       // 📡 Choose correct endpoint
       let endpoint = (isSpecial && (a_id === 28 || a_id === 25))
-      ? "https://meseer.com/dog/user_activity_insert"
+        ? "https://meseer.com/dog/user_activity_insert"
         : "https://meseer.com/dog//add-data/primary-mwb/";
 
       if (!isSpecial) {
