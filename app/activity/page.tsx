@@ -480,6 +480,17 @@ function ActivityPage() {
             console.error("Failed to fetch goals/tasks", err);
         }
     };
+    const hardfetch = async () => {
+        try {
+            const userId = getUserId();
+            const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
+            const data = await res.json();
+            setGoalTasksData(data);
+            console.log("Set");
+        } catch (err) {
+            console.error("Failed to fetch goals/tasks", err);
+        }
+    };
 
     const handleCreateWorkout = async () => {
         try {
@@ -597,7 +608,8 @@ function ActivityPage() {
     // Fetch pinned activities when activity type changes
     useEffect(() => {
         if (!selectedActivityType) return;
-
+        setShowGoal(false);
+        setShowTask(false);
         const fetchPinnedActivities = async () => {
             try {
                 setLoading(prev => ({ ...prev, pinnedActivities: true }));
@@ -1343,7 +1355,7 @@ function ActivityPage() {
             )}
 
             {showGoalDialog && (
-                <div className="fixed inset-0  bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center">
                     <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 space-y-4">
                         <h2 className="text-2xl font-semibold text-gray-800">Create Goal</h2>
 
@@ -1353,35 +1365,44 @@ function ActivityPage() {
                                 placeholder="Name (e.g., SEM 3)"
                                 value={goalForm.value2}
                                 onChange={(e) => setGoalForm({ ...goalForm, value2: e.target.value })}
+                                title="Name or title for a given entity"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
+
                             <input
                                 type="date"
                                 value={goalForm.value3}
                                 onChange={(e) => setGoalForm({ ...goalForm, value3: e.target.value })}
+                                title="Add a date"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
+
                             <input
                                 type="number"
                                 placeholder="Effort"
                                 value={goalForm.value4}
                                 onChange={(e) => setGoalForm({ ...goalForm, value4: e.target.value })}
+                                title="Effort needed to achieve the goal"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
+
                             <select
                                 value={goalForm.cat_qty_id4}
                                 onChange={(e) => setGoalForm({ ...goalForm, cat_qty_id4: parseInt(e.target.value) })}
+                                title="Choose the time unit for effort (e.g., hpd, hpw, hpm)"
                                 className="w-32 border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value={53}>hpd</option>
-                                <option value={54}>hpw</option>
-                                <option value={55}>hpm</option>
+                                <option value={53} title="hour per day">hpd</option>
+                                <option value={54} title="hour per week">hpw</option>
+                                <option value={55} title="hour per month">hpm</option>
                             </select>
+
                             <input
                                 type="number"
                                 placeholder="Completed (%)"
                                 value={goalForm.value5}
                                 onChange={(e) => setGoalForm({ ...goalForm, value5: e.target.value })}
+                                title="Percentage complete"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
@@ -1415,8 +1436,10 @@ function ActivityPage() {
                                 placeholder="e.g., Make notes"
                                 value={taskForm.value3}
                                 onChange={(e) => setTaskForm({ ...taskForm, value3: e.target.value })}
+                                title="name of the task to be completed"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
+
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
                             <button
@@ -1493,7 +1516,34 @@ function ActivityPage() {
                     collectiveId={activeActivity?.collective_id ?? 0} // fallback to 0
                     isOpen={showDynamicForm}
                     onClose={() => setShowDynamicForm(false)}
-                    onSuccess={fetchUserActivities}
+                    onSuccess={async () => {
+                        if (dynamicItem.a_id === 29) {
+                            await hardfetch();
+
+                            // Use latest updated data — goalTasksData is async set, so better to refetch from the fetch result
+                            const userId = getUserId();
+                            const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
+                            const data = await res.json();
+                            setGoalTasksData(data); // Update state
+
+                            // Flatten all tasks from grouped keys
+                            const allTasks = Object.values(data).flat();
+
+                            // Find the updated version of the currently opened task
+                            const updatedTask = allTasks.find(
+                                (task: any) => task.task_id === selectedTaskDetails.task_id
+                            );
+
+                            if (updatedTask) {
+                                setSelectedTaskDetails(updatedTask); // ✅ Triggers re-render
+                                console.log("✅ Task details updated and re-selected:", updatedTask);
+                            } else {
+                                console.warn("⚠️ Could not find updated task after hardfetch.");
+                            }
+                        }else{
+                            fetchUserActivities();
+                        }
+                    }}
                     selectedTaskDetails={selectedTaskDetails}
                     selectedGoalDetails={selectedGoalDetails}
                 />
@@ -1501,7 +1551,7 @@ function ActivityPage() {
 
             {/* Bottom Slide-Up for Goal */}
             <AnimatePresence>
-                {showGoal && selectedGoalDetails && (
+                {showGoal && selectedGoalDetails &&(
                     <motion.div
                         initial={{ x: '100%', opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
