@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SquareCheck, Pencil, Trash2 } from "lucide-react";
 import { it } from "node:test";
 
@@ -363,13 +363,48 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       console.error("Failed to delete item", err);
     }
   };
+  // Inside component
+  const fetchedAidsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    if (!userId || !collectiveId || !activityItems?.length) return;
-    fetchAll();
+    const fetchMissing = async () => {
+      if (!userId || !collectiveId || !activityItems?.length) return;
+
+      const missing = activityItems.filter(item => !fetchedAidsRef.current.has(item.a_id));
+      if (missing.length === 0) return;
+
+      await fetchAll(); // you could make this more selective in future
+
+      // Mark all activityItems as fetched
+      missing.forEach(item => fetchedAidsRef.current.add(item.a_id));
+    };
+
+    fetchMissing();
   }, [userId, collectiveId, activityItems]);
 
-  if (loading) return <div className="text-sm text-gray-400 p-4">Loading activity details...</div>;
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-4">
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <div
+            key={idx}
+            className="bg-white rounded-lg border border-gray-100 shadow-sm p-4 animate-pulse space-y-4"
+          >
+            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-2 gap-4">
+                  <div className="h-8 bg-gray-200 rounded"></div>
+                  <div className="h-8 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4">
@@ -406,7 +441,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                 const isEditing = editingItemId === entry.ua_id;
                 const indices = entry.a_id === 13
                   ? [1, 2, 3, 4, 6]
-                  : [30, 31, 32,33].includes(entry.a_id)
+                  : [30, 31, 32, 33].includes(entry.a_id)
                     ? [1, 3, 4, 5, 6] // ⛔️ skip 2 (Repeat)
                     : [1, 2, 3, 4, 5, 6];
 
@@ -506,7 +541,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                             `Field ${i}`)
                             .replace(/^add\s+/i, "")
                             .replace(/\bbased on.*$/i, "")
-                            .replace(/^None$/i, "Name") 
+                            .replace(/^None$/i, "Name")
                             .trim()}
                         </label>
                         {isEditing ? (
