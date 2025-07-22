@@ -565,6 +565,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                       : selectedUnit?.name || "";
 
                   const unitValue = selectedUnit?.name;
+                  const isarea = displayValue.toString().includes("\n");
 
                   if (!displayValue && !unitValue) return [];
                   const isSearch = (item.a_id === 9 && i === 2);
@@ -580,29 +581,50 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                             .replace(/^None$/i, "Name")
                             .trim()}
                         </label>
+
                         {isEditing ? (
-                          <>
-                            {isSearch ?
-                              <SearchableField
-                                key={`search-${i}`}
-                                trigger={"food"} // or use a real label or dynamic value
-                                label=""
-                                value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
-                                onSelect={(val, selectedItem) =>
-                                  setEditedValues((prev) => ({
-                                    ...prev,
-                                    [`value${i}`]: val,
-                                  }))
-                                }
-                              />
-                              : <input
-                                value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
-                                onChange={(e) =>
-                                  setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
-                                }
-                                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                              />}
-                          </>
+                          isSearch ? (
+                            <SearchableField
+                              key={`search-${i}`}
+                              trigger={"food"} // optional: dynamic based on field
+                              label=""
+                              value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                              onSelect={(val, selectedItem) =>
+                                setEditedValues((prev) => ({
+                                  ...prev,
+                                  [`value${i}`]: val,
+                                }))
+                              }
+                            />
+                          ) : isarea ? (
+                            <textarea
+                              value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                              onChange={(e) =>
+                                setEditedValues((prev) => ({
+                                  ...prev,
+                                  [`value${i}`]: e.target.value,
+                                }))
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm min-h-[100px]"
+                            />
+                          ) : (
+                            <input
+                              value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                              onChange={(e) =>
+                                setEditedValues((prev) => ({
+                                  ...prev,
+                                  [`value${i}`]: e.target.value,
+                                }))
+                              }
+                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
+                            />
+                          )
+                        ) : isarea ? (
+                          <textarea
+                            value={String(displayValue ?? "")}
+                            readOnly
+                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50 min-h-[100px]"
+                          />
                         ) : (
                           <input
                             value={String(displayValue ?? "")}
@@ -611,6 +633,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                           />
                         )}
                       </div>
+
 
                       {unitValue && selectedUnit?.unit_id && (
                         <div className="space-y-1">

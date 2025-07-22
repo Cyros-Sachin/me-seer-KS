@@ -258,8 +258,7 @@ const DynamicActivityItemForm = ({
                 onChange={(e) => handleChange(index, e.target.value)}
               />
             ) : isWhatOverride ? (
-              <input
-                type="text"
+              <textarea
                 placeholder="text"
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}
