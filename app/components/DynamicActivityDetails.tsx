@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { SquareCheck, Pencil, Trash2 } from "lucide-react";
 import { it } from "node:test";
+import { getUserId, getUserToken } from "../utils/auth";
 
 const API_BASE_URL = "https://meseer.com/dog";
 
@@ -59,6 +60,76 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [templateMap, setTemplateMap] = useState<Record<number, any>>({});
+  const SearchableField = ({
+    trigger,
+    label,
+    value,
+    onSelect,
+  }: {
+    trigger: string;
+    label: string;
+    value: string;
+    onSelect: (selectedName: string, selectedItem?: any) => void;
+  }) => {
+    const [search, setSearch] = useState(value);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+
+    useEffect(() => {
+      if (!search) {
+        setSuggestions([]);
+        return;
+      }
+      const timeout = setTimeout(async () => {
+        try {
+          const isFood = trigger.toLowerCase().includes("food") || trigger.toLowerCase().includes("meal");
+          const url = isFood
+            ? `https://meseer.com/dog/food-items/search/${search}`
+            : `https://meseer.com/dog/exercise/search/${search}`;
+
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${getUserToken()}` },
+          });
+          const data = await res.json();
+          setSuggestions(data);
+        } catch (e) {
+          console.error("Search failed", e);
+        }
+      }, 300);
+
+      return () => clearTimeout(timeout);
+    }, [search, trigger]);
+
+    return (
+      <div className="mb-3">
+        <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+          }}
+          className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+          placeholder="Search..."
+        />
+        {suggestions.length > 0 && (
+          <ul className="border bg-white max-h-40 overflow-y-auto shadow rounded mt-1 text-sm z-10">
+            {suggestions.map((s: any, i: number) => (
+              <li
+                key={i}
+                className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                onClick={() => {
+                  setSearch(s.name);
+                  onSelect(s.name, s);
+                  setSuggestions([]);
+                }}
+              >
+                {s.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
 
   const fetchAll = async () => {
     setLoading(true);
@@ -363,48 +434,13 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
       console.error("Failed to delete item", err);
     }
   };
-  // Inside component
-  const fetchedAidsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    const fetchMissing = async () => {
-      if (!userId || !collectiveId || !activityItems?.length) return;
-
-      const missing = activityItems.filter(item => !fetchedAidsRef.current.has(item.a_id));
-      if (missing.length === 0) return;
-
-      await fetchAll(); // you could make this more selective in future
-
-      // Mark all activityItems as fetched
-      missing.forEach(item => fetchedAidsRef.current.add(item.a_id));
-    };
-
-    fetchMissing();
+    if (!userId || !collectiveId || !activityItems?.length) return;
+    fetchAll();
   }, [userId, collectiveId, activityItems]);
 
-
-  if (loading) {
-    return (
-      <div className="space-y-6 p-4">
-        {Array.from({ length: 3 }).map((_, idx) => (
-          <div
-            key={idx}
-            className="bg-white rounded-lg border border-gray-100 shadow-sm p-4 animate-pulse space-y-4"
-          >
-            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-            <div className="space-y-3">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="grid grid-cols-2 gap-4">
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                  <div className="h-8 bg-gray-200 rounded"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  if (loading) return <div className="text-sm text-gray-400 p-4">Loading activity details...</div>;
 
   return (
     <div className="space-y-6 p-4">
@@ -531,7 +567,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                   const unitValue = selectedUnit?.name;
 
                   if (!displayValue && !unitValue) return [];
-
+                  const isSearch = (item.a_id === 9 && i === 2);
                   return (
                     <div key={`val${i}`} className={`grid ${unitValue ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
                       <div className="space-y-1">
@@ -545,13 +581,28 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                             .trim()}
                         </label>
                         {isEditing ? (
-                          <input
-                            value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
-                            onChange={(e) =>
-                              setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
-                            }
-                            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                          />
+                          <>
+                            {isSearch ?
+                              <SearchableField
+                                key={`search-${i}`}
+                                trigger={"food"} // or use a real label or dynamic value
+                                label=""
+                                value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                                onSelect={(val, selectedItem) =>
+                                  setEditedValues((prev) => ({
+                                    ...prev,
+                                    [`value${i}`]: val,
+                                  }))
+                                }
+                              />
+                              : <input
+                                value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
+                                onChange={(e) =>
+                                  setEditedValues((prev) => ({ ...prev, [`value${i}`]: e.target.value }))
+                                }
+                                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+                              />}
+                          </>
                         ) : (
                           <input
                             value={String(displayValue ?? "")}

@@ -138,10 +138,9 @@ const DynamicActivityItemForm = ({
       return null;
 
     const itemMeta = items[0];
-    const description = itemMeta.item_description || itemMeta.item_name || "";
     const itemId = Number(itemMeta.item_id);
     const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49 || itemId === 38; // show plain text input (for "What")
-    const label = (isWhatOverride ? itemMeta.item_name : itemMeta.item_name || itemMeta.item_description || `Field ${index}`)
+    const label = (isWhatOverride ? itemMeta.item_name : itemMeta.item_description || itemMeta.item_name || `Field ${index}`)
       .replace(/^add\s+/i, "")
       .replace(/\bbased on.*$/i, "")
       .trim();
@@ -165,8 +164,6 @@ const DynamicActivityItemForm = ({
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">Select Subspace</label>
           <select
-            title={description}
-
             className="w-full border rounded px-3 py-2"
             value={selectedSubspace?.subspace_id || ""}
             onChange={(e) => {
@@ -190,7 +187,6 @@ const DynamicActivityItemForm = ({
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
           <input
-            title={description}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -243,14 +239,12 @@ const DynamicActivityItemForm = ({
             {isTimeField ? (
               <input
                 type="time"
-                title={description}
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}
                 onChange={(e) => handleChange(index, e.target.value)}
               />
             ) : isDateTimeField ? (
               <input
-                title={description}
                 type="datetime-local"
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}
@@ -258,7 +252,6 @@ const DynamicActivityItemForm = ({
               />
             ) : isDateField ? (
               <input
-                title={description}
                 type="date"
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}
@@ -266,7 +259,6 @@ const DynamicActivityItemForm = ({
               />
             ) : isWhatOverride ? (
               <input
-                title={description}
                 type="text"
                 placeholder="text"
                 className="flex-1 border rounded px-3 py-2"
@@ -275,7 +267,6 @@ const DynamicActivityItemForm = ({
               />
             ) : (
               <input
-                title={description}
                 type="number"
                 placeholder="Quantity"
                 className="flex-1 border rounded px-3 py-2"
@@ -287,28 +278,18 @@ const DynamicActivityItemForm = ({
             {!isDateField && (singleUnit ? (
               <span className="text-gray-700">{unitOptions[0].name}</span>
             ) : (
-              <>
-                {(() => {
-                  const firstUnit = unitOptions[0];
-                  const defaultValue = firstUnit?.unit_id?.toString() || firstUnit?.name || "";
-                  const currentValue = values[index] || defaultValue;
-
-                  return (
-                    <select
-                      title={description}
-                      className="flex-1 border rounded px-3 py-2"
-                      value={currentValue}
-                      onChange={(e) => handleChange(index, e.target.value)}
-                    >
-                      {unitOptions.map((opt: any, i: number) => (
-                        <option key={i} value={opt.unit_id || opt.name}>
-                          {opt.name}
-                        </option>
-                      ))}
-                    </select>
-                  );
-                })()}
-              </>
+              <select
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              >
+                <option value="">Select...</option>
+                {unitOptions.map((opt: any, i: number) => (
+                  <option key={i} value={opt.unit_id || opt.name}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
             ))}
           </div>
         </div>
@@ -317,24 +298,22 @@ const DynamicActivityItemForm = ({
 
     // 🍽️ Render Category Dropdown (like Days, Meal Type, etc.)
     if (isCategory || items.length > 1) {
-      const validOptions = items.filter((x: any) => x.cat_id || x.name);
-      const firstOptionValue = validOptions[0]?.cat_id || validOptions[0]?.name || "";
-      const currentValue = values[index] || firstOptionValue;
-
       return (
         <div key={idKey} className="mb-3">
           <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
           <select
             className="w-full border rounded px-3 py-2"
-            title={description}
-            value={currentValue}
+            value={values[index] || ""}
             onChange={(e) => handleChange(index, e.target.value)}
           >
-            {validOptions.map((opt: any, i: number) => (
-              <option key={i} value={opt.cat_id || opt.name}>
-                {opt.name}
-              </option>
-            ))}
+            <option value="">Select...</option>
+            {items
+              .filter((x: any) => x.cat_id || x.name)
+              .map((opt: any, i: number) => (
+                <option key={i} value={opt.cat_id || opt.name}>
+                  {opt.name}
+                </option>
+              ))}
           </select>
         </div>
       );
@@ -346,7 +325,6 @@ const DynamicActivityItemForm = ({
         <label className="text-sm font-medium text-gray-700 mb-1 block">{label}</label>
         <input
           type="text"
-          title={description}
           className="w-full border rounded px-3 py-2"
           value={values[index] || ""}
           onChange={(e) => handleChange(index, e.target.value)}

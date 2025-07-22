@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 
 interface UserInfo {
   user_id: string;
-  token: string;
+  access_token: string;
 }
 
 export const getUserInfo = (): UserInfo => {
@@ -17,5 +17,5 @@ export const getUserId = (): string => {
 };
 
 export const getUserToken = (): string => {
-  return getUserInfo().token;
+  return getUserInfo().access_token;
 };

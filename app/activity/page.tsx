@@ -480,6 +480,7 @@ function ActivityPage() {
             console.error("Failed to fetch goals/tasks", err);
         }
     };
+    
     const hardfetch = async () => {
         try {
             const userId = getUserId();
@@ -1541,6 +1542,7 @@ function ActivityPage() {
                                 console.warn("⚠️ Could not find updated task after hardfetch.");
                             }
                         }else{
+                            console.log("other")
                             fetchUserActivities();
                         }
                     }}
