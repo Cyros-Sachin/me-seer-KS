@@ -1,6 +1,7 @@
 'use client';
 import Cookies from 'js-cookie';
 import { getUserId, getUserToken } from "../utils/auth";
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown, Eye } from 'lucide-react';
@@ -150,6 +151,9 @@ const GoalsPage = () => {
   const [todoView, setTodoView] = useState<'unchecked' | 'checked' | 'history'>('unchecked');
   const sensors = useSensors(useSensor(PointerSensor));
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [expandedGoalIds, setExpandedGoalIds] = useState<string[]>([]);
+  const [showMiniCalendar, setShowMiniCalendar] = useState(false);
+  const calendarButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleTaskClick = async (taskId: string) => {
     const userId = getUserId();
@@ -688,9 +692,9 @@ const GoalsPage = () => {
       <div className="w-64 border-r bg-white p-4 overflow-y-auto custom-scrollbar">
         <div className="flex justify items-center mb-6">
           <ChevronLeft className='mr-3 text-black' onClick={() => router.push('/main')} />
-          <h2 className="text-xl font-bold text-gray-800">My Planner</h2>
+          <h2 className="text-xl font-bold text-gray-800">Goals</h2>
         </div>
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <ReactCalendar
             value={sidebarDate}
             onChange={handleSidebarDateChange}
@@ -716,68 +720,70 @@ const GoalsPage = () => {
             next2Label={null}
             prev2Label={null}
           />
-        </div>
-        {/* Goals Section */}
+        </div> */}
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Goals</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">My Goals</h2>
           <div className="space-y-1">
-            {goals.map(goal => (
-              <div
-                key={goal.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-150 ${selectedGoalId === goal.id
-                  ? 'bg-blue-100 text-blue-700 font-medium'
-                  : 'hover:bg-gray-100 text-gray-800'
-                  }`}
-                onClick={() => dispatch(selectGoal(goal.id))}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: goal.color }}
-                />
-                <span className="truncate">{goal.title}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Tasks Section */}
-        <div className='mt-10'>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Tasks</h2>
-          {selectedGoalId ? (() => {
-            const selectedGoal = goals.find(g => g.id === selectedGoalId);
-            if (!selectedGoal) return <p className="text-sm text-gray-400">No goal selected</p>;
+            {goals.map(goal => {
+              const isExpanded = expandedGoalIds.includes(goal.id);
 
-            const groupedTasks = selectedGoal.tasks.reduce((acc: Record<string, Task[]>, task) => {
-              const key = task.collective_id || 'Uncategorized';
-              if (!acc[key]) acc[key] = [];
-              acc[key].push(task);
-              return acc;
-            }, {});
-            return (
-              <div className="space-y-6">
-                {Object.entries(groupedTasks).map(([collectiveId, tasks]) => (
-                  <div key={collectiveId}>
-                    {tasks.map(task => (
-                      <div
-                        key={task.id}
-                        className={`ml-4 pl-2 border-l text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-blue-50 font-medium' : ''}`}
-                        draggable
-                        onClick={() => handleTaskClick(task.id)}
-                        onDragStart={() => handleTaskDragStart(task)}
-                      >
-                        <div
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: task.color }}
-                        />
-                        {task.title}
-                      </div>
-                    ))}
+              return (
+                <div key={goal.id}>
+                  {/* Goal Header */}
+                  <div
+                    className="flex items-center justify-between px-2 py-2 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() =>
+                      setExpandedGoalIds(prev =>
+                        prev.includes(goal.id)
+                          ? prev.filter(id => id !== goal.id)
+                          : [...prev, goal.id]
+                      )
+                    }
+                  >
+                    <span className="truncate font-medium text-gray-800">{goal.title}</span>
+                    <motion.div
+                      animate={{ rotate: isExpanded ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    </motion.div>
                   </div>
-                ))}
-              </div>
-            );
-          })() : (
-            <p className="text-sm text-gray-400">No goal selected</p>
-          )}
+
+                  {/* Tasks with animation */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-4 mt-1 space-y-1 border-l border-gray-300 pl-3">
+                          {goal.tasks.map(task => (
+                            <div
+                              key={task.id}
+                              className={`text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-gray-100 font-medium rounded' : ''
+                                }`}
+                              draggable
+                              onClick={() => handleTaskClick(task.id)}
+                              onDragStart={() => handleTaskDragStart(task)}
+                            >
+                              <div
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: task.color }}
+                              />
+                              {task.title}
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
         </div>
         {/* Selected Task Todo Section */}
         {selectedTaskTodo && (
@@ -929,7 +935,7 @@ const GoalsPage = () => {
         <div className="border-b bg-white p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-gray-800">Calendar</h1>
+              <h1 className="text-xl font-bold text-gray-800">Planner</h1>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => navigateDate('prev')}
@@ -950,6 +956,7 @@ const GoalsPage = () => {
                   <ChevronRight size={20} />
                 </button>
               </div>
+
               <span className="text-lg font-semibold text-black">
                 {viewMode === 'day' && formatDate(selectedDate)}
                 {viewMode === 'week' && `
@@ -963,6 +970,39 @@ const GoalsPage = () => {
               </span>
             </div>
             <div className="flex items-center space-x-2">
+              <div className="relative">
+                <button
+                  ref={calendarButtonRef}
+                  onClick={() => setShowMiniCalendar(prev => !prev)}
+                  className="p-2 rounded-md hover:bg-gray-100 text-black"
+                  title="Open calendar"
+                >
+                  <CalendarIcon size={18} />
+                </button>
+
+                {showMiniCalendar && (
+                  <div className="absolute top-10 right-0 z-50 bg-white border rounded-lg shadow-md">
+                    <ReactCalendar
+                      onChange={(value) => {
+                        const selected = Array.isArray(value) ? value[0] : value;
+                        if (selected instanceof Date) {
+                          dispatch(setSelectedDate(selected.toISOString()));
+                          setShowMiniCalendar(false);
+                        }
+                      }}
+                      value={selectedDate}
+                      calendarType="gregory"
+                      className="!border-none !shadow-none"
+                      tileClassName={({ date, view }) =>
+                        view === 'month' && date.toDateString() === new Date().toDateString()
+                          ? '!bg-blue-600 !text-white font-bold'
+                          : undefined
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => handleViewModeChange('day')}
                 className={`px-3 py-1 text-sm text-black rounded-md ${viewMode === 'day' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100'}`}
@@ -1475,6 +1515,73 @@ const GoalsPage = () => {
               </div>
             </div>
           )}
+        </div>
+      </div>
+      {/* Right Content */}
+      <div className="w-80 border-l bg-white p-6 overflow-y-auto space-y-8 shadow-inner">
+        {/* 🟦 Header */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Progress Analytics</h2>
+          <p className="text-sm text-gray-500 mt-1">Viewing: <span className="font-medium">All Goals</span></p>
+        </div>
+
+        {/* 📊 Bar Chart */}
+        <div className="space-y-3">
+          <div className="w-full h-32 flex items-end gap-2 bg-gray-50 rounded-xl px-3 py-2 border">
+            {[3, 5, 6, 5.5, 4, 2.5, 2].map((val, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center group relative">
+                {/* 🏷️ Hover Label */}
+                <div className="absolute -top-5 text-xs text-gray-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {val}h
+                </div>
+
+                {/* 📊 Bar */}
+                <div
+                  className="w-3 rounded-full bg-gradient-to-b from-blue-500 to-blue-400 group-hover:scale-105 transition-transform duration-150"
+                  style={{ height: `${val * 12}px` }}
+                />
+                <span className="text-[10px] text-gray-400 mt-1">{2 + i}/6</span>
+              </div>
+            ))}
+          </div>
+
+
+          {/* 🧠 Summary */}
+          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+            <div>
+              <p className="text-xs text-gray-500">Total</p>
+              <p className="font-semibold">35h</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Average</p>
+              <p className="font-semibold">5.5h</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Peak</p>
+              <p className="font-semibold">6h</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Avg. Effort</p>
+              <p className="font-semibold">2.5</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-4">
+          {/* 📅 Upcoming */}
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">Upcoming</h3>
+          <ul className="space-y-3">
+            {[
+              { title: "Research Story ideas", date: "14th July 2025", time: "12:00 PM" },
+              { title: "Reflect on goals", date: "15th July 2025", time: "10:00 AM" },
+              { title: "UX Workshop", date: "16th July 2025", time: "3:30 PM" }
+            ].map((item, i) => (
+              <li key={i} className="border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition">
+                <p className="text-sm font-medium text-gray-800">{item.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{item.date} • {item.time}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
