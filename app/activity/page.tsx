@@ -480,7 +480,6 @@ function ActivityPage() {
             console.error("Failed to fetch goals/tasks", err);
         }
     };
-    
     const hardfetch = async () => {
         try {
             const userId = getUserId();
@@ -1372,11 +1371,22 @@ function ActivityPage() {
 
                             <input
                                 type="date"
-                                value={goalForm.value3}
-                                onChange={(e) => setGoalForm({ ...goalForm, value3: e.target.value })}
+                                value={goalForm.value3
+                                    ? (() => {
+                                        const [dd, mm, yyyy] = goalForm.value3.split("/");
+                                        return `${yyyy}-${mm}-${dd}`; // Convert DD/MM/YYYY -> YYYY-MM-DD for <input>
+                                    })()
+                                    : ""}
+                                onChange={(e) => {
+                                    const raw = e.target.value; // YYYY-MM-DD
+                                    const [yyyy, mm, dd] = raw.split("-");
+                                    const formatted = `${dd}/${mm}/${yyyy}`; // convert to DD/MM/YYYY
+                                    setGoalForm({ ...goalForm, value3: formatted });
+                                }}
                                 title="Add a date"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
+
 
                             <input
                                 type="number"
@@ -1541,7 +1551,7 @@ function ActivityPage() {
                             } else {
                                 console.warn("⚠️ Could not find updated task after hardfetch.");
                             }
-                        }else{
+                        } else {
                             console.log("other")
                             fetchUserActivities();
                         }
@@ -1553,7 +1563,7 @@ function ActivityPage() {
 
             {/* Bottom Slide-Up for Goal */}
             <AnimatePresence>
-                {showGoal && selectedGoalDetails &&(
+                {showGoal && selectedGoalDetails && (
                     <motion.div
                         initial={{ x: '100%', opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}

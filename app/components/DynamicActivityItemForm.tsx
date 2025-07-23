@@ -139,7 +139,8 @@ const DynamicActivityItemForm = ({
 
     const itemMeta = items[0];
     const itemId = Number(itemMeta.item_id);
-    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49 || itemId === 38; // show plain text input (for "What")
+    const isWhatOverride = itemId === 47 || itemId === 48 || itemId === 49; // show plain text input (for "What")
+    const namefield = itemId === 38;
     const label = (isWhatOverride ? itemMeta.item_name : itemMeta.item_description || itemMeta.item_name || `Field ${index}`)
       .replace(/^add\s+/i, "")
       .replace(/\bbased on.*$/i, "")
@@ -259,6 +260,13 @@ const DynamicActivityItemForm = ({
               />
             ) : isWhatOverride ? (
               <textarea
+                placeholder="text"
+                className="flex-1 border rounded px-3 py-2"
+                value={values[index] || ""}
+                onChange={(e) => handleChange(index, e.target.value)}
+              />
+            ) : namefield ? (
+              <input
                 placeholder="text"
                 className="flex-1 border rounded px-3 py-2"
                 value={values[index] || ""}

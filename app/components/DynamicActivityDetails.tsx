@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SquareCheck, Pencil, Trash2 } from "lucide-react";
+import { SquareCheck, Pencil, Trash2, Flag } from "lucide-react";
 import { it } from "node:test";
 import { getUserId, getUserToken } from "../utils/auth";
 
@@ -162,100 +162,160 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
         }
         if ([30, 31, 32].includes(item.a_id)) {
           const res = await fetch(`${API_BASE_URL}/get_actions/${collectiveId}`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
           });
 
           const actions = await res.json();
-          const filteredActions = actions.filter((a: any) => a.action_type === item.a_id);
+          const filteredActions = actions.filter(
+            (a: any) => a.action_type === item.a_id && !a.action_log_id
+          );
 
-          // Map to MWBEntry format
-          result[item.a_id] = filteredActions.map((action: any) => ({
-            action_id: action.action_id,
-            ua_id: action.ua_id,
-            a_id: action.action_type,
-            at_id: action.task_id,
-            flag: "PT",
-            trigger: "action",
-            user_id: userId,
-            description: action.name || "",
-            value1: action.name || "",
-            value2: "",
-            value3: "",
-            value4: action.action_timestamp,
-            value5: action.duration_value,
-            value6: "",
-            cat_qty_id1: "None",
-            cat_qty_id2: [
-              {
-                item_description: "Repeat",
-                item_id: "58",
-                item_name: "Repeat",
-                item_type: "category",
-              },
-              {
-                cat_id: 128,
-                name: "Yes",
-                flag: action.repeat_status === "128" ? "selected" : undefined,
-              },
-              {
-                cat_id: 129,
-                name: "No",
-                flag: action.repeat_status === "129" ? "selected" : undefined,
-              },
-            ],
-            cat_qty_id3: [
-              {
-                item_description: "Name or title for a given entity",
-                item_id: "38",
-                item_name: "name",
-                item_type: "unit",
-              },
-              {
-                unit_id: 23,
-                name: "text",
-              },
-            ],
-            cat_qty_id4: [
-              {
-                item_description: "add a date time",
-                item_id: "53",
-                item_name: "date time",
-                item_type: "unit",
-              },
-              {
-                unit_id: 58,
-                name: "mm/dd/yyyy HH:mm",
-              },
-            ],
-            cat_qty_id5: [
-              {
-                item_description: "duration of action",
-                item_id: "54",
-                item_name: "duration",
-                item_type: "unit",
-              },
-              {
-                unit_id: 56,
-                name: "mins",
-              },
-              {
-                unit_id: 57,
-                name: "hours",
-                flag: action.duration_unit === 57 ? "selected" : undefined,
-              },
-            ],
-            cat_qty_id6: [
-              {
-                item_id: "None",
-                item_name: "None",
-                name: "item_id doesn't exist",
-              },
-            ],
-          }));
+          let mappedEntries: MWBEntry[] = [];
 
-          // Fetch and store template
+          if (item.a_id === 30) {
+            mappedEntries = filteredActions.map((action: any) => ({
+              action_id: action.action_id,
+              ua_id: action.ua_id,
+              a_id: 30,
+              at_id: action.task_id,
+              flag: "PT",
+              trigger: "action",
+              user_id: userId,
+              description: action.name || "",
+              value1: "",
+              value2: "", // Repeat
+              value3: action.name || "",
+              value4: action.by_datetime_value, // datetime
+              value5: action.duration_value,
+              value6: "",
+              cat_qty_id1: "None",
+              cat_qty_id2: [
+                { item_description: "Repeat", item_id: "58", item_name: "Repeat", item_type: "category" },
+                { cat_id: 128, name: "Yes", flag: action.repeat_status === "128" ? "selected" : undefined },
+                { cat_id: 129, name: "No", flag: action.repeat_status === "129" ? "selected" : undefined },
+              ],
+              cat_qty_id3: [
+                { item_description: "Name or title for a given entity", item_id: "38", item_name: "name", item_type: "unit" },
+                { unit_id: 23, name: "text", flag: "selected" },
+              ],
+              cat_qty_id4: [
+                { item_description: "add a date time", item_id: "53", item_name: "date time", item_type: "unit" },
+                { unit_id: 58, name: "mm/dd/yyyy HH:mm", flag: "selected" },
+              ],
+              cat_qty_id5: [
+                { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
+                { unit_id: 56, name: "mins" },
+                { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
+              ],
+              cat_qty_id6: [
+                { item_id: "None", item_name: "None", name: "item_id doesn't exist" },
+              ],
+            }));
+          }
+
+          if (item.a_id === 31) {
+            mappedEntries = filteredActions.map((action: any) => {
+              const selectedDayId = Number(action.day_week); // Expected to be 76–82
+              const dayOptions = [
+                { cat_id: 76, name: "Monday" },
+                { cat_id: 77, name: "Tuesday" },
+                { cat_id: 78, name: "Wednesday" },
+                { cat_id: 79, name: "Thursday" },
+                { cat_id: 80, name: "Friday" },
+                { cat_id: 81, name: "Saturday" },
+                { cat_id: 82, name: "Sunday" },
+              ];
+
+              return {
+                action_id: action.action_id,
+                ua_id: action.ua_id,
+                a_id: 31,
+                at_id: action.task_id,
+                flag: "PT",
+                trigger: "action",
+                user_id: userId,
+                description: action.name || "",
+                value1: "",
+                value2: "", // Repeat
+                value3: action.name || "",
+                value4: "", // ✅ Always "0"
+                value5: action.time_of_day_value || "",
+                value6: action.duration_value,
+                cat_qty_id1: "None",
+                cat_qty_id2: [
+                  { item_description: "Repeat", item_id: "58", item_name: "Repeat", item_type: "category" },
+                  { cat_id: 128, name: "Yes", flag: action.repeat_status === "128" ? "selected" : undefined },
+                  { cat_id: 129, name: "No", flag: action.repeat_status === "129" ? "selected" : undefined },
+                ],
+                cat_qty_id3: [
+                  { item_description: "Name or title for a given entity", item_id: "38", item_name: "name", item_type: "unit" },
+                  { unit_id: 23, name: "text", flag: "selected" },
+                ],
+                cat_qty_id4: [
+                  { item_description: "Days in week", item_id: "21", item_name: "Days", item_type: "category" },
+                  ...dayOptions.map((opt) => ({
+                    ...opt,
+                    flag: opt.cat_id === selectedDayId ? "selected" : undefined,
+                  })),
+                ],
+                cat_qty_id5: [
+                  { item_description: "time of the day", item_id: "55", item_name: "time", item_type: "unit" },
+                  { unit_id: 59, name: "HH:mm", flag: "selected" },
+                ],
+                cat_qty_id6: [
+                  { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
+                  { unit_id: 56, name: "mins" },
+                  { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
+                ],
+              };
+            });
+          }
+
+
+          if (item.a_id === 32) {
+            mappedEntries = filteredActions.map((action: any) => ({
+              action_id: action.action_id,
+              ua_id: action.ua_id,
+              a_id: 32,
+              at_id: action.task_id,
+              flag: "PT",
+              trigger: "action",
+              user_id: userId,
+              description: action.name || "",
+              value1: "",
+              value2: "", // Repeat
+              value3: action.name || "",
+              value4: action.day_month || "", // 1-31
+              value5: action.time_of_day_value || "",       // HH:mm
+              value6: action.duration_value,
+              cat_qty_id1: "None",
+              cat_qty_id2: [
+                { item_description: "Repeat", item_id: "58", item_name: "Repeat", item_type: "category" },
+                { cat_id: 128, name: "Yes", flag: action.repeat_status === "128" ? "selected" : undefined },
+                { cat_id: 129, name: "No", flag: action.repeat_status === "129" ? "selected" : undefined },
+              ],
+              cat_qty_id3: [
+                { item_description: "Name or title for a given entity", item_id: "38", item_name: "name", item_type: "unit" },
+                { unit_id: 23, name: "text" },
+              ],
+              cat_qty_id4: [
+                { item_description: "add number 1-31", item_id: "56", item_name: "day of month", item_type: "unit" },
+                { unit_id: 39, name: "number" },
+              ],
+              cat_qty_id5: [
+                { item_description: "time of the day", item_id: "55", item_name: "time", item_type: "unit" },
+                { unit_id: 59, name: "HH:mm", flag: "selected" },
+              ],
+              cat_qty_id6: [
+                { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
+                { unit_id: 56, name: "mins" },
+                { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
+              ],
+            }));
+          }
+
+          result[item.a_id] = mappedEntries;
+
           const templateRes = await fetch(`${API_BASE_URL}/generic/templates/${item.a_id}`, {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -384,15 +444,118 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           value6: editedValues.value6 ?? item.value6 ?? "",
         };
       }
-      if (item.a_id === 30 || item.a_id === 31 || item.a_id === 32) {
+      if ([30, 31, 32].includes(item.a_id)) {
         payload.at_id = 302;
-        payload.cat_qty_id1 = item.at_id;
-        payload.cat_qty_id4 = 58;
+        payload.cat_qty_id1 = item.action_id;
         payload.action_timestamp = event_time;
-      }
-      if (item.a_id === 31) {
-        // payload.value4 = editedValues.unit4;
-        payload.cat_qty_id4 = parseInt(editedValues.unit4);
+        payload.event_time = event_time;
+        payload.cat_qty_id2 = Array.isArray(item.cat_qty_id2)
+          ? item.cat_qty_id2.find((u: any) => u?.Selected || u?.flag === "selected")?.cat_id ?? null
+          : item.cat_qty_id2 ?? null;
+
+        payload.cat_qty_id3 = Array.isArray(item.cat_qty_id3)
+          ? item.cat_qty_id3.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          : item.cat_qty_id3 ?? null;
+
+        payload.cat_qty_id4 = Array.isArray(item.cat_qty_id4)
+          ? item.cat_qty_id4.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          : item.cat_qty_id4 ?? null;
+
+        payload.cat_qty_id5 = Array.isArray(item.cat_qty_id5)
+          ? item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          : item.cat_qty_id5 ?? null;
+
+        payload.cat_qty_id6 = Array.isArray(item.cat_qty_id6)
+          ? item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          : item.cat_qty_id6 ?? null;
+        payload.is_active = "Y";
+        const values = [
+          editedValues.value1,
+          editedValues.value2,
+          editedValues.value3,
+          editedValues.value4,
+          editedValues.value5,
+          editedValues.value6,
+        ];
+        const quantities = [
+          editedValues.unit1,
+          editedValues.unit2,
+          editedValues.unit3,
+          editedValues.unit4,
+          editedValues.unit5,
+          editedValues.unit6,
+        ];
+        if (item.a_id === 30) {
+          // Case: One-time datetime
+          payload.by_datetime_value = values[3] || "";
+        }
+
+        if (item.a_id === 31) {
+          const selectedDayCatId = Number(quantities[3]); // cat_id 76–82
+          payload.cat_qty_id4 = selectedDayCatId;
+          const selectedTime = values[4]; // "HH:mm"
+
+          const dayNameMap: Record<number, number> = {
+            76: 1, 77: 2, 78: 3, 79: 4, 80: 5, 81: 6, 82: 0,
+          };
+
+          const targetDayIndex = dayNameMap[selectedDayCatId];
+
+          if (!isNaN(targetDayIndex) && /^\d{2}:\d{2}$/.test(selectedTime)) {
+            const now = new Date();
+            const currentDay = now.getDay();
+            const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
+
+            const targetDate = new Date();
+            targetDate.setDate(now.getDate() + daysUntilTarget);
+
+            const [hourStr, minStr] = selectedTime.split(":");
+            targetDate.setHours(Number(hourStr));
+            targetDate.setMinutes(Number(minStr));
+            targetDate.setSeconds(0);
+            targetDate.setMilliseconds(0);
+
+            payload.by_datetime_value = targetDate.toISOString().slice(0, 16);
+          } else {
+            console.warn("⚠️ Weekly recurrence missing or invalid time/day");
+          }
+        }
+
+        if (item.a_id === 32) {
+          const selectedDay = Number(quantities[4]); // day of month
+          const selectedTime = values[5];
+
+          if (selectedDay && /^\d{2}:\d{2}$/.test(selectedTime)) {
+            const now = new Date();
+            let targetMonth = now.getMonth();
+            let targetYear = now.getFullYear();
+
+            if (selectedDay <= now.getDate()) {
+              targetMonth++;
+              if (targetMonth > 11) {
+                targetMonth = 0;
+                targetYear++;
+              }
+            }
+
+            const targetDate = new Date(targetYear, targetMonth, selectedDay);
+            const [hourStr, minStr] = selectedTime.split(":");
+            targetDate.setHours(Number(hourStr));
+            targetDate.setMinutes(Number(minStr));
+            targetDate.setSeconds(0);
+            targetDate.setMilliseconds(0);
+
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+            const dd = String(targetDate.getDate()).padStart(2, "0");
+            const hh = String(targetDate.getHours()).padStart(2, "0");
+            const min = String(targetDate.getMinutes()).padStart(2, "0");
+
+            payload.by_datetime_value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+          } else {
+            console.warn("⚠️ Monthly recurrence missing or invalid day/time");
+          }
+        }
       }
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
@@ -473,7 +636,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
               </h3>
             </div>
             <div className="space-y-3 p-4">
-              {itemData.map((entry) => {
+              {itemData.map((entry, index) => {
                 const isEditing = editingItemId === entry.ua_id;
                 const indices = entry.a_id === 13
                   ? [1, 2, 3, 4, 6]
@@ -557,7 +720,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                   }
 
                   const options = Array.isArray(unitList) ? unitList : [];
-                  const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected");
+                  const selectedUnit = options.find((u: any) => u?.Selected || u?.flag === "selected" || u?.name === "mm/dd/yyyy HH:mm");
                   const isUnitField = !!selectedUnit?.unit_id || i === 4;
                   const displayValue =
                     value && value !== "None"
@@ -573,8 +736,8 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                     <div key={`val${i}`} className={`grid ${unitValue ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-500">
-                          {(templateMap[aId]?.[`item_id${i}`]?.[0]?.item_description ||
-                            templateMap[aId]?.[`item_id${i}`]?.[0]?.item_name ||
+                          {(templateMap[aId]?.[`item_id${i}`]?.[0]?.item_name ||
+                            templateMap[aId]?.[`item_id${i}`]?.[0]?.item_description ||
                             `Field ${i}`)
                             .replace(/^add\s+/i, "")
                             .replace(/\bbased on.*$/i, "")
@@ -608,16 +771,91 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                               className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm min-h-[100px]"
                             />
                           ) : (
-                            <input
-                              value={editedValues[`value${i}`] ?? String(displayValue ?? "")}
-                              onChange={(e) =>
-                                setEditedValues((prev) => ({
-                                  ...prev,
-                                  [`value${i}`]: e.target.value,
-                                }))
-                              }
-                              className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
-                            />
+                            <>
+                              {(() => { //this block for the datetime 
+                                const unitName = selectedUnit?.name?.toLowerCase() || "";
+                                const rawValue = editedValues[`value${i}`] ?? String(displayValue ?? "");
+
+                                const toInputFormat = (val: string, type: string) => {
+                                  if (!val) return "";
+
+                                  if (type === "date") {
+                                    const [dd, mm, yyyy] = val.split("/");
+                                    return `${yyyy}-${mm}-${dd}`;
+                                  }
+
+                                  if (type === "time") {
+                                    return val.length === 5 ? val : val.slice(0, 5);
+                                  }
+
+                                  if (type === "datetime-local") {
+                                    let datePart = "", timePart = "";
+                                    if (val.includes("T")) {
+                                      [datePart, timePart] = val.split("T");
+                                    } else if (val.includes(" ")) {
+                                      [datePart, timePart] = val.split(" ");
+                                    }
+                                    if (!datePart || !timePart) return "";
+                                    let dd = "", mm = "", yyyy = "";
+                                    if (datePart.includes("/")) {
+                                      [dd, mm, yyyy] = datePart.split("/");
+                                    } else {
+                                      [yyyy, mm, dd] = datePart.split("-");
+                                    }
+                                    const [h, m] = timePart.split(":");
+                                    return `${yyyy}-${mm}-${dd}T${h}:${m}`;
+                                  }
+
+                                  return val;
+                                };
+
+                                const fromInputFormat = (val: string, type: string) => {
+                                  if (!val) return "";
+
+                                  if (type === "date") {
+                                    const [yyyy, mm, dd] = val.split("-");
+                                    return `${dd}/${mm}/${yyyy}`;
+                                  }
+
+                                  if (type === "time") {
+                                    return val;
+                                  }
+
+                                  if (type === "datetime-local") {
+                                    const [date, time] = val.split("T");
+                                    const [yyyy, mm, dd] = date.split("-");
+                                    console.log(`${dd}/${mm}/${yyyy}T${time}`)
+                                    return `${dd}/${mm}/${yyyy}T${time}`;
+                                  }
+
+                                  return val;
+                                };
+
+                                let inputType: "text" | "date" | "time" | "datetime-local" = "text";
+
+                                if (unitName.includes("mm/dd/yyyy") && unitName.includes("hh:mm")) {
+                                  inputType = "datetime-local";
+                                } else if (unitName.includes("dd/mm/yyyy")) {
+                                  inputType = "date";
+                                } else if (unitName.includes("hh:mm")) {
+                                  inputType = "time";
+                                }
+
+                                return (
+                                  <input
+                                    type={inputType}
+                                    value={toInputFormat(rawValue, inputType)}
+                                    onChange={(e) =>
+                                      setEditedValues((prev) => ({
+                                        ...prev,
+                                        [`value${i}`]: fromInputFormat(e.target.value, inputType),
+                                      }))
+                                    }
+                                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
+                                  />
+                                );
+                              })()}
+                            </>
                           )
                         ) : isarea ? (
                           <textarea
@@ -671,7 +909,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                 if (renderFields.length === 0) return null;
                 return (
                   <div
-                    key={entry.ua_id}
+                    key={`${entry.a_id}-${index}`}
                     className="space-y-3 border border-gray-100 rounded-lg p-4 bg-white shadow-xs"
                   >
                     {renderFields}
