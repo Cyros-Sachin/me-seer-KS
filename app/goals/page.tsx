@@ -169,54 +169,60 @@ const GoalsPage = () => {
     }
 
     try {
-      const response = await fetch(`https://meseer.com/dog/todos/${task.todo_id}/${userId}`, {
+      // STEP 1: Fetch all todos
+      const todoRes = await fetch(`https://meseer.com/dog/todos/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) throw new Error(`Status ${response.status}`);
+      if (!todoRes.ok) throw new Error(`Todo fetch failed: ${todoRes.status}`);
+      const todoData = await todoRes.json();
 
-      const data = await response.json();
+      // STEP 2: Find the todo item matching task.todo_id
+      const matchedTodo = Array.isArray(todoData)
+        ? todoData.find(item => item.todo_id?.toString() === task.todo_id?.toString())
+        : null;
 
-      let finalTodo: Todo = {
-        todo_id: task.todo_id.toString(),
-        name: "Untitled",
-        contents: [],
-        refresh_type: "daily"
-      };
-
-      if (data.todo_data && Array.isArray(data.todo_data)) {
-        // CASE 1: grouped format (object with keys like "304, Check 1")
-        const group = data.todo_data.find((obj: any) =>
-          typeof obj === 'object' && Object.keys(obj).length > 0
-        );
-        if (group) {
-          const [key, rawContents] = Object.entries(group)[0];
-          const contents = rawContents as TodoContent[];
-
-          finalTodo = {
-            todo_id: key.split(',')[0].trim(),
-            name: key.split(',').slice(1).join(',').trim() || "Untitled",
-            contents,
-            refresh_type: contents?.[0]?.refresh_type || "daily"
-          };
-        }
-
-      } else if (Array.isArray(data)) {
-        // CASE 2: flat array of todos (like your current JSON)
-        finalTodo = {
-          todo_id: data[0]?.todo_id?.toString() || task.todo_id.toString(),
-          name: data[0]?.name || "Untitled",
-          contents: data,
-          refresh_type: data[0]?.refresh_type || "daily"
-        };
+      if (!matchedTodo) {
+        console.warn("Todo ID not found in response.");
+        setSelectedTaskTodo({
+          todo_id: task.todo_id.toString(),
+          name: "Untitled",
+          contents: [],
+          refresh_type: "daily"
+        });
+        return;
       }
+
+      // STEP 3: Fetch todo contents
+      const contentRes = await fetch(`https://meseer.com/dog/todo_content/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!contentRes.ok) throw new Error(`Content fetch failed: ${contentRes.status}`);
+      const allContents = await contentRes.json();
+
+      // STEP 4: Filter contents by todo_id
+      const filteredContents = Array.isArray(allContents)
+        ? allContents.filter(content => content.todo_id?.toString() === task.todo_id?.toString())
+        : [];
+
+      // STEP 5: Build and set final todo object
+      const finalTodo: Todo = {
+        todo_id: matchedTodo.todo_id.toString(),
+        name: matchedTodo.name || "Untitled",
+        contents: filteredContents,
+        refresh_type: matchedTodo.refresh_type || "daily"
+      };
 
       setSelectedTaskTodo(finalTodo);
     } catch (err) {
-      console.error("Error fetching todo:", err);
+      console.error("Error fetching todo or content:", err);
       setSelectedTaskTodo({
         todo_id: task.todo_id.toString(),
         name: "Untitled",
@@ -694,33 +700,6 @@ const GoalsPage = () => {
           <ChevronLeft className='mr-3 text-black' onClick={() => router.push('/main')} />
           <h2 className="text-xl font-bold text-gray-800">Goals</h2>
         </div>
-        {/* <div className="mb-6">
-          <ReactCalendar
-            value={sidebarDate}
-            onChange={handleSidebarDateChange}
-            selectRange={false}
-            calendarType="gregory"
-            className="!border-none !shadow-sm"
-            tileClassName={({ date, view }) =>
-              view === 'month' && date.toDateString() === new Date().toDateString()
-                ? '!bg-blue-600 !text-white font-bold'
-                : undefined
-            }
-            navigationLabel={({ date }) => (
-              <span className="text-sm font-medium text-gray-700">
-                {date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-              </span>
-            )}
-            formatShortWeekday={(locale, date) =>
-              ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()]
-            }
-            minDetail="month"
-            nextLabel={<ChevronRight size={16} className="text-gray-500" />}
-            prevLabel={<ChevronLeft size={16} className="text-gray-500" />}
-            next2Label={null}
-            prev2Label={null}
-          />
-        </div> */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">My Goals</h2>
           <div className="space-y-1">

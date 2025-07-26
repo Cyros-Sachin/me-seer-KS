@@ -522,8 +522,11 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
         }
 
         if (item.a_id === 32) {
-          const selectedDay = Number(quantities[4]); // day of month
-          const selectedTime = values[5];
+          payload.cat_qty_id4 = 39;
+          payload.cat_qty_id3 = 23;
+          const selectedDay = Number(values[3]); // day of month
+          const selectedTime = values[4];
+          console.log(selectedDay,selectedTime);
 
           if (selectedDay && /^\d{2}:\d{2}$/.test(selectedTime)) {
             const now = new Date();
