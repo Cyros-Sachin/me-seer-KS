@@ -827,8 +827,8 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                                   if (type === "datetime-local") {
                                     const [date, time] = val.split("T");
                                     const [yyyy, mm, dd] = date.split("-");
-                                    console.log(`${dd}/${mm}/${yyyy}T${time}`)
-                                    return `${dd}/${mm}/${yyyy}T${time}`;
+                                    console.log(`${yyyy}-${mm}-${dd}T${time}`)
+                                    return `${yyyy}-${mm}-${dd}T${time}`;
                                   }
 
                                   return val;
