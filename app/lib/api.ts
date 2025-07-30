@@ -114,7 +114,7 @@ export const fetchActionsForTasks = async (
     for (const aid of fixedAIds) {
       try {
         const res = await axios.get(
-          `https://meseer.com/dog/generic/get-it/${userId}/${aid}/${taskId}`,
+          `https://meseer.com/dog/get_actions/${taskId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -136,28 +136,6 @@ export const fetchActionsForTasks = async (
   return actionsByTask;
 };
 
-export function mapActionToEvent(
-  action: any,
-  taskId: string,
-  goalId: string,
-  color: string
-): CalendarEvent | null {
-  const parsedDate = parseCustomDateTime(action.value3);
-  if (!parsedDate) return null;
-
-  return {
-    id: `action-${action.a_id}`,
-    title: action.value2 || 'Unnamed Action',
-    start: parsedDate.toISOString(),
-    end: new Date(parsedDate.getTime() + 60 * 60 * 1000).toISOString(),
-    category: 'work', // Or cast if needed: 'work' as CalendarEvent['category']
-    goalId,
-    taskId,
-    color,
-    allDay: true,
-  };
-}
-
 // Helper to parse "20/11/2025 00:00"
 export function parseCustomDateTime(dateStr: string): Date | null {
   if (!dateStr) return null;
@@ -170,8 +148,7 @@ export function parseCustomDateTime(dateStr: string): Date | null {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
-
-export async function fetchEvents(userId: string, taskId: string, collectiveId: string) {
+export async function fetchEvents(userId: string, collectiveId: string) {
   const response = await fetch(`https://meseer.com/dog/generic/get-it/${userId}/33/${collectiveId}`);
   if (!response.ok) throw new Error("Failed to fetch action events");
   return response.json();

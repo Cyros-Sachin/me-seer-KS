@@ -1,7 +1,8 @@
 'use client';
 import Cookies from 'js-cookie';
+import MiniCalendar from '../components/ui/MiniCalendar'; // or wherever you saved it
 import { getUserId, getUserToken } from "../utils/auth";
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Maximize2 } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Trash2, Clock, Tag, Check, ChevronDown, Eye } from 'lucide-react';
@@ -16,38 +17,16 @@ import {
   updateEvent,
   deleteEvent,
   addGoal,
-  updateGoal,
-  deleteGoal,
-  addTask,
-  updateTask,
-  deleteTask,
-  selectGoal
 } from '../features/calendar/calendarSlice';
 import {
   fetchGoalsAndTasks,
-  fetchTodoItems,
   createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
   fetchActionsForTasks,
-  mapActionToEvent,
   fetchEvents
 } from "../lib/api"; // Adjust path if needed
-import { Calendar as ReactCalendar, CalendarProps } from 'react-calendar';
+import { Calendar as ReactCalendar } from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; // still needed
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-type UserInfo = {
-  access_token: string;
-  email: string;
-  message: string;
-  name: string;
-  payment_details: string;
-  payment_type: string;
-  phone: string;
-  user_id: string;
-};
+
 type ViewMode = 'day' | 'week' | 'month';
 type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
 
@@ -61,6 +40,7 @@ interface Event {
   taskId?: string;
   color?: string;
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once';
+  allDay?: boolean;
 }
 
 interface TaskAction {
@@ -126,7 +106,6 @@ const GoalsPage = () => {
     viewMode,
     events,
     goals,
-    selectedGoalId
   } = useSelector((state: RootState) => state.calendar);
 
   const selectedDate = useMemo(() => new Date(selectedDateStr), [selectedDateStr]);
@@ -137,9 +116,7 @@ const GoalsPage = () => {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [timeSlotClicked, setTimeSlotClicked] = useState<{ time: Date; day: Date } | null>(null);
   const goalsFromRedux = useSelector((state: RootState) => state.calendar.goals);
-  const [clickedTaskActions, setClickedTaskActions] = useState<any[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const selectedGoalIdFromSidebar = useSelector((state: RootState) => state.calendar.selectedGoalId);
   const [allActions, setAllActions] = useState<Record<string, any[]>>({});
   const [sidebarDate, setSidebarDate] = useState<Date>(new Date());
   const timeGridRef = useRef<HTMLDivElement>(null);
@@ -149,11 +126,10 @@ const GoalsPage = () => {
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [editingTaskContent, setEditingTaskContent] = useState("");
   const [todoView, setTodoView] = useState<'unchecked' | 'checked' | 'history'>('unchecked');
-  const sensors = useSensors(useSensor(PointerSensor));
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [expandedGoalIds, setExpandedGoalIds] = useState<string[]>([]);
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
+  const [maximizedTodo, setMaximizedTodo] = useState<Todo | null>(null);
 
   const handleTaskClick = async (taskId: string) => {
     const userId = getUserId();
@@ -234,17 +210,12 @@ const GoalsPage = () => {
 
   // Add these helper functions for todo operations
   const handleToggleCheck = async (tcId: number) => {
-    if (!selectedTaskTodo) return;
-
     setSelectedTaskTodo(prev => {
       if (!prev) return prev;
 
-      const updatedContents = (prev as any).contents.map((item: any) => {
+      const updatedContents = prev?.contents?.map(item => {
         if (item.tc_id === tcId) {
-          const updatedItem = {
-            ...item,
-            checked: !item.checked
-          };
+          const updatedItem = { ...item, checked: !item.checked };
           updateCheckStatus(updatedItem);
           return updatedItem;
         }
@@ -253,7 +224,21 @@ const GoalsPage = () => {
 
       return { ...prev, contents: updatedContents };
     });
+
+    setMaximizedTodo(prev => {
+      if (!prev) return prev;
+
+      const updatedContents = prev?.contents?.map(item => {
+        if (item.tc_id === tcId) {
+          return { ...item, checked: !item.checked };
+        }
+        return item;
+      });
+
+      return { ...prev, contents: updatedContents };
+    });
   };
+
 
   const updateCheckStatus = async (item: TodoContent) => {
     try {
@@ -277,7 +262,7 @@ const GoalsPage = () => {
   };
 
   const handleAddTask = async () => {
-    if (!selectedTaskTodo || !newTaskContent.trim()) return;
+    if (!maximizedTodo || !newTaskContent.trim()) return;
 
     const userId = getUserId();
     const token = getUserToken();
@@ -291,7 +276,7 @@ const GoalsPage = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          todo_id: selectedTaskTodo.todo_id,
+          todo_id: maximizedTodo.todo_id,
           user_id: userId,
           content: newTaskContent.trim(),
           checked: false,
@@ -300,33 +285,27 @@ const GoalsPage = () => {
           version: "v1",
           created_date: now,
           last_updated: now,
-          refresh_type: selectedTaskTodo.refresh_type || "daily",
+          refresh_type: maximizedTodo.refresh_type || "daily",
         }),
       });
 
       if (response.ok) {
-        // Refresh the todo data
-        const refreshResponse = await fetch(`https://meseer.com/dog/get-todo-wordpad/lastest-version/${userId}/${selectedTaskId}`, {
+        // Fetch fresh content
+        const contentRes = await fetch(`https://meseer.com/dog/todo_content/${userId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
+        const allContents = await contentRes.json();
+        const refreshedContents = Array.isArray(allContents)
+          ? allContents.filter(content => content.todo_id?.toString() === maximizedTodo.todo_id?.toString())
+          : [];
 
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json();
-          const todos: Todo[] = [];
-          data.todo_data.forEach((todoObj: Record<string, Todo[]>) => {
-            Object.values(todoObj).forEach(todoArray => {
-              todos.push(...todoArray);
-            });
-          });
-
-          if (todos.length > 0) {
-            setSelectedTaskTodo(todos[0]);
-          }
-        }
-
+        setMaximizedTodo(prev => ({
+          ...prev!,
+          contents: refreshedContents
+        }));
         setNewTaskContent("");
       }
     } catch (err) {
@@ -416,6 +395,7 @@ const GoalsPage = () => {
         const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
         const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
         const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
+        console.log("✅ actionsMap:", actionsMap);
         setAllActions(actionsMap);
 
         // Dispatch goals directly
@@ -429,20 +409,28 @@ const GoalsPage = () => {
             if (!collectiveId) continue;
 
             try {
-              const eventsData = await fetchEvents(userId, '33', collectiveId);
+              const eventsData = await fetchEvents(userId, collectiveId);
 
-              eventsData.forEach((action: any) => {
-                const event = mapActionToEvent(action, task.id, goal.id, goal.color);
-                if (event) {
-                  const safeEvent = {
-                    ...event,
-                    start: new Date(event.start).toISOString(),
-                    end: new Date(event.end).toISOString(),
+              if (Array.isArray(eventsData)) {
+                const transformedEvents: Event[] = eventsData.map((item) => {
+                  const startDate = new Date(item.value4);
+                  const endDate = new Date(startDate); // same day for all-day event
+
+                  return {
+                    id: `event-${item.a_id}`,
+                    title: item.value3 || "Untitled Event",
+                    start: startDate.toISOString(),
+                    end: endDate.toISOString(),
+                    category: 'work',
+                    goalId: goal.id,
+                    taskId: task.id,
+                    color: task.color || '#3b82f6',
+                    repeat: 'none',
+                    allDay: true // 🟢 Important for rendering in All-day row
                   };
-                  dispatch(addEvent(safeEvent));
-                }
-
-              });
+                });
+                transformedEvents.forEach(evt => dispatch(addEvent(evt)));
+              }
             } catch (error) {
               console.error(`❌ Failed to fetch events for collectiveId ${collectiveId}`, error);
             }
@@ -628,15 +616,11 @@ const GoalsPage = () => {
     return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const handleSidebarDateChange: CalendarProps['onChange'] = (value, _event) => {
-    const date = Array.isArray(value) ? value[0] : value;
-    if (date instanceof Date) {
-      setSidebarDate(date);
-      dispatch(setSelectedDate(date.toISOString()));
-    }
-  };
-
-  const getActionsForDay = (day: Date, allActions: Record<string, any[]>, goals: Goal[]): {
+  const getActionsForDay = (
+    day: Date,
+    allActions: Record<string, any[]>,
+    goals: Goal[]
+  ): {
     title: string;
     color: string;
     time: string;
@@ -649,38 +633,90 @@ const GoalsPage = () => {
       durationMinutes: number;
     }[] = [];
 
-    const weekdayName = day.toLocaleDateString('en-US', { weekday: 'long' });
+    const isSameDay = (d1: Date, d2: Date) =>
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+
+    const isAfterOrSameDay = (target: Date, base: Date) =>
+      target.setHours(0, 0, 0, 0) >= base.setHours(0, 0, 0, 0);
+
+    const durationUnitMap: Record<number, string> = {
+      57: "hours",
+      56: "minutes",
+    };
+
+    const dayWeekMap: Record<number, string> = {
+      76: "Monday",
+      77: "Tuesday",
+      78: "Wednesday",
+      79: "Thursday",
+      80: "Friday",
+      81: "Saturday",
+      82: "Sunday",
+    };
 
     for (const goal of goals) {
       for (const task of goal.tasks) {
-        const taskActions = allActions[task.id] || [];
+        const taskActions = allActions[task.id?.toString()] || [];
 
         for (const action of taskActions) {
-          const title = action.value3 || "Action";
-          const color = task.color || "#3b82f6";
-          const timeStr = (action.value5 || "00:00").trim();
-          const [hh, mm] = timeStr.split(":").map(Number);
-          if (isNaN(hh) || isNaN(mm)) continue;
+          const actionDate = new Date(action.by_datetime_value);
+          if (isNaN(actionDate.getTime())) continue;
 
-          const unit = action.cat_qty_id6?.find((u: any) => u.Selected)?.name || "mins";
-          let duration = parseInt(action.value6 || "30");
-          if (isNaN(duration)) duration = 30;
-          if (unit === "hours") duration *= 60;
+          const isRepeating = action.repeat_status === "128";
+          let shouldRender = false;
 
-          const isWeekly = Array.isArray(action.cat_qty_id4) &&
-            action.cat_qty_id4.some((e: any) => e.Selected);
-          const weekdays = isWeekly
-            ? action.cat_qty_id4.filter((e: any) => e.Selected).map((e: any) => e.name)
-            : [];
+          const weekdayName = day.toLocaleDateString("en-US", { weekday: "long" });
 
-          if (weekdays.includes(weekdayName)) {
-            actions.push({
-              title,
-              color,
-              time: timeStr,
-              durationMinutes: duration,
-            });
+          if (isRepeating) {
+            const dayWeekName = dayWeekMap[action.day_week];
+            const isWeekly = !!dayWeekName;
+
+            const dayMonth = Number(action.day_month);
+            const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
+
+            const isDaily = !isWeekly && !isMonthly;
+
+            if (isWeekly && dayWeekName === weekdayName && isAfterOrSameDay(day, actionDate)) {
+              shouldRender = true;
+            } else if (isMonthly && day.getDate() === dayMonth && isAfterOrSameDay(day, actionDate)) {
+              shouldRender = true;
+            } else if (isDaily && isAfterOrSameDay(day, actionDate)) {
+              shouldRender = true;
+            }
+          } else {
+            shouldRender = isSameDay(day, actionDate);
           }
+
+          if (!shouldRender) continue;
+
+          const title = action.name || "Untitled Action";
+          const color = task.color || "#3b82f6";
+
+          let timeStr: string;
+          if (action.time_of_day_value) {
+            timeStr = action.time_of_day_value.trim();
+          } else if (action.by_datetime_value) {
+            const dateObj = new Date(action.by_datetime_value);
+            const hh = dateObj.getHours().toString().padStart(2, "0");
+            const mm = dateObj.getMinutes().toString().padStart(2, "0");
+            timeStr = `${hh}:${mm}`;
+          } else {
+            timeStr = "00:00";
+          }
+
+          let duration = parseInt(action.duration_value || "30", 10);
+          const unit = durationUnitMap[action.duration_unit];
+          if (unit === "hours") duration *= 60;
+          if (isNaN(duration)) duration = 30;
+
+          actions.push({
+            title,
+            color,
+            time: timeStr,
+            durationMinutes: duration,
+          });
         }
       }
     }
@@ -688,9 +724,50 @@ const GoalsPage = () => {
     return actions;
   };
 
+
   const addMinutes = (date: Date, minutes: number): Date => {
     return new Date(date.getTime() + minutes * 60000);
   };
+
+  const handleDeleteContent = async (tc_id: number) => {
+    if (!maximizedTodo) return;
+
+    const token = getUserToken();
+    try {
+      const response = await fetch(`https://meseer.com/dog/todo_content/${tc_id}`, {
+        method: "DELETE",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setMaximizedTodo(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            contents: (prev.contents ?? []).map(item =>
+              item.tc_id === tc_id ? { ...item, checked: !item.checked } : item
+            ),
+          };
+        });
+      }
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  };
+
+  function formatTimes(input: string | Date): string {
+    const date = typeof input === "string"
+      ? new Date(`1970-01-01T${input}:00`)
+      : input;
+
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -768,12 +845,14 @@ const GoalsPage = () => {
         {selectedTaskTodo && (
           <div className="mt-6 border-t pt-4">
             <h3 className="text-md font-bold text-gray-900 mb-2">Todos</h3>
-            <h3 className="text-md font-semibold text-gray-800 mb-2">Task Todo</h3>
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
               {/* Todo Header */}
               <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
                 <span className="font-medium text-sm text-gray-500">{selectedTaskTodo.name}</span>
                 <div className="flex gap-1">
+                  <button onClick={() => setMaximizedTodo(selectedTaskTodo)}>
+                    <Maximize2 className='h-4 w-4 text-gray-700' />
+                  </button>
                   <button
                     onClick={() => setTodoView(prev =>
                       prev === 'unchecked' ? 'checked' :
@@ -960,26 +1039,17 @@ const GoalsPage = () => {
                 </button>
 
                 {showMiniCalendar && (
-                  <div className="absolute top-10 right-0 z-50 bg-white border rounded-lg shadow-md">
-                    <ReactCalendar
-                      onChange={(value) => {
-                        const selected = Array.isArray(value) ? value[0] : value;
-                        if (selected instanceof Date) {
-                          dispatch(setSelectedDate(selected.toISOString()));
-                          setShowMiniCalendar(false);
-                        }
+                  <div className="absolute top-10 right-0 z-50">
+                    <MiniCalendar
+                      selectedDate={selectedDate}
+                      onChange={(date) => {
+                        dispatch(setSelectedDate(date.toISOString()));
+                        setShowMiniCalendar(false);
                       }}
-                      value={selectedDate}
-                      calendarType="gregory"
-                      className="!border-none !shadow-none"
-                      tileClassName={({ date, view }) =>
-                        view === 'month' && date.toDateString() === new Date().toDateString()
-                          ? '!bg-blue-600 !text-white font-bold'
-                          : undefined
-                      }
                     />
                   </div>
                 )}
+
               </div>
 
               <button
@@ -1186,11 +1256,17 @@ const GoalsPage = () => {
                         </div>
                       );
                     })}
+
                     {getActionsForDay(day, allActions, goals).map((action, index) => {
                       const [hh, mm] = action.time.split(':').map(Number);
                       const startMins = hh * 60 + mm;
                       const topOffset = (startMins / (24 * 60)) * 100;
                       const heightPercent = (action.durationMinutes / (24 * 60)) * 100;
+
+                      // ⛔ avoid mutating day
+                      const startDate = new Date(day);
+                      startDate.setHours(hh, mm, 0, 0);
+                      const endDate = addMinutes(startDate, action.durationMinutes);
 
                       return (
                         <motion.div
@@ -1205,13 +1281,12 @@ const GoalsPage = () => {
                         >
                           <div className="truncate">{action.title}</div>
                           <div className="text-xs opacity-80">
-                            {action.time} — {formatTime(
-                              addMinutes(new Date(day.setHours(hh, mm, 0, 0)), action.durationMinutes)
-                            )}
+                            {formatTimes(action.time)} — {formatTimes(endDate)}
                           </div>
                         </motion.div>
                       );
                     })}
+
                     {/* 🔴 Now line — only on today's column */}
                     {day.toDateString() === new Date().toDateString() && (() => {
                       const now = new Date();
@@ -1245,7 +1320,7 @@ const GoalsPage = () => {
 
               {/* All-day row */}
               <div className="border-b grid grid-cols-12 bg-gray-50 text-xs">
-                <div className="col-span-2 text-right pr-2 py-2 text-gray-600 font-semibold">
+                <div className="col-span-1 text-right pr-2 py-2 text-gray-600 font-semibold">
                   All-day
                 </div>
                 <div className="col-span-10 py-2 space-y-1">
@@ -1257,7 +1332,7 @@ const GoalsPage = () => {
                     .map(ev => (
                       <div
                         key={ev.id}
-                        className="w-full max-w-xs text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
+                        className="w-full text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
                         style={{ backgroundColor: ev.color || '#0f9d58' }}
                         onClick={() => {
                           setCurrentEvent(ev);
@@ -1396,48 +1471,56 @@ const GoalsPage = () => {
                   const actionsForDate = goals.flatMap(goal =>
                     goal.tasks.flatMap(task =>
                       (allActions[task.id] || []).filter(action => {
-                        /* determine repeat type */
-                        const repeat = (() => {
-                          if (action.value4?.includes('/')) return 'daily';
+                        const actionStart = new Date(action.by_datetime_value);
+                        if (isNaN(actionStart.getTime())) return false;
 
-                          const cat4 = action.cat_qty_id4 || [];
+                        // Not started yet
+                        if (cellDate < actionStart) return false;
 
-                          // Weekly: cat_qty_id4 includes item_name === "Days"
-                          if (cat4.some((e: any) => e.item_name === 'Days')) return 'weekly';
+                        const isRepeating = action.repeat_status === "128";
+                        const weekdayMap: Record<number, string> = {
+                          76: "Monday",
+                          77: "Tuesday",
+                          78: "Wednesday",
+                          79: "Thursday",
+                          80: "Friday",
+                          81: "Saturday",
+                          82: "Sunday"
+                        };
+                        const cellWeekday = cellDate.toLocaleDateString("en-US", { weekday: "long" });
 
-                          // Monthly: cat_qty_id4 includes item_name === "day of month"
-                          if (cat4.some((e: any) => e.item_name === 'day of month')) return 'monthly';
+                        if (isRepeating) {
+                          // Weekly
+                          if (action.day_week && weekdayMap[action.day_week] === cellWeekday) {
+                            return true;
+                          }
 
-                          return 'once';
-                        })();
+                          // Monthly
+                          if (action.day_month && cellDate.getDate() === Number(action.day_month)) {
+                            return true;
+                          }
 
-                        /* daily */
-                        if (repeat === 'daily') {
-                          return new Date(action.value4).toDateString() === cellDate.toDateString();
+                          // Daily (fallback)
+                          if (!action.day_week && !action.day_month) {
+                            return true;
+                          }
+
+                          return false;
+                        } else {
+                          // One-time
+                          return (
+                            actionStart.getDate() === cellDate.getDate() &&
+                            actionStart.getMonth() === cellDate.getMonth() &&
+                            actionStart.getFullYear() === cellDate.getFullYear()
+                          );
                         }
-
-                        /* weekly */
-                        if (repeat === 'weekly') {
-                          const weekdays = action.cat_qty_id4
-                            ?.filter((e: any) => e.Selected)
-                            .map((e: any) => e.name);
-                          const wdName = cellDate.toLocaleDateString('en-US', { weekday: 'long' });
-                          return weekdays?.includes(wdName);
-                        }
-
-                        /* monthly */
-                        if (repeat === 'monthly') {
-                          const dayNum = Number(action.value4);
-                          return dayNum >= 1 && dayNum <= 31 && cellDate.getDate() === dayNum;
-                        }
-
-                        return false;
                       }).map(action => ({
-                        title: action.value3 || 'Action',
+                        title: action.name || 'Action',
                         color: task.color
                       }))
                     )
                   );
+
 
                   /* ───── Cell UI ───── */
                   return (
@@ -1460,7 +1543,7 @@ const GoalsPage = () => {
                         {/* events (max 2) */}
                         {dayEvents.slice(0, 2).map(ev => (
                           <div
-                            key={`${cellDate.toISOString()}-${ev.id}`}
+                            key={`${ev.id}-${i}`}
                             className="text-xs p-1 rounded truncate cursor-pointer hover:opacity-90 transition"
                             style={{ backgroundColor: ev.color || '#3b82f6', color: 'white' }}
                             onClick={() => { setCurrentEvent(ev); setShowEventModal(true); }}
@@ -1733,6 +1816,161 @@ const GoalsPage = () => {
         )}
       </AnimatePresence>
 
+      {maximizedTodo && (
+        <div className="fixed inset-0 z-50 bg-opacity-40 backdrop-blur-md flex justify-center items-center">
+          <div className="bg-white p-4 rounded-md shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto relative">
+            {/* Close and View Switch */}
+            <button
+              className="absolute top-2 right-5 text-gray-500 hover:text-black"
+              onClick={() => setMaximizedTodo(null)}
+            >
+              ❌
+            </button>
+            <button
+              onClick={() =>
+                setTodoView((prev) =>
+                  prev === "unchecked" ? "checked" : prev === "checked" ? "history" : "unchecked"
+                )
+              }
+              className="absolute top-3 right-16 text-gray-500 hover:text-blue-600"
+              title="Change view"
+            >
+              <Eye className="h-5 w-5" />
+            </button>
+
+            {/* Title */}
+            <h2 className="text-xl font-bold mb-4 text-black">{maximizedTodo.name}</h2>
+
+            {/* Task List */}
+            {(() => {
+              const items = maximizedTodo.contents ?? [];
+
+              if (todoView === "history") {
+                const grouped = items.reduce((acc: Record<string, TodoContent[]>, item) => {
+                  const date = new Date(item.last_updated || "").toLocaleDateString();
+                  if (!acc[date]) acc[date] = [];
+                  acc[date].push(item);
+                  return acc;
+                }, {});
+
+                return Object.entries(grouped).map(([date, tasks]) => (
+                  <div key={date} className="mb-4">
+                    <div className="text-xs text-gray-500 font-medium mb-1">{date}</div>
+                    {tasks.map((item) => (
+                      <div key={item.tc_id} className="flex items-center gap-2 p-1 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => handleToggleCheck(item.tc_id)}
+                          className="h-3 w-3"
+                        />
+                        <span
+                          className={`text-gray-600 ${item.checked ? "line-through text-gray-400" : ""}`}
+                        >
+                          {item.content}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ));
+              } else {
+                return items
+                  .filter((item) => (todoView === "unchecked" ? !item.checked : item.checked))
+                  .map((item) => (
+                    <div key={item.tc_id} className="flex items-center justify-between p-1 text-sm">
+                      <div className="flex items-center gap-2 w-full">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => handleToggleCheck(item.tc_id)}
+                          className="h-3 w-3"
+                        />
+                        {editingTaskId === item.tc_id ? (
+                          <input
+                            type="text"
+                            value={editingTaskContent}
+                            onChange={(e) => setEditingTaskContent(e.target.value)}
+                            onBlur={() => {
+                              if (
+                                editingTaskContent.trim() &&
+                                editingTaskContent !== item.content
+                              ) {
+                                updateCheckStatus({
+                                  ...item,
+                                  content: editingTaskContent,
+                                });
+                              }
+                              setEditingTaskId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                if (
+                                  editingTaskContent.trim() &&
+                                  editingTaskContent !== item.content
+                                ) {
+                                  updateCheckStatus({
+                                    ...item,
+                                    content: editingTaskContent,
+                                  });
+                                }
+                                setEditingTaskId(null);
+                              } else if (e.key === "Escape") {
+                                setEditingTaskId(null);
+                              }
+                            }}
+                            className="text-sm border-b border-gray-300 focus:outline-none w-full"
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className={`cursor-pointer text-gray-600 ${item.checked ? "line-through text-gray-400" : ""
+                              }`}
+                            onClick={() => {
+                              setEditingTaskId(item.tc_id);
+                              setEditingTaskContent(item.content);
+                            }}
+                          >
+                            {item.content}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteContent(item.tc_id)}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ));
+              }
+            })()}
+
+            {/* Add New Task */}
+            {todoView === 'unchecked' && (
+              <div className="mt-6 flex gap-2">
+                <input
+                  value={newTaskContent}
+                  onChange={(e) => setNewTaskContent(e.target.value)}
+                  className="border px-2 py-1 w-full rounded text-gray-800"
+                  placeholder="Add a new task"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddTask();
+                    else if (e.key === "Escape") setNewTaskContent("");
+                  }}
+                />
+
+              </div>
+            )}
+
+
+            {/* Footer */}
+            <div className="flex justify-between text-xs text-gray-500 mt-4 border-t pt-2">
+              <span>{todoView} view</span>
+              <span>{maximizedTodo.refresh_type}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -504,19 +504,35 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           if (!isNaN(targetDayIndex) && /^\d{2}:\d{2}$/.test(selectedTime)) {
             const now = new Date();
             const currentDay = now.getDay();
-            const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
-
-            const targetDate = new Date();
-            targetDate.setDate(now.getDate() + daysUntilTarget);
 
             const [hourStr, minStr] = selectedTime.split(":");
-            targetDate.setHours(Number(hourStr));
-            targetDate.setMinutes(Number(minStr));
+            const selectedHour = Number(hourStr);
+            const selectedMin = Number(minStr);
+
+            let daysUntilTarget = (targetDayIndex - currentDay + 7) % 7;
+
+            const targetDate = new Date(now);
+            targetDate.setDate(now.getDate() + daysUntilTarget);
+            targetDate.setHours(selectedHour);
+            targetDate.setMinutes(selectedMin);
             targetDate.setSeconds(0);
             targetDate.setMilliseconds(0);
 
-            payload.by_datetime_value = targetDate.toISOString().slice(0, 16);
-          } else {
+            if (daysUntilTarget === 0 && targetDate < now) {
+              targetDate.setDate(targetDate.getDate() + 7);
+            }
+
+            // Local ISO string to avoid UTC conversion issues
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const date = String(targetDate.getDate()).padStart(2, '0');
+            const hours = String(targetDate.getHours()).padStart(2, '0');
+            const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+
+            payload.by_datetime_value = `${year}-${month}-${date}T${hours}:${minutes}`;
+          }
+
+          else {
             console.warn("⚠️ Weekly recurrence missing or invalid time/day");
           }
         }
@@ -526,7 +542,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           payload.cat_qty_id3 = 23;
           const selectedDay = Number(values[3]); // day of month
           const selectedTime = values[4];
-          console.log(selectedDay,selectedTime);
+          console.log(selectedDay, selectedTime);
 
           if (selectedDay && /^\d{2}:\d{2}$/.test(selectedTime)) {
             const now = new Date();
