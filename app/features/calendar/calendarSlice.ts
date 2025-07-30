@@ -41,7 +41,6 @@ export interface Event {
   title: string;
   start: string;
   end: string;
-  category: EventCategory;
   goalId?: string;
   taskId?: string;
   color?: string;

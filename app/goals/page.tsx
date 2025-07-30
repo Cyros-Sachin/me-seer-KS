@@ -35,7 +35,6 @@ interface Event {
   title: string;
   start: string;
   end: string;
-  category: EventCategory;
   goalId?: string;
   taskId?: string;
   color?: string;
@@ -377,71 +376,70 @@ const GoalsPage = () => {
     }
   }, [viewMode, selectedDate]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        dispatch(resetGoals());
-        const userId = getUserId();
-        const token = getUserToken();
+  const loadData = async () => {
+    try {
+      dispatch(resetGoals());
+      const userId = getUserId();
+      const token = getUserToken();
 
-        const goals = await fetchGoalsAndTasks(userId, token);
+      const goals = await fetchGoalsAndTasks(userId, token);
 
-        if (!Array.isArray(goals)) {
-          console.error("❌ goals is not an array", goals);
-          return;
-        }
+      if (!Array.isArray(goals)) {
+        console.error("❌ goals is not an array", goals);
+        return;
+      }
 
-        const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
-        const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
-        const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
-        const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
-        console.log("✅ actionsMap:", actionsMap);
-        setAllActions(actionsMap);
+      const existingGoalIds = new Set(goalsFromRedux.map(g => g.id));
+      const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
+      const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
+      const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
+      console.log("✅ actionsMap:", actionsMap);
+      setAllActions(actionsMap);
 
-        // Dispatch goals directly
-        filteredGoals.forEach(g => dispatch(addGoal(g)));
+      // Dispatch goals directly
+      filteredGoals.forEach(g => dispatch(addGoal(g)));
 
-        // Now for each task, fetch events
-        for (const goal of filteredGoals) {
-          for (const task of goal.tasks) {
-            const collectiveId = task.collective_id;
+      // Now for each task, fetch events
+      for (const goal of filteredGoals) {
+        for (const task of goal.tasks) {
+          const collectiveId = task.collective_id;
 
-            if (!collectiveId) continue;
+          if (!collectiveId) continue;
 
-            try {
-              const eventsData = await fetchEvents(userId, collectiveId);
+          try {
+            const eventsData = await fetchEvents(userId, collectiveId);
 
-              if (Array.isArray(eventsData)) {
-                const transformedEvents: Event[] = eventsData.map((item) => {
-                  const startDate = new Date(item.value4);
-                  const endDate = new Date(startDate); // same day for all-day event
+            if (Array.isArray(eventsData)) {
+              const transformedEvents: Event[] = eventsData.map((item) => {
+                const startDate = new Date(item.value4);
+                const endDate = new Date(startDate); // same day for all-day event
 
-                  return {
-                    id: `event-${item.a_id}`,
-                    title: item.value3 || "Untitled Event",
-                    start: startDate.toISOString(),
-                    end: endDate.toISOString(),
-                    category: 'work',
-                    goalId: goal.id,
-                    taskId: task.id,
-                    color: task.color || '#3b82f6',
-                    repeat: 'none',
-                    allDay: true // 🟢 Important for rendering in All-day row
-                  };
-                });
-                transformedEvents.forEach(evt => dispatch(addEvent(evt)));
-              }
-            } catch (error) {
-              console.error(`❌ Failed to fetch events for collectiveId ${collectiveId}`, error);
+                return {
+                  id: `event-${item.a_id}`,
+                  title: item.value3 || "Untitled Event",
+                  start: startDate.toISOString(),
+                  end: endDate.toISOString(),
+                  goalId: goal.id,
+                  taskId: task.id,
+                  color: task.color || '#3b82f6',
+                  repeat: 'none',
+                  allDay: true // 🟢 Important for rendering in All-day row
+                };
+              });
+              transformedEvents.forEach(evt => dispatch(addEvent(evt)));
             }
+          } catch (error) {
+            console.error(`❌ Failed to fetch events for collectiveId ${collectiveId}`, error);
           }
         }
-
-      } catch (err) {
-        console.error("🚨 Error in loadData:", err);
       }
-    };
 
+    } catch (err) {
+      console.error("🚨 Error in loadData:", err);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -515,20 +513,18 @@ const GoalsPage = () => {
 
     const endDate = new Date(startDate);
     endDate.setHours(startDate.getHours() + 1);
-
     setCurrentEvent({
       id: '',
       title: '',
       start: startDate.toISOString(), // ✅ convert to string
       end: endDate.toISOString(),     // ✅ convert to string
-      category: 'work',
       color: '#3b82f6',
+      repeat: "once"
     });
 
     setTimeSlotClicked({ time, day });
     setShowEventModal(true);
   };
-
 
   // Handle task drag start
   const handleTaskDragStart = (task: Task) => {
@@ -550,7 +546,6 @@ const GoalsPage = () => {
       title: draggedTask.title,
       start: start.toISOString(),
       end: end.toISOString(),
-      category: 'work',
       goalId: draggedTask.goalId,
       taskId: draggedTask.id,
       color: draggedTask.color
@@ -560,21 +555,266 @@ const GoalsPage = () => {
     setDraggedTask(null);
   };
 
+  const reload = async () => {
+    try {
+      dispatch(resetGoals());
+      const userId = getUserId();
+      const token = getUserToken();
+
+      // Step 1: Fetch all goals with tasks
+      const goals = await fetchGoalsAndTasks(userId, token);
+      if (!Array.isArray(goals)) {
+        console.error("❌ goals is not an array", goals);
+        return;
+      }
+
+      // Step 2: Dispatch all goals to Redux
+      goals.forEach(goal => dispatch(addGoal(goal)));
+
+      // Step 3: Fetch all actions for all tasks
+      const allTaskIds = goals.flatMap(goal => goal.tasks.map(task => task.id));
+      const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
+      setAllActions(actionsMap);
+
+      // Step 4: Fetch all events for all tasks
+      for (const goal of goals) {
+        for (const task of goal.tasks) {
+          const collectiveId = task.collective_id;
+          if (!collectiveId) continue;
+
+          try {
+            const eventsData = await fetchEvents(userId, collectiveId);
+
+            if (Array.isArray(eventsData)) {
+              const transformedEvents = eventsData.map((item) => {
+                const startDate = new Date(item.value4);
+                const endDate = new Date(startDate);
+
+                return {
+                  id: `event-${item.a_id}`,
+                  title: item.value3 || "Untitled Event",
+                  start: startDate.toISOString(),
+                  end: endDate.toISOString(),
+                  goalId: goal.id,
+                  taskId: task.id,
+                  color: task.color || '#3b82f6',
+                  repeat: 'none',
+                  allDay: true,
+                };
+              });
+              transformedEvents.forEach(evt => dispatch(addEvent(evt)));
+            }
+          } catch (error) {
+            console.error(`❌ Failed to fetch events for collectiveId ${collectiveId}`, error);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("🚨 Error in loadData:", err);
+    }
+  };
+
+
   // Handle event save
   const handleEventSave = async () => {
     if (!currentEvent) return;
 
-    if (currentEvent.id) {
-      dispatch(updateEvent(currentEvent));
-      await updateEvent(currentEvent); // <-- API call
-    } else {
-      const newEvent = { ...currentEvent, id: Date.now().toString() };
-      dispatch(addEvent(newEvent));
-      await createCalendarEvent(newEvent);
-    }
+    const { start, end, title, taskId, repeat } = currentEvent;
+    const repeatToAidMap: Record<string, number> = {
+      daily: 30,
+      weekly: 31,
+      monthly: 32,
+      once: 30,
+    };
+    const dayToCatIdMap: Record<
+      "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday",
+      number
+    > = {
+      Monday: 76,
+      Tuesday: 77,
+      Wednesday: 78,
+      Thursday: 79,
+      Friday: 80,
+      Saturday: 81,
+      Sunday: 82,
+    };
 
-    setShowEventModal(false);
-    setCurrentEvent(null);
+
+    const aid = repeatToAidMap[repeat ?? "once"];
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const start_time = toLocalDateTimeInputValue(start).slice(11, 16); // "15:30"
+    const start_day = startDate.toLocaleDateString("en-US", { weekday: "long" });
+    const start_date = toLocalDateTimeInputValue(start).split("T")[0].split("-")[2];
+
+    // Remove milliseconds and Z from ISO string
+    const formatDate = (d: Date) => d.toISOString().slice(0, 16);
+
+    const diffInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
+    const duration =
+      diffInMinutes % 60 === 0 ? diffInMinutes / 60 : Math.round(diffInMinutes);
+    const duration_unit = diffInMinutes % 60 === 0 ? "hour" : "minutes";
+
+    const eventPayload = {
+      repeat,
+      title,
+      taskId,
+      start: formatDate(startDate),
+      end: formatDate(endDate),
+      start_day,
+      start_date,
+      duration,
+      duration_unit,
+      aid,
+      start_time
+    };
+
+    console.log("Event Payload:", eventPayload);
+
+    try {
+      const event_time = new Date().toISOString().slice(0, 19);
+      const payload: any = {
+        a_id: aid,
+        at_id: 302,
+        flag: "PT",
+        trigger: "action",
+        is_active: "Y",
+        user_id: getUserId(),
+        event_time,
+        description: "add actions",
+        cat_qty_id1: Number(taskId),
+        value1: "",
+        value2: "",
+        value3: title,
+        value4: "",
+        value5: "",
+        value6: "",
+        cat_qty_id2: repeat === "once" ? 129 : 128,
+        cat_qty_id3: 23,
+        cat_qty_id4: 0,
+        cat_qty_id5: 0,
+        cat_qty_id6: 0,
+        by_datetime_value: "",
+      };
+
+
+      if (aid === 30) {
+        payload.cat_qty_id4 = 58;
+        payload.value4 = toLocalDateTimeInputValue(start);
+        payload.cat_qty_id5 = duration_unit === "hour" ? 57 : 56;
+        payload.value5 = String(duration);
+        payload.action_timestamp = event_time;
+        payload.by_datetime_value = payload.value4;
+      }
+
+      if (aid === 31) {
+        const selectedDayCatId = dayToCatIdMap[start_day as keyof typeof dayToCatIdMap];
+        const selectedTime = start_time; // HH:mm format
+        const dayNameMap: Record<number, number> = {
+          76: 1, // Monday
+          77: 2,
+          78: 3,
+          79: 4,
+          80: 5,
+          81: 6,
+          82: 0, // Sunday
+        };
+
+        const targetDayIndex = dayNameMap[selectedDayCatId];
+
+        if (!isNaN(targetDayIndex) && selectedTime) {
+          const now = new Date();
+          const currentDay = now.getDay();
+          const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
+
+          const targetDate = new Date();
+          targetDate.setDate(now.getDate() + daysUntilTarget);
+
+          // Set hours and minutes from selected time
+          const [hourStr, minStr] = selectedTime.split(":");
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minStr, 10);
+
+          if (!isNaN(hour) && !isNaN(minute)) {
+            targetDate.setHours(hour);
+            targetDate.setMinutes(minute);
+            targetDate.setSeconds(0);
+            targetDate.setMilliseconds(0);
+
+            payload.by_datetime_value = targetDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+            payload.action_timestamp = event_time;
+            payload.cat_qty_id4 = selectedDayCatId;
+            payload.cat_qty_id5 = 59;
+            payload.value5 = start_time;
+            payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
+            payload.value6 = String(duration);
+          } else {
+            console.error("Invalid time format for weekly recurrence.");
+          }
+        } else {
+          console.error("Missing or invalid day/time selection for weekly recurrence.");
+        }
+      }
+
+      if (aid === 32) {
+        const selectedDay = Number(start_date); // day of month from unit input
+        const selectedTime = start_time; // time input (HH:mm)
+
+        console.log("📅 Monthly selectedDay:", selectedDay);
+        console.log("🕒 Monthly selectedTime:", selectedTime);
+
+        if (selectedDay && selectedTime && /^\d{2}:\d{2}$/.test(selectedTime)) {
+          const now = new Date();
+          let targetMonth = now.getMonth();
+          let targetYear = now.getFullYear();
+
+          const targetDate = new Date(targetYear, targetMonth, selectedDay);
+          const [hourStr, minuteStr] = selectedTime.split(":");
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minuteStr, 10);
+
+          if (!isNaN(hour) && !isNaN(minute)) {
+            targetDate.setHours(hour, minute, 0, 0);
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+            const dd = String(targetDate.getDate()).padStart(2, "0");
+            const hh = String(targetDate.getHours()).padStart(2, "0");
+            const min = String(targetDate.getMinutes()).padStart(2, "0");
+
+            payload.by_datetime_value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+            payload.action_timestamp = event_time;
+            payload.cat_qty_id4 = 39;
+            payload.value4 = start_date;
+            payload.cat_qty_id5 = 59;
+            payload.value5 = start_time;
+            payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
+            payload.value6 = String(duration);
+
+          } else {
+            console.error("⛔ Invalid time format in monthly recurrence");
+          }
+        } else {
+          console.error("⛔ Missing or invalid input for monthly recurrence");
+        }
+      }
+      // // 📡 Choose correct endpoint
+      let endpoint = "https://meseer.com/dog//add-data/primary-mwb/";
+      await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getUserToken()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      console.log(payload);
+      setShowEventModal(false);      // close modal
+      await reload();
+      setCurrentEvent(null);
+
+    } catch (err) {
+      console.error("Submission failed", err);
+    }
   };
 
   const handleEventDelete = async () => {
@@ -768,6 +1008,7 @@ const GoalsPage = () => {
       hour12: true,
     });
   }
+
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -1764,7 +2005,7 @@ const GoalsPage = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Repeat</label>
                   <select
-                    value={currentEvent.repeat || 'none'}
+                    value={currentEvent.repeat ?? 'once'}
                     onChange={(e) => {
                       const newRepeat = e.target.value as Event['repeat'];
                       setCurrentEvent(prev => {
@@ -1777,13 +2018,13 @@ const GoalsPage = () => {
                     }}
                     className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
                   >
-                    <option value="none">No repeat</option>
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                     <option value="once">Just once</option>
                   </select>
                 </div>
+
 
               </div>
 
