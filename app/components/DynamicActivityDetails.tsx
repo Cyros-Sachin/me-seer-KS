@@ -204,7 +204,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
               ],
               cat_qty_id5: [
                 { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
-                { unit_id: 56, name: "mins" },
+                { unit_id: 56, name: "mins", flag: action.duration_unit === 56 ? "selected" : undefined },
                 { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
               ],
               cat_qty_id6: [
@@ -264,7 +264,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                 ],
                 cat_qty_id6: [
                   { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
-                  { unit_id: 56, name: "mins" },
+                  { unit_id: 56, name: "mins", flag: action.duration_unit === 56 ? "selected" : undefined },
                   { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
                 ],
               };
@@ -308,7 +308,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
               ],
               cat_qty_id6: [
                 { item_description: "duration of action", item_id: "54", item_name: "duration", item_type: "unit" },
-                { unit_id: 56, name: "mins" },
+                { unit_id: 56, name: "mins", flag: action.duration_unit === 56 ? "selected" : undefined },
                 { unit_id: 57, name: "hours", flag: action.duration_unit === 57 ? "selected" : undefined },
               ],
             }));
@@ -462,12 +462,13 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           : item.cat_qty_id4 ?? null;
 
         payload.cat_qty_id5 = Array.isArray(item.cat_qty_id5)
-          ? item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          ? (Number(editedValues.unit5) || item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id) ?? null
           : item.cat_qty_id5 ?? null;
 
         payload.cat_qty_id6 = Array.isArray(item.cat_qty_id6)
-          ? item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+          ? (Number(editedValues.unit6) || item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id) ?? null
           : item.cat_qty_id6 ?? null;
+
         payload.is_active = "Y";
         const values = [
           editedValues.value1,
@@ -898,8 +899,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                           {isEditing ? (
                             <select
                               value={editedValues[`unit${i}`] ?? String(selectedUnit?.unit_id || selectedUnit?.cat_id || "")}
-                              onChange={(e) =>
-                                setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value }))
+                              onChange={(e) => { setEditedValues((prev) => ({ ...prev, [`unit${i}`]: e.target.value })); console.log(e.target.value) }
                               }
                               className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                             >
