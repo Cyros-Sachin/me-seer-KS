@@ -40,6 +40,8 @@ interface Event {
   color?: string;
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once';
   allDay?: boolean;
+  ua_id?: string;
+  a_id?: number;
 }
 
 interface TaskAction {
@@ -393,7 +395,6 @@ const GoalsPage = () => {
       const filteredGoals = goals.filter(g => !existingGoalIds.has(g.id));
       const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
       const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
-      console.log("✅ actionsMap:", actionsMap);
       setAllActions(actionsMap);
 
       // Dispatch goals directly
@@ -499,6 +500,13 @@ const GoalsPage = () => {
     }
 
     dispatch(setSelectedDate(newDate.toISOString()));
+  };
+
+  const repeatToAidMap: Record<string, number> = {
+    daily: 30,
+    weekly: 31,
+    monthly: 32,
+    once: 30,
   };
 
   // Handle view mode change
@@ -619,13 +627,8 @@ const GoalsPage = () => {
   const handleEventSave = async () => {
     if (!currentEvent) return;
 
-    const { start, end, title, taskId, repeat } = currentEvent;
-    const repeatToAidMap: Record<string, number> = {
-      daily: 30,
-      weekly: 31,
-      monthly: 32,
-      once: 30,
-    };
+    const { start, end, title, taskId, repeat, id } = currentEvent;
+
     const dayToCatIdMap: Record<
       "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday",
       number
@@ -639,166 +642,131 @@ const GoalsPage = () => {
       Sunday: 82,
     };
 
-
     const aid = repeatToAidMap[repeat ?? "once"];
     const startDate = new Date(start);
     const endDate = new Date(end);
-    const start_time = toLocalDateTimeInputValue(start).slice(11, 16); // "15:30"
+    const start_time = toLocalDateTimeInputValue(start).slice(11, 16);
     const start_day = startDate.toLocaleDateString("en-US", { weekday: "long" });
     const start_date = toLocalDateTimeInputValue(start).split("T")[0].split("-")[2];
 
-    // Remove milliseconds and Z from ISO string
     const formatDate = (d: Date) => d.toISOString().slice(0, 16);
 
     const diffInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
-    const duration =
-      diffInMinutes % 60 === 0 ? diffInMinutes / 60 : Math.round(diffInMinutes);
+    const duration = diffInMinutes % 60 === 0 ? diffInMinutes / 60 : Math.round(diffInMinutes);
     const duration_unit = diffInMinutes % 60 === 0 ? "hour" : "minutes";
 
-    const eventPayload = {
-      repeat,
-      title,
-      taskId,
-      start: formatDate(startDate),
-      end: formatDate(endDate),
-      start_day,
-      start_date,
-      duration,
-      duration_unit,
-      aid,
-      start_time
+    const event_time = new Date().toISOString().slice(0, 19);
+    const isUpdate = id?.startsWith("event-") && id.length > 6;
+
+    const payload: any = {
+      a_id: aid,
+      at_id: 302,
+      flag: "PT",
+      trigger: "action",
+      is_active: "Y",
+      user_id: getUserId(),
+      event_time,
+      description: isUpdate ? "update action" : "add action",
+      cat_qty_id1: isUpdate ? Number(currentEvent.a_id) : Number(taskId),
+      value1: "",
+      value2: "",
+      value3: title,
+      value4: "",
+      value5: "",
+      value6: "",
+      cat_qty_id2: repeat === "once" ? 129 : 128,
+      cat_qty_id3: 23,
+      cat_qty_id4: 0,
+      cat_qty_id5: 0,
+      cat_qty_id6: 0,
+      by_datetime_value: "",
     };
 
-    console.log("Event Payload:", eventPayload);
+    if (isUpdate) {
+      payload.action = "UPDATE";
+      payload.ua_id = currentEvent.ua_id;
+    }
 
-    try {
-      const event_time = new Date().toISOString().slice(0, 19);
-      const payload: any = {
-        a_id: aid,
-        at_id: 302,
-        flag: "PT",
-        trigger: "action",
-        is_active: "Y",
-        user_id: getUserId(),
-        event_time,
-        description: "add actions",
-        cat_qty_id1: Number(taskId),
-        value1: "",
-        value2: "",
-        value3: title,
-        value4: "",
-        value5: "",
-        value6: "",
-        cat_qty_id2: repeat === "once" ? 129 : 128,
-        cat_qty_id3: 23,
-        cat_qty_id4: 0,
-        cat_qty_id5: 0,
-        cat_qty_id6: 0,
-        by_datetime_value: "",
+    // One-time
+    if (aid === 30) {
+      payload.cat_qty_id4 = 58;
+      payload.value4 = toLocalDateTimeInputValue(start);
+      payload.cat_qty_id5 = duration_unit === "hour" ? 57 : 56;
+      payload.value5 = String(duration);
+      payload.action_timestamp = event_time;
+      payload.by_datetime_value = payload.value4;
+    }
+
+    // Weekly
+    if (aid === 31) {
+      const selectedDayCatId = dayToCatIdMap[start_day as keyof typeof dayToCatIdMap];
+      const selectedTime = start_time;
+      const dayNameMap: Record<number, number> = {
+        76: 1, 77: 2, 78: 3, 79: 4, 80: 5, 81: 6, 82: 0,
       };
+      const targetDayIndex = dayNameMap[selectedDayCatId];
 
+      if (!isNaN(targetDayIndex) && selectedTime) {
+        const now = new Date();
+        const currentDay = now.getDay();
+        const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
+        const targetDate = new Date();
+        targetDate.setDate(now.getDate() + daysUntilTarget);
 
-      if (aid === 30) {
-        payload.cat_qty_id4 = 58;
-        payload.value4 = toLocalDateTimeInputValue(start);
-        payload.cat_qty_id5 = duration_unit === "hour" ? 57 : 56;
-        payload.value5 = String(duration);
-        payload.action_timestamp = event_time;
-        payload.by_datetime_value = payload.value4;
-      }
+        const [hourStr, minStr] = selectedTime.split(":");
+        const hour = parseInt(hourStr, 10);
+        const minute = parseInt(minStr, 10);
 
-      if (aid === 31) {
-        const selectedDayCatId = dayToCatIdMap[start_day as keyof typeof dayToCatIdMap];
-        const selectedTime = start_time; // HH:mm format
-        const dayNameMap: Record<number, number> = {
-          76: 1, // Monday
-          77: 2,
-          78: 3,
-          79: 4,
-          80: 5,
-          81: 6,
-          82: 0, // Sunday
-        };
-
-        const targetDayIndex = dayNameMap[selectedDayCatId];
-
-        if (!isNaN(targetDayIndex) && selectedTime) {
-          const now = new Date();
-          const currentDay = now.getDay();
-          const daysUntilTarget = (targetDayIndex + 7 - currentDay) % 7 || 7;
-
-          const targetDate = new Date();
-          targetDate.setDate(now.getDate() + daysUntilTarget);
-
-          // Set hours and minutes from selected time
-          const [hourStr, minStr] = selectedTime.split(":");
-          const hour = parseInt(hourStr, 10);
-          const minute = parseInt(minStr, 10);
-
-          if (!isNaN(hour) && !isNaN(minute)) {
-            targetDate.setHours(hour);
-            targetDate.setMinutes(minute);
-            targetDate.setSeconds(0);
-            targetDate.setMilliseconds(0);
-
-            payload.by_datetime_value = targetDate.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
-            payload.action_timestamp = event_time;
-            payload.cat_qty_id4 = selectedDayCatId;
-            payload.cat_qty_id5 = 59;
-            payload.value5 = start_time;
-            payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
-            payload.value6 = String(duration);
-          } else {
-            console.error("Invalid time format for weekly recurrence.");
-          }
-        } else {
-          console.error("Missing or invalid day/time selection for weekly recurrence.");
+        if (!isNaN(hour) && !isNaN(minute)) {
+          targetDate.setHours(hour, minute, 0, 0);
+          payload.by_datetime_value = targetDate.toISOString().slice(0, 16);
+          payload.action_timestamp = event_time;
+          payload.cat_qty_id4 = selectedDayCatId;
+          payload.cat_qty_id5 = 59;
+          payload.value5 = start_time;
+          payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
+          payload.value6 = String(duration);
         }
       }
+    }
 
-      if (aid === 32) {
-        const selectedDay = Number(start_date); // day of month from unit input
-        const selectedTime = start_time; // time input (HH:mm)
+    // Monthly
+    if (aid === 32) {
+      const selectedDay = Number(start_date);
+      const selectedTime = start_time;
 
-        console.log("📅 Monthly selectedDay:", selectedDay);
-        console.log("🕒 Monthly selectedTime:", selectedTime);
+      if (selectedDay && selectedTime && /^\d{2}:\d{2}$/.test(selectedTime)) {
+        const now = new Date();
+        const targetDate = new Date(now.getFullYear(), now.getMonth(), selectedDay);
+        const [hourStr, minuteStr] = selectedTime.split(":");
+        const hour = parseInt(hourStr, 10);
+        const minute = parseInt(minuteStr, 10);
 
-        if (selectedDay && selectedTime && /^\d{2}:\d{2}$/.test(selectedTime)) {
-          const now = new Date();
-          let targetMonth = now.getMonth();
-          let targetYear = now.getFullYear();
+        if (!isNaN(hour) && !isNaN(minute)) {
+          targetDate.setHours(hour, minute, 0, 0);
+          const yyyy = targetDate.getFullYear();
+          const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
+          const dd = String(targetDate.getDate()).padStart(2, "0");
+          const hh = String(targetDate.getHours()).padStart(2, "0");
+          const min = String(targetDate.getMinutes()).padStart(2, "0");
 
-          const targetDate = new Date(targetYear, targetMonth, selectedDay);
-          const [hourStr, minuteStr] = selectedTime.split(":");
-          const hour = parseInt(hourStr, 10);
-          const minute = parseInt(minuteStr, 10);
-
-          if (!isNaN(hour) && !isNaN(minute)) {
-            targetDate.setHours(hour, minute, 0, 0);
-            const yyyy = targetDate.getFullYear();
-            const mm = String(targetDate.getMonth() + 1).padStart(2, "0");
-            const dd = String(targetDate.getDate()).padStart(2, "0");
-            const hh = String(targetDate.getHours()).padStart(2, "0");
-            const min = String(targetDate.getMinutes()).padStart(2, "0");
-
-            payload.by_datetime_value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-            payload.action_timestamp = event_time;
-            payload.cat_qty_id4 = 39;
-            payload.value4 = start_date;
-            payload.cat_qty_id5 = 59;
-            payload.value5 = start_time;
-            payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
-            payload.value6 = String(duration);
-
-          } else {
-            console.error("⛔ Invalid time format in monthly recurrence");
-          }
-        } else {
-          console.error("⛔ Missing or invalid input for monthly recurrence");
+          payload.by_datetime_value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+          payload.action_timestamp = event_time;
+          payload.cat_qty_id4 = 39;
+          payload.value4 = start_date;
+          payload.cat_qty_id5 = 59;
+          payload.value5 = start_time;
+          payload.cat_qty_id6 = duration_unit === "hour" ? 57 : 56;
+          payload.value6 = String(duration);
         }
       }
-      // // 📡 Choose correct endpoint
-      let endpoint = "https://meseer.com/dog//add-data/primary-mwb/";
+    }
+    // console.log(payload);
+    try {
+      const endpoint = isUpdate
+        ? "https://meseer.com/dog/update-delete-data/primary-mwb"
+        : "https://meseer.com/dog/add-data/primary-mwb/";
+
       await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -807,23 +775,39 @@ const GoalsPage = () => {
         },
         body: JSON.stringify(payload),
       });
-      console.log(payload);
-      setShowEventModal(false);      // close modal
+
+      setShowEventModal(false);
       await reload();
       setCurrentEvent(null);
-
     } catch (err) {
       console.error("Submission failed", err);
     }
   };
 
-  const handleEventDelete = async () => {
-    if (!currentEvent?.id) return;
 
-    dispatch(deleteEvent(currentEvent.id));
-    await deleteEvent(currentEvent.id); // <-- API call
-    setShowEventModal(false);
-    setCurrentEvent(null);
+  const handleEventDelete = async () => {
+    try {
+      const payload = {
+        ua_id: currentEvent?.ua_id,
+        a_id: repeatToAidMap[currentEvent?.repeat ?? "once"],
+        at_id: 302,
+        flag: "PT",
+        action: "DELETE",
+        cat_qty_id1: currentEvent?.a_id
+      };
+      await fetch(`https://meseer.com/dog/update-delete-data/primary-mwb`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      setShowEventModal(false);
+      setCurrentEvent(null);
+    } catch (err) {
+      console.error("Failed to delete item", err);
+    }
   };
 
   // Get events for a specific day and time slot
@@ -865,13 +849,38 @@ const GoalsPage = () => {
     color: string;
     time: string;
     durationMinutes: number;
+    a_id: number;
+    goal: Goal;
+    ua_id: string;
+    task: Task;
+    repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
   }[] => {
     const actions: {
       title: string;
       color: string;
       time: string;
+      ua_id: string;
       durationMinutes: number;
+      a_id: number;
+      goal: Goal;
+      task: Task;
+      repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
     }[] = [];
+
+    const parseToLiteral = (dateStr: string): Date => {
+
+      // If it's a GMT string, remove the 'GMT' so JS doesn't shift it to local time
+      if (dateStr.includes("GMT")) {
+        const noGmt = dateStr.replace("GMT", "").trim();
+        const parts = new Date(noGmt);
+
+        return parts;
+      }
+
+      // If it's already ISO format or non-GMT, just parse normally
+      return new Date(dateStr);
+    };
+
 
     const isSameDay = (d1: Date, d2: Date) =>
       d1.getFullYear() === d2.getFullYear() &&
@@ -901,21 +910,19 @@ const GoalsPage = () => {
         const taskActions = allActions[task.id?.toString()] || [];
 
         for (const action of taskActions) {
-          const actionDate = new Date(action.by_datetime_value);
+          const actionDate = parseToLiteral(action.by_datetime_value);
           if (isNaN(actionDate.getTime())) continue;
-
+          const ua_id = action.ua_id;
+          const a_id = action.action_id;
           const isRepeating = action.repeat_status === "128";
           let shouldRender = false;
-
           const weekdayName = day.toLocaleDateString("en-US", { weekday: "long" });
 
           if (isRepeating) {
             const dayWeekName = dayWeekMap[action.day_week];
             const isWeekly = !!dayWeekName;
-
             const dayMonth = Number(action.day_month);
             const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
-
             const isDaily = !isWeekly && !isMonthly;
 
             if (isWeekly && dayWeekName === weekdayName && isAfterOrSameDay(day, actionDate)) {
@@ -930,7 +937,6 @@ const GoalsPage = () => {
           }
 
           if (!shouldRender) continue;
-
           const title = action.name || "Untitled Action";
           const color = task.color || "#3b82f6";
 
@@ -938,7 +944,7 @@ const GoalsPage = () => {
           if (action.time_of_day_value) {
             timeStr = action.time_of_day_value.trim();
           } else if (action.by_datetime_value) {
-            const dateObj = new Date(action.by_datetime_value);
+            const dateObj = parseToLiteral(action.by_datetime_value);
             const hh = dateObj.getHours().toString().padStart(2, "0");
             const mm = dateObj.getMinutes().toString().padStart(2, "0");
             timeStr = `${hh}:${mm}`;
@@ -950,20 +956,28 @@ const GoalsPage = () => {
           const unit = durationUnitMap[action.duration_unit];
           if (unit === "hours") duration *= 60;
           if (isNaN(duration)) duration = 30;
-
           actions.push({
             title,
+            goal,
+            task, // include task reference
             color,
+            ua_id,
+            a_id,
             time: timeStr,
             durationMinutes: duration,
+            repeatType: isRepeating
+              ? action.day_week ? 'weekly'
+                : action.day_month ? 'monthly'
+                  : 'daily'
+              : 'once',
           });
+
         }
       }
     }
 
     return actions;
   };
-
 
   const addMinutes = (date: Date, minutes: number): Date => {
     return new Date(date.getTime() + minutes * 60000);
@@ -1008,7 +1022,6 @@ const GoalsPage = () => {
       hour12: true,
     });
   }
-
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -1518,6 +1531,30 @@ const GoalsPage = () => {
                             height: `${heightPercent}%`,
                             backgroundColor: action.color,
                             zIndex: 6,
+                          }}
+                          onClick={() => {
+                            // Convert action data to Event format
+                            const startDate = new Date(day);
+                            const [hh, mm] = action.time.split(':').map(Number);
+                            startDate.setHours(hh, mm, 0, 0);
+                            const endDate = new Date(startDate);
+                            endDate.setMinutes(startDate.getMinutes() + action.durationMinutes);
+
+                            setCurrentEvent({
+                              id: `event-${index}`, // or use action.a_id if available
+                              title: action.title,
+                              start: startDate.toISOString(),
+                              end: endDate.toISOString(),
+                              color: action.color,
+                              repeat: action.repeatType,
+                              allDay: false,
+                              goalId: action.goal.id,
+                              taskId: action?.task?.todo_id?.toString(),
+                              ua_id: action.ua_id,
+                              a_id: action.a_id
+                            });
+
+                            setShowEventModal(true);
                           }}
                         >
                           <div className="truncate">{action.title}</div>
@@ -2048,7 +2085,7 @@ const GoalsPage = () => {
                     onClick={handleEventSave}
                     className="px-4 py-2 text-sm rounded-lg text-white bg-blue-600 hover:bg-blue-700"
                   >
-                    Save
+                    {currentEvent.id ? "Update" : "Save"}
                   </button>
                 </div>
               </div>
