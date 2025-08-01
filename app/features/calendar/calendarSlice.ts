@@ -45,6 +45,7 @@ export interface Event {
   taskId?: string;
   color?: string;
   allDay?: boolean;
+  ua_id?: string;
 }
 
 interface CalendarState {

@@ -114,6 +114,8 @@ const GoalsPage = () => {
   // State for UI controls
   const [showEventModal, setShowEventModal] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
+  const [showEventOnlyModal, setShowEventOnlyModal] = useState(false);
+  const [newEventData, setNewEventData] = useState<Event | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [timeSlotClicked, setTimeSlotClicked] = useState<{ time: Date; day: Date } | null>(null);
   const goalsFromRedux = useSelector((state: RootState) => state.calendar.goals);
@@ -131,6 +133,7 @@ const GoalsPage = () => {
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const [maximizedTodo, setMaximizedTodo] = useState<Todo | null>(null);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -310,7 +313,7 @@ const GoalsPage = () => {
           version: "v1",
           created_date: now,
           last_updated: now,
-          refresh_type: maximizedTodo?.refresh_type || selectedTaskTodo?.refresh_type ||"daily",
+          refresh_type: maximizedTodo?.refresh_type || selectedTaskTodo?.refresh_type || "daily",
         }),
       });
 
@@ -324,13 +327,15 @@ const GoalsPage = () => {
         });
         const allContents = await contentRes.json();
         const refreshedContents = Array.isArray(allContents)
-          ? allContents.filter(content => (content.todo_id?.toString() === maximizedTodo?.todo_id?.toString()) || (content.todo_id?.toString() === selectedTaskTodo?.todo_id?.toString()) )
+          ? allContents.filter(content => (content.todo_id?.toString() === maximizedTodo?.todo_id?.toString()) || (content.todo_id?.toString() === selectedTaskTodo?.todo_id?.toString()))
           : [];
 
-        {maximizedTodo?.todo_id && setMaximizedTodo(prev => ({
-          ...prev!,
-          contents: refreshedContents
-        }));}
+        {
+          maximizedTodo?.todo_id && setMaximizedTodo(prev => ({
+            ...prev!,
+            contents: refreshedContents
+          }));
+        }
         setSelectedTaskTodo(prev => ({
           ...prev!,
           contents: refreshedContents
@@ -448,8 +453,9 @@ const GoalsPage = () => {
                   title: item.value3 || "Untitled Event",
                   start: startDate.toISOString(),
                   end: endDate.toISOString(),
+                  ua_id: item.ua_id,
                   goalId: goal.id,
-                  taskId: task.id,
+                  taskId: task.collective_id,
                   color: task.color || '#3b82f6',
                   repeat: 'none',
                   allDay: true // 🟢 Important for rendering in All-day row
@@ -633,6 +639,7 @@ const GoalsPage = () => {
                   end: endDate.toISOString(),
                   goalId: goal.id,
                   taskId: task.id,
+                  ua_id: item.ua_id,
                   color: task.color || '#3b82f6',
                   repeat: 'none',
                   allDay: true,
@@ -1106,6 +1113,8 @@ const GoalsPage = () => {
                               draggable
                               onClick={() => handleTaskClick(task.id)}
                               onDragStart={() => handleTaskDragStart(task)}
+                              onMouseEnter={() => setHoveredTaskId(task.id)}
+                              onMouseLeave={() => setHoveredTaskId(null)}
                             >
                               <div
                                 className="w-2.5 h-2.5 rounded-full"
@@ -1380,6 +1389,7 @@ const GoalsPage = () => {
 
                 ))}
               </div>
+
               <div className="grid grid-cols-8 border-b bg-gray-50 text-xs">
                 <div className="border-r p-1 text-right text-gray-600 font-semibold">All-day</div>
                 {weekDays.map((day) => {
@@ -1389,80 +1399,47 @@ const GoalsPage = () => {
                     return event.allDay && eventDate === dayStr;
                   });
 
-                  // 🆕 Get actions that match this day and have no specific time
-                  const actionsForDay = (() => {
-                    const result: { title: string; color: string }[] = [];
-
-                    for (const goal of goals) {
-                      for (const task of goal.tasks) {
-                        const actions = allActions[task.id] || [];
-
-                        actions.forEach(action => {
-                          const title = action.value3 || "Action";
-                          const color = task.color;
-
-                          const repeat = (() => {
-                            if (action.value4?.includes('/')) return 'daily';
-                            if (Array.isArray(action.cat_qty_id4) && action.cat_qty_id4.some((e: any) => e.Selected)) return 'weekly';
-                            if (!isNaN(Number(action.value4))) return 'monthly';
-                            return 'once';
-                          })();
-
-                          if (repeat === 'daily' && action.value4) {
-                            const actionDate = new Date(action.value4);
-                            if (actionDate.toDateString() === day.toDateString() && !action.value5) {
-                              result.push({ title, color });
-                            }
-                          }
-
-                          if (repeat === 'weekly') {
-                            const weekdays = action.cat_qty_id4?.filter((e: any) => e.Selected).map((e: any) => e.name);
-                            const weekdayName = day.toLocaleDateString('en-US', { weekday: 'long' });
-                            if (weekdays?.includes(weekdayName) && !action.value5) {
-                              result.push({ title, color });
-                            }
-                          }
-
-                          if (repeat === 'monthly' && action.value4) {
-                            const dayNum = parseInt(action.value4);
-                            if (day.getDate() === dayNum && !action.value5) {
-                              result.push({ title, color });
-                            }
-                          }
-                        });
-                      }
-                    }
-
-                    return result;
-                  })();
-
                   return (
-                    <div key={dayStr} className="border-r px-1 py-0.5 space-y-1">
+                    <div
+                      key={dayStr}
+                      className="border-r px-1 py-0.5 space-y-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+
+                        const dayStart = new Date(day);
+                        dayStart.setHours(0, 0, 0, 0);
+
+                        const dayEnd = new Date(day);
+                        dayEnd.setHours(23, 59, 59, 999);
+
+                        setNewEventData({
+                          id: '',
+                          goalId: goals[0]?.id || '',
+                          taskId: goals[0]?.tasks?.[0]?.collective_id || '',
+                          title: '',
+                          start: toLocalDateTimeInputValue(dayStart.toISOString()),
+                          end: dayEnd.toISOString(),
+                        });
+                        setShowEventOnlyModal(true);
+                      }}
+
+                    >
                       {/* Existing all-day events */}
-                      {allDayEvents.map(event => (
+                      {Array.from(new Map(allDayEvents.map(ev => [ev.id, ev])).values()).map(event => (
                         <div
-                          key={event.id}
-                          className="bg-blue-100 text-white px-2 py-0.5 rounded text-xs truncate cursor-pointer"
+                          key={event.id || `${event.title}-${event.start}`}
+                          className="bg-blue-100 text-white px-2 py-0.5 rounded text-xs truncate cursor-pointer z-100"
                           style={{ backgroundColor: event.color || '#3b82f6' }}
-                          onClick={() => {
-                            setCurrentEvent(event);
-                            setShowEventModal(true);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewEventData(event);
+                            setShowEventOnlyModal(true);
                           }}
                         >
                           {event.title}
                         </div>
                       ))}
 
-                      {/* 🆕 Actions that fall on this day but have no time */}
-                      {actionsForDay.map((action, i) => (
-                        <div
-                          key={`action-${i}-${dayStr}`}
-                          className="bg-purple-600 text-white px-2 py-0.5 rounded text-xs truncate"
-                          style={{ backgroundColor: action.color }}
-                        >
-                          {action.title}
-                        </div>
-                      ))}
                     </div>
                   );
                 })}
@@ -1553,7 +1530,10 @@ const GoalsPage = () => {
                       return (
                         <motion.div
                           key={`action-${index}-${day.toISOString()}`}
-                          className="absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden"
+                          className={`
+    absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden
+    ${hoveredTaskId === action.task.id ? 'animate-hoverPulse' : ''}
+  `}
                           style={{
                             top: `${topOffset}%`,
                             height: `${heightPercent}%`,
@@ -1629,27 +1609,58 @@ const GoalsPage = () => {
                 <div className="col-span-1 text-right pr-2 py-2 text-gray-600 font-semibold">
                   All-day
                 </div>
-                <div className="col-span-10 py-2 space-y-1">
-                  {events
-                    .filter(ev =>
-                      ev.allDay &&
-                      new Date(ev.start).toDateString() === selectedDate.toDateString()
-                    )
-                    .map(ev => (
-                      <div
-                        key={ev.id}
-                        className="w-full text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition"
-                        style={{ backgroundColor: ev.color || '#0f9d58' }}
-                        onClick={() => {
-                          setCurrentEvent(ev);
-                          setShowEventModal(true);
-                        }}
-                      >
-                        {ev.title}
-                      </div>
-                    ))}
+
+                <div
+                  className="col-span-10 py-2 space-y-1 relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+
+                    const dayStart = new Date(selectedDate);
+                    dayStart.setHours(0, 0, 0, 0);
+
+                    const dayEnd = new Date(selectedDate);
+                    dayEnd.setHours(23, 59, 59, 999);
+
+                    setNewEventData({
+                      id: '',
+                      goalId: goals[0]?.id || '',
+                      taskId: goals[0]?.tasks?.[0]?.collective_id || '',
+                      title: '',
+                      start: toLocalDateTimeInputValue(dayStart.toISOString()),
+                      end: dayEnd.toISOString(),
+                      allDay: true,
+                      ua_id: getUserId(),
+                    });
+                    setShowEventOnlyModal(true);
+                  }}
+                >
+                  {Array.from(
+                    new Map(
+                      events
+                        .filter(ev =>
+                          ev.allDay &&
+                          new Date(ev.start).toDateString() === selectedDate.toDateString()
+                        )
+                        .map(ev => [ev.id, ev]) // use ev.id as unique key
+                    ).values()
+                  ).map(ev => (
+                    <div
+                      key={ev.id || `${ev.title}-${ev.start}`}
+                      className="w-full text-white text-[13px] font-semibold rounded-md px-3 py-1 cursor-pointer shadow-sm hover:brightness-105 transition z-10 relative"
+                      style={{ backgroundColor: ev.color || '#0f9d58' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNewEventData(ev);
+                        setShowEventOnlyModal(true);
+                      }}
+                    >
+                      {ev.title}
+                    </div>
+                  ))}
+
                 </div>
               </div>
+
 
               {/* Time Grid */}
               <div className="flex-1 overflow-auto relative" ref={timeGridRef}>
@@ -1720,7 +1731,11 @@ const GoalsPage = () => {
                     return (
                       <motion.div
                         key={`action-${index}-${selectedDate.toISOString()}`}
-                        className="absolute left-[80px] right-2 p-1 rounded text-xs text-white font-semibold overflow-hidden"
+                        className={`
+  absolute left-[80px] right-2 p-1 rounded text-xs text-white font-semibold overflow-hidden
+  ${hoveredTaskId === action.task.id ? 'animate-hoverPulse' : ''}
+`}
+
                         style={{
                           top: `${topOffset}%`,
                           height: `${heightPercent}%`,
@@ -1770,8 +1785,7 @@ const GoalsPage = () => {
           {viewMode === 'month' && (
             <div className="h-full p-4">
               <div className="grid grid-cols-7 gap-1">
-
-                {/* weekday labels */}
+                {/* Weekday Labels */}
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                   <div key={d} className="text-black text-center font-medium text-sm py-2">
                     {d}
@@ -1787,7 +1801,6 @@ const GoalsPage = () => {
                   const isCurrentMonth = cellDate.getMonth() === new Date(selectedDate).getMonth();
                   const isToday = cellDate.toDateString() === new Date().toDateString();
 
-                  /* ───── Events in this cell ───── */
                   const dayEvents = events.filter(ev => {
                     const d = new Date(ev.start);
                     return (
@@ -1797,15 +1810,11 @@ const GoalsPage = () => {
                     );
                   });
 
-                  /* ───── Actions in this cell ───── */
                   const actionsForDate = goals.flatMap(goal =>
                     goal.tasks.flatMap(task =>
                       (allActions[task.id] || []).filter(action => {
                         const actionStart = new Date(action.by_datetime_value);
-                        if (isNaN(actionStart.getTime())) return false;
-
-                        // Not started yet
-                        if (cellDate < actionStart) return false;
+                        if (isNaN(actionStart.getTime()) || cellDate < actionStart) return false;
 
                         const isRepeating = action.repeat_status === "128";
                         const weekdayMap: Record<number, string> = {
@@ -1815,29 +1824,16 @@ const GoalsPage = () => {
                           79: "Thursday",
                           80: "Friday",
                           81: "Saturday",
-                          82: "Sunday"
+                          82: "Sunday",
                         };
                         const cellWeekday = cellDate.toLocaleDateString("en-US", { weekday: "long" });
 
                         if (isRepeating) {
-                          // Weekly
-                          if (action.day_week && weekdayMap[action.day_week] === cellWeekday) {
-                            return true;
-                          }
-
-                          // Monthly
-                          if (action.day_month && cellDate.getDate() === Number(action.day_month)) {
-                            return true;
-                          }
-
-                          // Daily (fallback)
-                          if (!action.day_week && !action.day_month) {
-                            return true;
-                          }
-
+                          if (action.day_week && weekdayMap[action.day_week] === cellWeekday) return true;
+                          if (action.day_month && cellDate.getDate() === Number(action.day_month)) return true;
+                          if (!action.day_week && !action.day_month) return true;
                           return false;
                         } else {
-                          // One-time
                           return (
                             actionStart.getDate() === cellDate.getDate() &&
                             actionStart.getMonth() === cellDate.getMonth() &&
@@ -1846,13 +1842,11 @@ const GoalsPage = () => {
                         }
                       }).map(action => ({
                         title: action.name || 'Action',
-                        color: task.color
+                        color: task.color,
                       }))
                     )
                   );
 
-
-                  /* ───── Cell UI ───── */
                   return (
                     <div
                       key={i}
@@ -1860,29 +1854,40 @@ const GoalsPage = () => {
               ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}
               ${isToday ? 'border-blue-500' : ''}`}
                     >
-                      {/* date number */}
+                      {/* Date Number */}
                       <div className={`text-right text-sm
               ${isCurrentMonth ? 'text-gray-700' : 'text-gray-400'}
               ${isToday ? 'font-bold' : ''}`}>
                         {cellDate.getDate()}
                       </div>
 
-                      {/* event & action pills */}
+                      {/* Events & Actions */}
                       <div className="space-y-1 mt-1">
+                        {/* Show up to 2 events */}
+                        {dayEvents
+                          .filter((ev, idx, self) =>
+                            self.findIndex(e =>
+                              new Date(e.start).toDateString() === new Date(ev.start).toDateString() &&
+                              e.id === ev.id
+                            ) === idx
+                          )
+                          .slice(0, 2)
+                          .map(ev => (
+                            <div
+                              key={ev.id}
+                              className="text-xs p-1 rounded truncate cursor-pointer hover:opacity-90 transition"
+                              style={{ backgroundColor: ev.color || '#3b82f6', color: 'white' }}
+                              onClick={() => {
+                                setCurrentEvent(ev);
+                                setShowEventModal(true);
+                              }}
+                            >
+                              {(ev.title || 'Untitled').slice(0, 25)}
+                            </div>
+                          ))}
 
-                        {/* events (max 2) */}
-                        {dayEvents.slice(0, 2).map(ev => (
-                          <div
-                            key={`${ev.id}-${i}`}
-                            className="text-xs p-1 rounded truncate cursor-pointer hover:opacity-90 transition"
-                            style={{ backgroundColor: ev.color || '#3b82f6', color: 'white' }}
-                            onClick={() => { setCurrentEvent(ev); setShowEventModal(true); }}
-                          >
-                            {(ev.title || 'Untitled').slice(0, 25)}
-                          </div>
-                        ))}
 
-                        {/* actions (max 2 minus events already shown) */}
+                        {/* Show actions after event slots filled */}
                         {actionsForDate.slice(0, 2 - Math.min(2, dayEvents.length)).map((act, idx) => (
                           <div
                             key={`act-${idx}-${cellDate.toDateString()}`}
@@ -1893,13 +1898,12 @@ const GoalsPage = () => {
                           </div>
                         ))}
 
-                        {/* overflow badge */}
+                        {/* Overflow indicator */}
                         {(dayEvents.length + actionsForDate.length) > 2 && (
                           <div className="text-xs text-gray-500 text-center">
                             +{(dayEvents.length + actionsForDate.length) - 2} more
                           </div>
                         )}
-
                       </div>
                     </div>
                   );
@@ -1907,6 +1911,7 @@ const GoalsPage = () => {
               </div>
             </div>
           )}
+
         </div>
       </div>
       {/* Right Content */}
@@ -1997,7 +2002,7 @@ const GoalsPage = () => {
             >
               <div className="p-5 border-b border-gray-200">
                 <h3 className="text-xl font-semibold text-gray-800">
-                  {currentEvent.id ? 'Edit Event' : 'Create Event'}
+                  {currentEvent.id ? 'Edit Action' : 'Create Action'}
                 </h3>
               </div>
 
@@ -2140,6 +2145,199 @@ const GoalsPage = () => {
                     {currentEvent.id ? "Update" : "Save"}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showEventOnlyModal && newEventData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 backdrop-blur-sm bg-black/40 flex items-center justify-center z-50"
+            onClick={() => setShowEventOnlyModal(false)}
+          >
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {newEventData?.id ? "Edit Event" : "Create Event"}
+                </h3>
+
+              </div>
+
+              <div className="p-5 space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Goal</label>
+                  <select
+                    value={newEventData.goalId}
+                    onChange={(e) => {
+                      const newGoalId = e.target.value;
+                      const newTaskId = goals.find(g => g.id === newGoalId)?.tasks?.[0]?.id || '';
+                      setNewEventData(prev => ({ ...prev!, goalId: newGoalId, taskId: newTaskId }));
+                    }}
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {goals.map(goal => (
+                      <option key={goal.id} value={goal.id}>
+                        {goal.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Task</label>
+                  <select
+                    value={newEventData.taskId}
+                    onChange={(e) =>
+                      setNewEventData(prev => ({ ...prev!, taskId: e.target.value }))
+                    }
+                    className="w-full border rounded-lg px-4 py-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {(goals.find(g => g.id === newEventData.goalId)?.tasks || []).map(task => (
+                      <option key={task.id} value={task.id}>
+                        {task.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={newEventData.title}
+                    onChange={(e) =>
+                      setNewEventData(prev => ({ ...prev!, title: e.target.value }))
+                    }
+                    className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
+                    placeholder="Event title"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Event Day-Time</label>
+                    <input
+                      type="datetime-local"
+                      value={toLocalDateTimeInputValue(newEventData.start)}
+                      onChange={(e) =>
+                        setNewEventData(prev => ({ ...prev!, start: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end items-center border-t border-gray-200 p-4 gap-2">
+                {newEventData.id && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const payload = {
+                          ua_id: newEventData?.ua_id,
+                          a_id: 33,
+                          at_id: 302,
+                          flag: "PT",
+                          action: "DELETE",
+                          cat_qty_id1: newEventData.taskId
+                        };
+                        await fetch(`https://meseer.com/dog/update-delete-data/primary-mwb`, {
+                          method: "POST",
+                          headers: {
+                            Authorization: `Bearer ${localStorage.getItem("token")}`,
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify(payload),
+                        });
+                        setShowEventOnlyModal(false);
+                        setNewEventData(null);
+                        await reload();
+                      } catch (err) {
+                        console.error("Failed to delete item", err);
+                      }
+                    }}
+                    className="px-4 py-2 text-sm rounded-lg  bg-gray-100 hover:bg-gray-200 text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowEventOnlyModal(false)}
+                  className="px-4 py-2 text-sm rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const token = getUserToken();
+                    const isEditing = !!newEventData?.id;
+
+                    const payload: any = {
+                      a_id: 33,
+                      at_id: 302,
+                      flag: "PT",
+                      trigger: "Event",
+                      is_active: "Y",
+                      user_id: getUserId(),
+                      event_time: new Date().toISOString().slice(0, 19),
+                      description: "Event",
+                      cat_qty_id1: Number(newEventData.taskId),
+                      value1: "",
+                      value2: "",
+                      value3: newEventData.title,
+                      value4: newEventData.start,
+                      value5: "",
+                      value6: "",
+                      cat_qty_id2: 0,
+                      cat_qty_id3: 23,
+                      cat_qty_id4: 58,
+                      cat_qty_id5: 0,
+                      cat_qty_id6: 0,
+                    };
+                    if (isEditing) {
+                      payload.ua_id = newEventData.ua_id;
+                      payload.action = "UPDATE";
+                    }
+                    try {
+                      const endpoint = isEditing
+                        ? 'https://meseer.com/dog/update-delete-data/primary-mwb'  // use correct endpoint
+                        : 'https://meseer.com/dog/add-data/primary-mwb/';
+
+                      await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                      });
+
+                      setShowEventOnlyModal(false);
+                      setNewEventData(null);
+                      await reload();
+                    } catch (err) {
+                      console.error(isEditing ? "Failed to update event" : "Failed to create event", err);
+                    }
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  {newEventData?.id ? "Update" : "Save"}
+                </button>
+
+
               </div>
             </motion.div>
           </motion.div>

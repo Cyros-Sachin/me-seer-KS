@@ -184,3 +184,14 @@ body {
   height: 3px;
   background: linear-gradient(to right, #4f46e5, #10b981);
 }
+@keyframes hoverPulse {
+  0%   { transform: translateY(0px) scale(1); }
+  30%  { transform: translateY(-2px) scale(1.03); }
+  60%  { transform: translateY(-1px) scale(1.01); }
+  100% { transform: translateY(0px) scale(1); }
+}
+
+.animate-hoverPulse {
+  animation: hoverPulse 1.2s ease-in-out infinite;
+}
+
