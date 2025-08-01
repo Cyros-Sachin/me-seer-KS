@@ -41,7 +41,7 @@ interface Event {
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once';
   allDay?: boolean;
   ua_id?: string;
-  a_id?: number;
+  action_id?: number;
 }
 
 interface TaskAction {
@@ -131,6 +131,31 @@ const GoalsPage = () => {
   const [showMiniCalendar, setShowMiniCalendar] = useState(false);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const [maximizedTodo, setMaximizedTodo] = useState<Todo | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isTyping = document.activeElement && (
+        document.activeElement.tagName === 'INPUT' ||
+        document.activeElement.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement).isContentEditable
+      );
+
+      if (isTyping) return;
+
+      if (e.key === 'm' || e.key === 'M') {
+        dispatch(setViewMode('month'));
+      } else if (e.key === 'w' || e.key === 'W') {
+        dispatch(setViewMode('week'));
+      } else if (e.key === 'd' || e.key === 'D') {
+        dispatch(setViewMode('day'));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [dispatch]);
 
   const handleTaskClick = async (taskId: string) => {
     const userId = getUserId();
@@ -263,8 +288,7 @@ const GoalsPage = () => {
   };
 
   const handleAddTask = async () => {
-    if (!maximizedTodo || !newTaskContent.trim()) return;
-
+    console.log("recieved")
     const userId = getUserId();
     const token = getUserToken();
     const now = new Date().toISOString();
@@ -277,7 +301,7 @@ const GoalsPage = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          todo_id: maximizedTodo.todo_id,
+          todo_id: maximizedTodo?.todo_id || selectedTaskTodo?.todo_id,
           user_id: userId,
           content: newTaskContent.trim(),
           checked: false,
@@ -286,7 +310,7 @@ const GoalsPage = () => {
           version: "v1",
           created_date: now,
           last_updated: now,
-          refresh_type: maximizedTodo.refresh_type || "daily",
+          refresh_type: maximizedTodo?.refresh_type || selectedTaskTodo?.refresh_type ||"daily",
         }),
       });
 
@@ -300,10 +324,14 @@ const GoalsPage = () => {
         });
         const allContents = await contentRes.json();
         const refreshedContents = Array.isArray(allContents)
-          ? allContents.filter(content => content.todo_id?.toString() === maximizedTodo.todo_id?.toString())
+          ? allContents.filter(content => (content.todo_id?.toString() === maximizedTodo?.todo_id?.toString()) || (content.todo_id?.toString() === selectedTaskTodo?.todo_id?.toString()) )
           : [];
 
-        setMaximizedTodo(prev => ({
+        {maximizedTodo?.todo_id && setMaximizedTodo(prev => ({
+          ...prev!,
+          contents: refreshedContents
+        }));}
+        setSelectedTaskTodo(prev => ({
           ...prev!,
           contents: refreshedContents
         }));
@@ -667,7 +695,7 @@ const GoalsPage = () => {
       user_id: getUserId(),
       event_time,
       description: isUpdate ? "update action" : "add action",
-      cat_qty_id1: isUpdate ? Number(currentEvent.a_id) : Number(taskId),
+      cat_qty_id1: isUpdate ? Number(currentEvent.action_id) : Number(taskId),
       value1: "",
       value2: "",
       value3: title,
@@ -793,7 +821,7 @@ const GoalsPage = () => {
         at_id: 302,
         flag: "PT",
         action: "DELETE",
-        cat_qty_id1: currentEvent?.a_id
+        cat_qty_id1: currentEvent?.action_id
       };
       await fetch(`https://meseer.com/dog/update-delete-data/primary-mwb`, {
         method: "POST",
@@ -849,7 +877,7 @@ const GoalsPage = () => {
     color: string;
     time: string;
     durationMinutes: number;
-    a_id: number;
+    action_id: number;
     goal: Goal;
     ua_id: string;
     task: Task;
@@ -861,7 +889,7 @@ const GoalsPage = () => {
       time: string;
       ua_id: string;
       durationMinutes: number;
-      a_id: number;
+      action_id: number;
       goal: Goal;
       task: Task;
       repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
@@ -913,7 +941,7 @@ const GoalsPage = () => {
           const actionDate = parseToLiteral(action.by_datetime_value);
           if (isNaN(actionDate.getTime())) continue;
           const ua_id = action.ua_id;
-          const a_id = action.action_id;
+          const action_id = action.action_id;
           const isRepeating = action.repeat_status === "128";
           let shouldRender = false;
           const weekdayName = day.toLocaleDateString("en-US", { weekday: "long" });
@@ -962,7 +990,7 @@ const GoalsPage = () => {
             task, // include task reference
             color,
             ua_id,
-            a_id,
+            action_id,
             time: timeStr,
             durationMinutes: duration,
             repeatType: isRepeating
@@ -1551,7 +1579,7 @@ const GoalsPage = () => {
                               goalId: action.goal.id,
                               taskId: action?.task?.todo_id?.toString(),
                               ua_id: action.ua_id,
-                              a_id: action.a_id
+                              action_id: action.action_id
                             });
 
                             setShowEventModal(true);
@@ -1698,6 +1726,30 @@ const GoalsPage = () => {
                           height: `${heightPercent}%`,
                           backgroundColor: action.color,
                           zIndex: 6,
+                        }}
+                        onClick={() => {
+                          // Convert action data to Event format
+                          const startDate = new Date(selectedDate);
+                          const [hh, mm] = action.time.split(':').map(Number);
+                          startDate.setHours(hh, mm, 0, 0);
+                          const endDate = new Date(startDate);
+                          endDate.setMinutes(startDate.getMinutes() + action.durationMinutes);
+
+                          setCurrentEvent({
+                            id: `event-${index}`, // or use action.a_id if available
+                            title: action.title,
+                            start: startDate.toISOString(),
+                            end: endDate.toISOString(),
+                            color: action.color,
+                            repeat: action.repeatType,
+                            allDay: false,
+                            goalId: action.goal.id,
+                            taskId: action?.task?.todo_id?.toString(),
+                            ua_id: action.ua_id,
+                            action_id: action.action_id
+                          });
+
+                          setShowEventModal(true);
                         }}
                       >
                         <div className="truncate">{action.title}</div>
