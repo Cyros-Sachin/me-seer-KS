@@ -31,6 +31,7 @@ type ViewMode = 'day' | 'week' | 'month';
 type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
 
 interface Event {
+  isaction_log?: boolean;
   id: string;
   title: string;
   start: string;
@@ -42,6 +43,7 @@ interface Event {
   allDay?: boolean;
   ua_id?: string;
   action_id?: number;
+  action_log_id?: number;
 }
 
 interface TaskAction {
@@ -683,9 +685,6 @@ const GoalsPage = () => {
     const start_time = toLocalDateTimeInputValue(start).slice(11, 16);
     const start_day = startDate.toLocaleDateString("en-US", { weekday: "long" });
     const start_date = toLocalDateTimeInputValue(start).split("T")[0].split("-")[2];
-
-    const formatDate = (d: Date) => d.toISOString().slice(0, 16);
-
     const diffInMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
     const duration = diffInMinutes % 60 === 0 ? diffInMinutes / 60 : Math.round(diffInMinutes);
     const duration_unit = diffInMinutes % 60 === 0 ? "hour" : "minutes";
@@ -717,9 +716,12 @@ const GoalsPage = () => {
       by_datetime_value: "",
     };
 
-    if (isUpdate) {
+    if (isUpdate || currentEvent.isaction_log) {
       payload.action = "UPDATE";
       payload.ua_id = currentEvent.ua_id;
+    }
+    if (currentEvent.isaction_log) {
+      payload.cat_qty_id1 = currentEvent.action_log_id;
     }
 
     // One-time
@@ -796,11 +798,12 @@ const GoalsPage = () => {
         }
       }
     }
-    // console.log(payload);
     try {
-      const endpoint = isUpdate
-        ? "https://meseer.com/dog/update-delete-data/primary-mwb"
-        : "https://meseer.com/dog/add-data/primary-mwb/";
+      const endpoint = currentEvent?.isaction_log
+        ? `https://meseer.com/dog/update_delete_actionlogs/${currentEvent.action_log_id}`
+        : isUpdate
+          ? "https://meseer.com/dog/update-delete-data/primary-mwb"
+          : "https://meseer.com/dog/add-data/primary-mwb/";
 
       await fetch(endpoint, {
         method: "POST",
@@ -822,15 +825,22 @@ const GoalsPage = () => {
 
   const handleEventDelete = async () => {
     try {
+      const isActionLog = !!currentEvent?.action_log_id;
+
       const payload = {
         ua_id: currentEvent?.ua_id,
         a_id: repeatToAidMap[currentEvent?.repeat ?? "once"],
         at_id: 302,
         flag: "PT",
         action: "DELETE",
-        cat_qty_id1: currentEvent?.action_id
+        cat_qty_id1: isActionLog ? currentEvent?.action_log_id : currentEvent?.action_id,
       };
-      await fetch(`https://meseer.com/dog/update-delete-data/primary-mwb`, {
+
+      const endpoint = isActionLog
+        ? `https://meseer.com/dog/update_delete_actionlogs/${currentEvent.action_log_id}`
+        : `https://meseer.com/dog/update-delete-data/primary-mwb`;
+
+      await fetch(endpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -838,6 +848,7 @@ const GoalsPage = () => {
         },
         body: JSON.stringify(payload),
       });
+
       setShowEventModal(false);
       setCurrentEvent(null);
     } catch (err) {
@@ -880,8 +891,10 @@ const GoalsPage = () => {
     allActions: Record<string, any[]>,
     goals: Goal[]
   ): {
+    isaction_log: boolean;
     title: string;
     color: string;
+    action_log_id: number;
     time: string;
     durationMinutes: number;
     action_id: number;
@@ -891,12 +904,14 @@ const GoalsPage = () => {
     repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
   }[] => {
     const actions: {
+      isaction_log: boolean;
       title: string;
       color: string;
       time: string;
       ua_id: string;
       durationMinutes: number;
       action_id: number;
+      action_log_id: number;
       goal: Goal;
       task: Task;
       repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
@@ -947,6 +962,8 @@ const GoalsPage = () => {
         for (const action of taskActions) {
           const actionDate = parseToLiteral(action.by_datetime_value);
           if (isNaN(actionDate.getTime())) continue;
+          const isaction_log = typeof action.action_log_id === 'number' && !Number.isNaN(action.action_log_id);
+          const action_log_id = action.action_log_id;
           const ua_id = action.ua_id;
           const action_id = action.action_id;
           const isRepeating = action.repeat_status === "128";
@@ -992,6 +1009,8 @@ const GoalsPage = () => {
           if (unit === "hours") duration *= 60;
           if (isNaN(duration)) duration = 30;
           actions.push({
+            action_log_id,
+            isaction_log,
             title,
             goal,
             task, // include task reference
@@ -1559,7 +1578,9 @@ const GoalsPage = () => {
                               goalId: action.goal.id,
                               taskId: action?.task?.todo_id?.toString(),
                               ua_id: action.ua_id,
-                              action_id: action.action_id
+                              action_id: action.action_id,
+                              isaction_log: action.isaction_log,
+                              action_log_id: action.action_log_id
                             });
 
                             setShowEventModal(true);
@@ -1761,7 +1782,9 @@ const GoalsPage = () => {
                             goalId: action.goal.id,
                             taskId: action?.task?.todo_id?.toString(),
                             ua_id: action.ua_id,
-                            action_id: action.action_id
+                            action_id: action.action_id,
+                            isaction_log: action.isaction_log,
+                            action_log_id: action.action_log_id
                           });
 
                           setShowEventModal(true);
