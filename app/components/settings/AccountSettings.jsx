@@ -1,17 +1,26 @@
 import SectionWrapper from './SectionWrapper';
 import { motion } from 'framer-motion';
-
+import Cookies from "js-cookie";
 export default function AccountSettings() {
+  let data = null;
+  try {
+    const userInfoRaw = Cookies.get("userInfo");
+    if (userInfoRaw) {
+      data = JSON.parse(userInfoRaw);
+    }
+  } catch (err) {
+    console.error("Failed to parse userInfo cookie:", err);
+  }
   return (
     <SectionWrapper title="Account Settings">
       <div className="flex items-center gap-4">
-        <motion.div 
+        <motion.div
           className="w-14 h-14 rounded-full bg-gradient-to-r from-red-500 to-orange-500 text-white flex items-center justify-center font-bold text-xl shadow-md"
           whileHover={{ scale: 1.05 }}
         >
           M
         </motion.div>
-        <motion.button 
+        <motion.button
           className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -19,13 +28,13 @@ export default function AccountSettings() {
           Change Photo
         </motion.button>
       </div>
-      
+
       <div className="mt-6 space-y-3">
-        <p className="text-gray-700">Name: <span className="font-medium text-gray-900">Micah Bell</span></p>
-        <p className="text-gray-700">Email: <span className="font-medium text-gray-900">advaitramesh7@gmail.com</span></p>
+        <p className="text-gray-700">Name: <span className="font-medium text-gray-900">{data?.name}</span></p>
+        <p className="text-gray-700">Email: <span className="font-medium text-gray-900">{data?.email}</span></p>
       </div>
-      
-      <motion.button 
+
+      <motion.button
         className="mt-6 px-4 py-2 bg-red-50 border border-red-100 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}

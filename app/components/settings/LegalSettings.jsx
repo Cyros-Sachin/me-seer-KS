@@ -1,8 +1,11 @@
 import SectionWrapper from './SectionWrapper';
 import { LogOut, FileText, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import {useRouter} from 'next/navigation';
+import Cookies from "js-cookie";
 
 export default function LegalSettings() {
+  const router = useRouter();
   const items = [
     { icon: <FileText size={18} />, title: 'Terms of Service', description: 'Read our terms and conditions' },
     { icon: <Shield size={18} />, title: 'Privacy Policy', description: 'Learn how we protect your data' },
@@ -12,7 +15,7 @@ export default function LegalSettings() {
     <SectionWrapper title="Legal & Information">
       <div className="space-y-4">
         {items.map((item, index) => (
-          <motion.div 
+          <motion.div
             key={index}
             className="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer"
             whileHover={{ x: 5 }}
@@ -34,10 +37,15 @@ export default function LegalSettings() {
           <p>Build: 2024.01.15</p>
         </div>
 
-        <motion.button 
+        <motion.button
           className="flex items-center justify-center gap-2 w-full px-4 py-2.5 mt-6 bg-red-50 border border-red-100 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            Cookies.remove("token");
+            Cookies.remove("userInfo");
+            router.push("/login");
+          }} 
         >
           <LogOut size={18} />
           Sign Out
