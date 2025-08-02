@@ -623,7 +623,28 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
     fetchAll();
   }, [userId, collectiveId, activityItems]);
 
-  if (loading) return <div className="text-sm text-gray-400 p-4">Loading activity details...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6 p-4">
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <div
+            key={idx}
+            className="bg-white rounded-lg border border-gray-100 shadow-sm p-4 animate-pulse space-y-4"
+          >
+            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+            <div className="space-y-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-2 gap-4">
+                  <div className="h-8 bg-gray-200 rounded"></div>
+                  <div className="h-8 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4">

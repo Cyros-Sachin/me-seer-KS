@@ -181,7 +181,7 @@ export default function LoginPage() {
         errorMessage = "Wrong credentials. Please check your email or password.";
       } else if (status === 400) {
         errorMessage = "Already registered !!";
-      }else if (err.response?.data?.message) {
+      } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
 
@@ -327,6 +327,11 @@ export default function LoginPage() {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSubmit();
+                      }
+                    }}
                     value={formData.password}
                     placeholder="Password"
                     className="input placeholder:text-gray-400 text-black w-full border border-gray-300 p-2 rounded pr-10"

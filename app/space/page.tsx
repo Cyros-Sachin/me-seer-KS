@@ -547,6 +547,7 @@ export default function SpacePage() {
       await SpaceService.createTodo(todoData);
       const data = await SpaceService.getTodoDataBySubspace(activeSubspace.subspace_id, userId);
       triggerToast.success('Todo created!');
+      setShowTodoMenu(false);
       setTodos(data);
     } catch (err) {
       triggerToast.error('Failed to delete todo');
@@ -766,6 +767,7 @@ export default function SpacePage() {
         const content = await SpaceService.getWordpadContent(wordpad.wordpad_id, userId);
         return { ...wordpad, contents: content };
       }));
+      setShowWordpadMenu(false);
       setWordpads(wordpadsWithContent);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -1146,16 +1148,25 @@ export default function SpacePage() {
                                 className={`bg-white min-w-[320px] rounded-xl border border-gray-300 shadow text-sm flex flex-col overflow-hidden transition-[max-80] duration-400 ease-in-out ${isCollapsed ? "max-h-20" : "h-80"}`}
                               >
                                 {/* Header */}
-                                <div
+                                <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group">
+                                  <div className="flex items-center min-w-0 gap-2">
+                                    {/* Drag handle icon */}
+                                    <div
+                                      {...listeners}
+                                      {...attributes}
+                                      className="cursor-grab text-gray-400 hover:text-gray-600"
+                                      title="Drag to reorder"
+                                    >
+                                      ⠿
+                                    </div>
 
-                                  className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg group" >
-                                  <div {...listeners} {...attributes} className="flex items-center min-w-0">
+                                    {/* Title or input */}
                                     {!maximizedTodo && (editingTodoId === todo.todo_id) ? (
                                       <input
                                         ref={(el) => {
                                           if (el) {
-                                            el.focus();                              // focus
-                                            el.setSelectionRange(el.value.length, el.value.length); // caret at end
+                                            el.focus();
+                                            el.setSelectionRange(el.value.length, el.value.length);
                                           }
                                         }}
                                         className="font-medium text-gray-800 truncate w-full border-b border-gray-300 focus:outline-none focus:border-blue-500 bg-transparent"
@@ -1193,11 +1204,13 @@ export default function SpacePage() {
                                       </span>
                                     )}
                                   </div>
+
                                   <Trash2
                                     className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
                                     onClick={() => handleDeleteTodo(todo.todo_id)}
                                   />
                                 </div>
+
 
                                 {/* Collapsible Content */}
                                 <AnimatePresence initial={false}>

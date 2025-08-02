@@ -51,6 +51,7 @@ export const WordpadEditor: React.FC<WordpadEditorProps> = ({
   editable = true,
 }) => {
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
+  const [interimText, setInterimText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -68,16 +69,21 @@ export const WordpadEditor: React.FC<WordpadEditorProps> = ({
         recognitionInstance.lang = 'en-US';
 
         recognitionInstance.onresult = (event: any) => {
-          const transcript = Array.from(event.results)
-            .map((result: any) => result[0])
-            .map((result) => result.transcript)
-            .join('');
+          const results = event.results;
+          const lastResult = results[results.length - 1];
+          const transcript = lastResult[0].transcript;
 
-          if (editor && transcript) {
-            editor.chain().focus().insertContent(transcript + ' ').run();
+          if (lastResult.isFinal) {
+            editor?.chain().focus().insertContent(transcript + ' ').run();
+            setInterimText(''); // clear floating preview
+          } else {
+            setInterimText(transcript); // update live floating text
           }
+
           onVoiceInput(transcript);
         };
+
+
 
         recognitionInstance.onerror = (event: any) => {
           console.error('Speech recognition error', event.error);
@@ -217,11 +223,11 @@ export const WordpadEditor: React.FC<WordpadEditorProps> = ({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50">
         <button
-          onClick={() => editor.chain().focus().toggleHeading({level:1}).run()}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('Heading') ? 'bg-gray-200' : ''}`}
           title='Heading'
         >
-          <Heading1 className="w-4 h-4" /> 
+          <Heading1 className="w-4 h-4" />
         </button>
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -504,6 +510,12 @@ export const WordpadEditor: React.FC<WordpadEditorProps> = ({
             </div>
           </div>
         ))}
+        {isListening && interimText && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white text-black px-4 py-2 rounded shadow border z-50 text-sm opacity-80 pointer-events-none animate-pulse">
+            {interimText}
+          </div>
+        )}
+
       </div>
     </div>
   );
