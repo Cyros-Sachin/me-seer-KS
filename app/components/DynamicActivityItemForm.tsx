@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
+import toast from "react-hot-toast";
 
 const DynamicActivityItemForm = ({
   a_id,
@@ -40,6 +41,7 @@ const DynamicActivityItemForm = ({
   const [subspaces, setSubspaces] = useState<{ subspace_id: number; name: string }[]>([]);
   const [selectedSubspace, setSelectedSubspace] = useState<{ subspace_id: number; name: string } | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [renderedIndexes, setRenderedIndexes] = useState<number[]>([]);
 
   useEffect(() => {
     if (!isOpen || !a_id) return;
@@ -157,7 +159,9 @@ const DynamicActivityItemForm = ({
     const isCategory = itemMeta.item_type?.toLowerCase()?.includes("category");
     // Inside renderField
     const isSubspace = itemMeta.item_name?.toLowerCase().includes("subspace");
-
+    if (!renderedIndexes.includes(index)) {
+      setRenderedIndexes((prev) => [...prev, index]);
+    }
     if (isSubspace) {
       // only once per render
 
@@ -338,10 +342,48 @@ const DynamicActivityItemForm = ({
         />
       </div>
     );
+
   };
 
   const handleSubmit = async () => {
     setLoading(true);
+    const invalidFields: string[] = [];
+
+    for (const index of renderedIndexes) {
+      const itemList = template[`item_id${index}`];
+      if (!itemList || itemList.length === 0) continue;
+
+      const meta = itemList[0];
+      const label =
+        meta.item_description || meta.item_name || `Field ${index}`;
+      const type = meta.item_type?.toLowerCase() || "";
+
+      // Skip known optional types
+      if (type.includes("date") || type.includes("time")) continue;
+
+      const valueFilled = values[index];
+      const quantityFilled = quantities[index];
+
+      if (type.includes("unit") && !valueFilled && !quantityFilled) {
+        invalidFields.push(label);
+      } else if (
+        (type.includes("search") ||
+          type.includes("text") ||
+          type.includes("category")) &&
+        !valueFilled
+      ) {
+        invalidFields.push(label);
+      }
+    }
+
+    if (invalidFields.length > 0) {
+      toast.error(
+        `Please fill all fields`,
+        { duration: 4000 }
+      );
+      setLoading(false);
+      return;
+    }
     try {
       const event_time = new Date().toISOString().slice(0, 19);
 
@@ -579,7 +621,6 @@ const DynamicActivityItemForm = ({
         },
         body: JSON.stringify(payload),
       });
-
       onClose();
       onSuccess?.();
     } catch (err) {

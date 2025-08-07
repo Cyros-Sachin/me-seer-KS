@@ -2368,7 +2368,7 @@ const GoalsPage = () => {
       </AnimatePresence>
 
       {maximizedTodo && (
-        <div className="fixed inset-0 z-50 bg-opacity-40 backdrop-blur-md flex justify-center items-center">
+        <div className="fixed inset-0 z-50 bg-opacity-10 backdrop-blur-xs flex justify-center items-center">
           <div className="bg-white p-4 rounded-md shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto relative">
             {/* Close and View Switch */}
             <button

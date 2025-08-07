@@ -49,6 +49,7 @@
     "react-hot-toast": "^2.5.2",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.6.2",
+    "react-speech-recognition": "^4.0.1",
     "react-toastify": "^11.0.5",
     "zod": "^3.25.67"
   },
@@ -58,6 +59,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-speech-recognition": "^3.9.6",
     "tailwindcss": "^4.1.8",
     "typescript": "^5"
   }
