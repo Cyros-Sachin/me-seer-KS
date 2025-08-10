@@ -136,6 +136,53 @@ const GoalsPage = () => {
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const [maximizedTodo, setMaximizedTodo] = useState<Todo | null>(null);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+  const [goalProgress, setGoalProgress] = useState<Record<string, any>>({});
+  const [taskProgressMap, setTaskProgressMap] = useState<Record<string, Record<string, any>>>({});
+
+  const fetchTaskProgress = async (goalId: string) => {
+    try {
+      const res = await fetch(`https://meseer.com/dog/get-progress`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${getUserToken()}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          stats_type: "task_level",
+          goal_id: goalId
+        })
+      });
+      const data = await res.json();
+      setTaskProgressMap(prev => ({ ...prev, [goalId]: data || {} }));
+    } catch (err) {
+      console.error(`Task progress fetch failed for goal ${goalId}:`, err);
+    }
+  };
+
+  useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        const res = await fetch(`https://meseer.com/dog/get-progress`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${getUserToken()}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            stats_type: "goal_level",
+            goal_id: "0"
+          })
+        });
+        const data = await res.json();
+        // API returns something like { "314": { progress: 25, ... }, "315": { ... } }
+        setGoalProgress(data || {});
+      } catch (err) {
+        console.error("Progress fetch failed:", err);
+      }
+    };
+    fetchProgress();
+  }, []);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -431,6 +478,7 @@ const GoalsPage = () => {
       const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
       const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
       setAllActions(actionsMap);
+      console.log(actionsMap);
 
       // Dispatch goals directly
       filteredGoals.forEach(g => dispatch(addGoal(g)));
@@ -1090,21 +1138,34 @@ const GoalsPage = () => {
           <div className="space-y-1">
             {goals.map(goal => {
               const isExpanded = expandedGoalIds.includes(goal.id);
+              const progressData = goalProgress[goal.id] || {};
+              const timeSpent = progressData.time_spent ?? 0;
+              const timeAllotted = progressData.time_allotted ?? 0;
+              const progressPercent = progressData.progress ?? 0;
 
               return (
-                <div key={goal.id}>
+                <div key={goal.id} className="mb-3">
                   {/* Goal Header */}
                   <div
                     className="flex items-center justify-between px-2 py-2 rounded cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() =>
+                    onClick={() => {
                       setExpandedGoalIds(prev =>
                         prev.includes(goal.id)
                           ? prev.filter(id => id !== goal.id)
                           : [...prev, goal.id]
-                      )
+                      );
+                      fetchTaskProgress(goal.id);
+                    }
                     }
                   >
-                    <span className="truncate font-medium text-gray-800">{goal.title}</span>
+                    <div>
+                      <span className="truncate font-medium text-gray-800">{goal.title}</span>
+                      <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                        <span>{timeSpent}h / {timeAllotted}h</span>
+                        <span>•</span>
+                        <span>{progressPercent}%</span>
+                      </div>
+                    </div>
                     <motion.div
                       animate={{ rotate: isExpanded ? 180 : 0 }}
                       transition={{ duration: 0.2 }}
@@ -1113,7 +1174,15 @@ const GoalsPage = () => {
                     </motion.div>
                   </div>
 
-                  {/* Tasks with animation */}
+                  {/* Progress Bar */}
+                  <div className="w-full bg-gray-200 h-2 rounded mt-1">
+                    <div
+                      className="bg-blue-500 h-2 rounded transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+
+                  {/* Tasks */}
                   <AnimatePresence initial={false}>
                     {isExpanded && (
                       <motion.div
@@ -1124,24 +1193,41 @@ const GoalsPage = () => {
                         className="overflow-hidden"
                       >
                         <div className="ml-4 mt-1 space-y-1 border-l border-gray-300 pl-3">
-                          {goal.tasks.map(task => (
-                            <div
-                              key={task.id}
-                              className={`text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-gray-100 font-medium rounded' : ''
-                                }`}
-                              draggable
-                              onClick={() => handleTaskClick(task.id)}
-                              onDragStart={() => handleTaskDragStart(task)}
-                              onMouseEnter={() => setHoveredTaskId(task.id)}
-                              onMouseLeave={() => setHoveredTaskId(null)}
-                            >
+                          {goal.tasks.map(task => {
+                            const taskStats = taskProgressMap[goal.id]?.[task.id] || {};
+                            const timeSpent = taskStats.time_spent ?? 0;
+                            const timeAllotted = taskStats.time_allotted ?? 0;
+                            const progressPercent = taskStats.progress ?? 0;
+
+                            let priorityLabel = "Low";
+                            let priorityColor = "bg-green-100 text-green-800";
+                            if (timeAllotted < 3) {
+                              priorityLabel = "High";
+                              priorityColor = "bg-red-100 text-red-800";
+                            } else if (timeAllotted < 6) {
+                              priorityLabel = "Medium";
+                              priorityColor = "bg-yellow-100 text-yellow-800";
+                            }
+
+                            return (
                               <div
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: task.color }}
-                              />
-                              {task.title}
-                            </div>
-                          ))}
+                                key={task.id}
+                                className="flex justify-between items-center bg-white border-b px-3 py-2"
+                              >
+                                <div>
+                                  <div className="text-sm font-medium text-gray-800">{task.title}</div>
+                                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                                    <span>{timeSpent}h / {timeAllotted}h</span>
+                                    <span>•</span>
+                                    <span>{progressPercent}%</span>
+                                  </div>
+                                </div>
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${priorityColor}`}>
+                                  {priorityLabel}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </motion.div>
                     )}
@@ -1149,6 +1235,7 @@ const GoalsPage = () => {
                 </div>
               );
             })}
+
           </div>
         </div>
         {/* Selected Task Todo Section */}
@@ -1987,21 +2074,54 @@ const GoalsPage = () => {
           </div>
         </div>
 
-        <div className="border-t pt-4">
-          {/* 📅 Upcoming */}
-          <h3 className="text-sm font-semibold text-gray-800 mb-3">Upcoming</h3>
-          <ul className="space-y-3">
-            {[
-              { title: "Research Story ideas", date: "14th July 2025", time: "12:00 PM" },
-              { title: "Reflect on goals", date: "15th July 2025", time: "10:00 AM" },
-              { title: "UX Workshop", date: "16th July 2025", time: "3:30 PM" }
-            ].map((item, i) => (
-              <li key={i} className="border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition">
-                <p className="text-sm font-medium text-gray-800">{item.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{item.date} • {item.time}</p>
-              </li>
-            ))}
-          </ul>
+        {/* Upcoming Actions Section */}
+        <div className="bg-white rounded-lg shadow p-4 h-full overflow-y-auto">
+          <h2 className="text-lg font-semibold mb-3 text-black">Upcoming Actions</h2>
+
+          {allActions && Object.keys(allActions).length > 0 ? (
+            <div className="space-y-6">
+              {Object.entries(allActions).map(([goalId, actions]: [string, any[]]) => {
+                const upcoming = actions.filter(
+                  (a) => !a.validity_flag || a.validity_flag === "valid"
+                );
+
+                if (upcoming.length === 0) return null;
+
+                return (
+                  <div key={goalId}>
+                    
+                    <div className="space-y-3">
+                      {upcoming.map((action, idx) => {
+                        const dateStr = action.by_datetime_value
+                          ? new Date(action.by_datetime_value).toLocaleString()
+                          : new Date(action.action_timestamp).toLocaleString();
+
+                        return (
+                          <div
+                            key={idx}
+                            className="border rounded-lg p-3 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-medium text-gray-900">{action.name}</div>
+                              <div className="text-xs text-gray-500">{dateStr}</div>
+                              <div className="text-xs text-gray-400">
+                                {action.duration_value} min
+                              </div>
+                            </div>
+                            <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-800">
+                              Upcoming
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No upcoming actions</p>
+          )}
         </div>
       </div>
 
