@@ -138,6 +138,13 @@ const GoalsPage = () => {
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [goalProgress, setGoalProgress] = useState<Record<string, any>>({});
   const [taskProgressMap, setTaskProgressMap] = useState<Record<string, Record<string, any>>>({});
+  const [currentMapStats, setcurrentMapStats] = useState({
+    average: 0,
+    daily_breakdown: [],
+    peak: 0,
+    total_hours: 0,
+    weekly_breakdown: null,
+  });
 
   const fetchTaskProgress = async (goalId: string) => {
     try {
@@ -154,6 +161,21 @@ const GoalsPage = () => {
       });
       const data = await res.json();
       setTaskProgressMap(prev => ({ ...prev, [goalId]: data || {} }));
+      const response = await fetch('https://meseer.com/dog/get-timely-stats', {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${getUserToken()}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          flag: 2,
+          goal_id: goalId,
+          task_id: 0
+        })
+      });
+      const stats = await response.json();
+      console.log(stats);
+      setcurrentMapStats(stats);
     } catch (err) {
       console.error(`Task progress fetch failed for goal ${goalId}:`, err);
     }
@@ -275,6 +297,21 @@ const GoalsPage = () => {
       };
 
       setSelectedTaskTodo(finalTodo);
+      const response = await fetch('https://meseer.com/dog/get-timely-stats', {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${getUserToken()}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          flag: 1,
+          goal_id: 0,
+          task_id: taskId
+        })
+      });
+      const stats = await response.json();
+      console.log(stats);
+      setcurrentMapStats(stats);
     } catch (err) {
       console.error("Error fetching todo or content:", err);
       setSelectedTaskTodo({
@@ -478,7 +515,6 @@ const GoalsPage = () => {
       const allTaskIds = filteredGoals.flatMap(goal => goal.tasks.map(task => task.id));
       const actionsMap = await fetchActionsForTasks(allTaskIds, userId, token);
       setAllActions(actionsMap);
-      console.log(actionsMap);
 
       // Dispatch goals directly
       filteredGoals.forEach(g => dispatch(addGoal(g)));
@@ -1212,7 +1248,10 @@ const GoalsPage = () => {
                             return (
                               <div
                                 key={task.id}
-                                className="flex justify-between items-center bg-white border-b px-3 py-2"
+                                className={`text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-gray-100 font-medium rounded' : ''
+                                  }`}
+                                draggable
+                                onClick={() => handleTaskClick(task.id)}
                               >
                                 <div>
                                   <div className="text-sm font-medium text-gray-800">{task.title}</div>
@@ -2057,19 +2096,19 @@ const GoalsPage = () => {
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
             <div>
               <p className="text-xs text-gray-500">Total</p>
-              <p className="font-semibold">35h</p>
+              <p className="font-semibold">{currentMapStats?.total_hours || 0}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Average</p>
-              <p className="font-semibold">5.5h</p>
+              <p className="font-semibold">{currentMapStats?.average || 0}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Peak</p>
-              <p className="font-semibold">6h</p>
+              <p className="font-semibold">{currentMapStats?.peak || 0}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Avg. Effort</p>
-              <p className="font-semibold">2.5</p>
+              <p className="font-semibold">{currentMapStats?.average || 0}</p>
             </div>
           </div>
         </div>
@@ -2089,7 +2128,7 @@ const GoalsPage = () => {
 
                 return (
                   <div key={goalId}>
-                    
+
                     <div className="space-y-3">
                       {upcoming.map((action, idx) => {
                         const dateStr = action.by_datetime_value
