@@ -101,6 +101,18 @@ interface Todo {
   contents?: TodoContent[];
 }
 
+interface DailyBreakdownItem {
+  date: string;
+  hour_spent: number;
+}
+
+interface MapStats {
+  average: number;
+  daily_breakdown: DailyBreakdownItem[];
+  peak: number;
+  total_hours: number;
+  weekly_breakdown: any; // or define a type if needed
+}
 const GoalsPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -138,13 +150,14 @@ const GoalsPage = () => {
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [goalProgress, setGoalProgress] = useState<Record<string, any>>({});
   const [taskProgressMap, setTaskProgressMap] = useState<Record<string, Record<string, any>>>({});
-  const [currentMapStats, setcurrentMapStats] = useState({
+  const [currentMapStats, setcurrentMapStats] = useState<MapStats>({
     average: 0,
     daily_breakdown: [],
     peak: 0,
     total_hours: 0,
     weekly_breakdown: null,
   });
+  const [currentViewName, setCurrentViewName] = useState<string>("All Goals");
 
   const fetchTaskProgress = async (goalId: string) => {
     try {
@@ -174,8 +187,7 @@ const GoalsPage = () => {
         })
       });
       const stats = await response.json();
-      console.log(stats);
-      setcurrentMapStats(stats);
+      setcurrentMapStats(normalizeDailyBreakdown(stats));
     } catch (err) {
       console.error(`Task progress fetch failed for goal ${goalId}:`, err);
     }
@@ -197,6 +209,7 @@ const GoalsPage = () => {
         });
         const data = await res.json();
         // API returns something like { "314": { progress: 25, ... }, "315": { ... } }
+        setCurrentViewName("All Goals");
         setGoalProgress(data || {});
       } catch (err) {
         console.error("Progress fetch failed:", err);
@@ -205,6 +218,32 @@ const GoalsPage = () => {
     fetchProgress();
   }, []);
 
+  useEffect(() => {
+    const fetchAllGoalsStats = async () => {
+      try {
+        const res = await fetch(`https://meseer.com/dog/get-timely-stats`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${getUserToken()}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            flag: 4,
+            goal_id: 0,
+            task_id: 0
+          })
+        });
+
+        if (!res.ok) throw new Error(`Stats fetch failed: ${res.status}`);
+        const stats = await res.json();
+        setcurrentMapStats(normalizeDailyBreakdown(stats)); // this updates the graph
+      } catch (err) {
+        console.error("Failed to fetch all goals stats:", err);
+      }
+    };
+
+    fetchAllGoalsStats();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -310,8 +349,7 @@ const GoalsPage = () => {
         })
       });
       const stats = await response.json();
-      console.log(stats);
-      setcurrentMapStats(stats);
+      setcurrentMapStats(normalizeDailyBreakdown(stats));
     } catch (err) {
       console.error("Error fetching todo or content:", err);
       setSelectedTaskTodo({
@@ -1161,6 +1199,30 @@ const GoalsPage = () => {
     });
   }
 
+  const normalizeDailyBreakdown = (data: any) => {
+    // Make a date map from API
+    const map = new Map(
+      (data.daily_breakdown || []).map((item: any) => [item.date, item.hour_spent])
+    );
+
+    const today = new Date();
+    const past7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const formatted = d.toLocaleDateString('en-GB').split('/').join('-'); // dd-mm-yyyy
+      past7Days.push({
+        date: formatted,
+        hour_spent: map.get(formatted) || 0
+      });
+    }
+
+    return {
+      ...data,
+      daily_breakdown: past7Days
+    };
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -1190,6 +1252,7 @@ const GoalsPage = () => {
                           ? prev.filter(id => id !== goal.id)
                           : [...prev, goal.id]
                       );
+                      setCurrentViewName(goal.title);
                       fetchTaskProgress(goal.id);
                     }
                     }
@@ -1251,7 +1314,10 @@ const GoalsPage = () => {
                                 className={`text-sm text-gray-700 py-1 flex items-center gap-2 ${selectedTaskId === task.id ? 'bg-gray-100 font-medium rounded' : ''
                                   }`}
                                 draggable
-                                onClick={() => handleTaskClick(task.id)}
+                                onClick={() => {
+                                  setCurrentViewName(task.title);
+                                  handleTaskClick(task.id);
+                                }}
                               >
                                 <div>
                                   <div className="text-sm font-medium text-gray-800">{task.title}</div>
@@ -2068,49 +2134,32 @@ const GoalsPage = () => {
         {/* 🟦 Header */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Progress Analytics</h2>
-          <p className="text-sm text-gray-500 mt-1">Viewing: <span className="font-medium">All Goals</span></p>
+          <p className="text-sm text-gray-500 mt-1">Viewing: <span className="font-medium">{currentViewName}</span></p>
         </div>
 
-        {/* 📊 Bar Chart */}
-        <div className="space-y-3">
-          <div className="w-full h-32 flex items-end gap-2 bg-gray-50 rounded-xl px-3 py-2 border">
-            {[3, 5, 6, 5.5, 4, 2.5, 2].map((val, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center group relative">
-                {/* 🏷️ Hover Label */}
-                <div className="absolute -top-5 text-xs text-gray-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  {val}h
-                </div>
-
-                {/* 📊 Bar */}
-                <div
-                  className="w-3 rounded-full bg-gradient-to-b from-blue-500 to-blue-400 group-hover:scale-105 transition-transform duration-150"
-                  style={{ height: `${val * 12}px` }}
-                />
-                <span className="text-[10px] text-gray-400 mt-1">{2 + i}/6</span>
+        <div className="w-full h-40 flex items-end justify-between bg-white rounded-xl px-4 py-4 border shadow-sm">
+          {currentMapStats.daily_breakdown.map((day, i) => (
+            <div key={i} className="flex flex-col items-center group relative">
+              {/* Hover Value */}
+              <div className="absolute -top-6 text-xs text-gray-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {day.hour_spent}h
               </div>
-            ))}
-          </div>
 
+              {/* Bar */}
+              <div
+                className="w-6 rounded-t-xl bg-gradient-to-t from-blue-500 to-blue-400 shadow-md group-hover:scale-105 transition-transform duration-200"
+                style={{
+                  height: `${day.hour_spent * 15}px`,
+                  minHeight: "4px"
+                }}
+              />
 
-          {/* 🧠 Summary */}
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-            <div>
-              <p className="text-xs text-gray-500">Total</p>
-              <p className="font-semibold">{currentMapStats?.total_hours || 0}</p>
+              {/* Date Label */}
+              <span className="text-[9px] text-gray-500 mt-2 font-medium">
+                {day.date?.slice(0, 5)}
+              </span>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Average</p>
-              <p className="font-semibold">{currentMapStats?.average || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Peak</p>
-              <p className="font-semibold">{currentMapStats?.peak || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Avg. Effort</p>
-              <p className="font-semibold">{currentMapStats?.average || 0}</p>
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Upcoming Actions Section */}
