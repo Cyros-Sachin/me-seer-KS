@@ -2162,6 +2162,25 @@ const GoalsPage = () => {
           ))}
         </div>
 
+        <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
+            <div>
+              <p className="text-xs text-gray-500">Total</p>
+              <p className="font-semibold">{currentMapStats?.total_hours || 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Average</p>
+              <p className="font-semibold">{currentMapStats?.average || 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Peak</p>
+              <p className="font-semibold">{currentMapStats?.peak || 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Avg. Effort</p>
+              <p className="font-semibold">{currentMapStats?.average || 0}</p>
+            </div>
+          </div>
+
         {/* Upcoming Actions Section */}
         <div className="bg-white rounded-lg shadow p-4 h-full overflow-y-auto">
           <h2 className="text-lg font-semibold mb-3 text-black">Upcoming Actions</h2>
