@@ -9,7 +9,8 @@ import {
   BarChart3,
   Calendar,
   Clock,
-  TrendingUp
+  TrendingUp,
+  ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/ui/tabs';
@@ -20,7 +21,7 @@ import NutritionChart from '../components/dashboard/NutrionChart';
 import WeeklyMeals from '../components/dashboard/WeeklyMeals';
 import NutrientBreakdown from '../components/dashboard/NutrionBreakdown';
 import UpcomingMeals from '../components/dashboard/UpcomingMeals';
-
+import { useRouter } from 'next/navigation';
 const menuItems = [
   { id: 'consume', label: 'Consume', icon: Heart, isActive: true },
   { id: 'fitness', label: 'Fitness', icon: Dumbbell, isActive: false },
@@ -38,12 +39,16 @@ const nutritionStats = [
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overall');
   const [hoveredStat, setHoveredStat] = useState<string | null>(null);
-
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 inline-flex">
+          <ArrowLeft
+            className="w-5 h-5 transform mr-2 cursor-pointer hover:text-gray-600 transition-colors mt-1"
+            onClick={() => router.push('/')}
+          />
           <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
         </div>
 
