@@ -1345,34 +1345,23 @@ const GoalsPage = () => {
         </div>
         {/* Selected Task Todo Section */}
         {selectedTaskTodo && (
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-md font-bold text-gray-900 mb-2">Todos</h3>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-              {/* Todo Header */}
-              <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
-                <span className="font-medium text-sm text-gray-500">{selectedTaskTodo.name}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setMaximizedTodo(selectedTaskTodo)}>
-                    <Maximize2 className='h-4 w-4 text-gray-700' />
-                  </button>
-                  <button
-                    onClick={() => setTodoView(prev =>
-                      prev === 'unchecked' ? 'checked' :
-                        prev === 'checked' ? 'history' : 'unchecked'
-                    )}
-                    className="p-1 text-gray-500 hover:text-blue-600"
-                    title="Change view"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+          <div className="mt-4">
+            {/* Header */}
+            <h2 className="text-base font-semibold text-gray-900">To-do List</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{selectedTaskTodo.name}</p>
 
-              {/* Todo Content */}
-              <div className="max-h-64 overflow-y-auto p-2">
-                {/* Filter tasks based on view */}
+            {/* Todo Container */}
+            <div className="bg-white rounded-md border border-gray-200 mt-2 overflow-hidden">
+              {/* Task List */}
+              <div className="max-h-56 overflow-y-auto px-2 py-1.5 space-y-2">
                 {(() => {
                   const items = selectedTaskTodo?.contents || [];
+                  const filteredItems =
+                    todoView === 'history'
+                      ? items
+                      : items.filter((item) =>
+                        todoView === 'unchecked' ? !item.checked : item.checked
+                      );
 
                   if (todoView === 'history') {
                     const grouped = items.reduce((acc: Record<string, TodoContent[]>, item: TodoContent) => {
@@ -1383,111 +1372,176 @@ const GoalsPage = () => {
                     }, {});
 
                     return Object.entries(grouped).map(([date, tasks]) => (
-                      <div key={date} className="mb-3">
-                        <div className="text-xs text-gray-500 font-medium mb-1">{date}</div>
+                      <div key={date} className="mb-2">
+                        <div className="text-[10px] text-gray-500 font-medium mb-0.5">{date}</div>
                         {tasks.map((task) => (
-                          <div key={task.tc_id} className="flex items-center gap-2 p-1 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={task.checked}
-                              onChange={() => handleToggleCheck(task.tc_id)}
-                              className="h-3 w-3"
-                            />
-                            <span className={`text-gray-600 ${task.checked ? 'line-through text-gray-400' : ''}`}>
-                              {task.content}
-                            </span>
-                          </div>
+                          <label
+                            key={task.tc_id}
+                            className="group flex items-center justify-between py-0.5 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={task.checked}
+                                onChange={() => handleToggleCheck(task.tc_id)}
+                                className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span
+                                className={`${task.checked ? 'line-through text-gray-400' : 'text-gray-700'} text-xs`}
+                              >
+                                {task.content}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteTask(task.tc_id)}
+                              className="text-gray-400 hover:text-red-500 text-[10px] opacity-0 group-hover:opacity-100 transition"
+                            >
+                              ×
+                            </button>
+                          </label>
                         ))}
                       </div>
                     ));
                   } else {
-                    return items
-                      .filter((item) => todoView === 'unchecked' ? !item.checked : item.checked)
-                      .map((item) => (
-                        <div key={item.tc_id} className="flex items-center justify-between p-1 text-sm">
-                          <div className="flex items-center gap-2">
+                    return filteredItems.map((item) => (
+                      <div
+                        key={item.tc_id}
+                        className="group flex items-center justify-between py-0.5"
+                      >
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => handleToggleCheck(item.tc_id)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          {editingTaskId === item.tc_id ? (
                             <input
-                              type="checkbox"
-                              checked={item.checked}
-                              onChange={() => handleToggleCheck(item.tc_id)}
-                              className="h-3 w-3"
-                            />
-                            {editingTaskId === item.tc_id ? (
-                              <input
-                                type="text"
-                                value={editingTaskContent}
-                                onChange={(e) => setEditingTaskContent(e.target.value)}
-                                onBlur={() => {
+                              type="text"
+                              value={editingTaskContent}
+                              onChange={(e) => setEditingTaskContent(e.target.value)}
+                              onBlur={() => {
+                                if (editingTaskContent.trim() && editingTaskContent !== item.content) {
+                                  updateCheckStatus({ ...item, content: editingTaskContent });
+                                }
+                                setEditingTaskId(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
                                   if (editingTaskContent.trim() && editingTaskContent !== item.content) {
                                     updateCheckStatus({ ...item, content: editingTaskContent });
                                   }
                                   setEditingTaskId(null);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    if (editingTaskContent.trim() && editingTaskContent !== item.content) {
-                                      updateCheckStatus({ ...item, content: editingTaskContent });
-                                    }
-                                    setEditingTaskId(null);
-                                  } else if (e.key === 'Escape') {
-                                    setEditingTaskId(null);
-                                  }
-                                }}
-                                className="text-sm border-b border-gray-300 focus:outline-none w-full"
-                                autoFocus
-                              />
-                            ) : (
-                              <span
-                                className={`cursor-pointer text-gray-600 ${item.checked ? 'line-through text-gray-400' : ''}`}
-                                onClick={() => {
-                                  setEditingTaskId(item.tc_id);
-                                  setEditingTaskContent(item.content);
-                                }}
-                              >
-                                {item.content}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleDeleteTask(item.tc_id)}
-                            className="text-red-400 hover:text-red-600 text-xs"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ));
+                                } else if (e.key === 'Escape') {
+                                  setEditingTaskId(null);
+                                }
+                              }}
+                              className="text-xs border-b border-gray-300 focus:outline-none w-full"
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className={`${item.checked ? 'line-through text-gray-400' : 'text-gray-700'} text-xs`}
+                              onClick={() => {
+                                setEditingTaskId(item.tc_id);
+                                setEditingTaskContent(item.content);
+                              }}
+                            >
+                              {item.content}
+                            </span>
+                          )}
+                        </label>
+                        <button
+                          onClick={() => handleDeleteTask(item.tc_id)}
+                          className="text-gray-400 hover:text-red-500 text-[10px] opacity-0 group-hover:opacity-100 transition"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ));
                   }
                 })()}
 
-                {/* Add new task input */}
-                {newTaskContent !== null && (
-                  <div className="p-1">
-                    <input
-                      type="text"
-                      value={newTaskContent}
-                      onChange={(e) => setNewTaskContent(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddTask();
-                        } else if (e.key === 'Escape') {
-                          setNewTaskContent("");
-                        }
-                      }}
-                      placeholder="Add task and press Enter"
-                      className="w-full text-sm text-gray-600 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
+                {/* Add task */}
+                <div className="flex gap-1 mt-1">
+                  <input
+                    type="text"
+                    value={newTaskContent || ''}
+                    onChange={(e) => setNewTaskContent(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddTask();
+                    }}
+                    placeholder="Add Task"
+                    className="w-40 text-black text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleAddTask}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                  >
+                    Add
+                  </button>
+                </div>
+
               </div>
 
-              {/* Todo Footer */}
-              <div className="px-3 py-1 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
-                <span>{todoView} view</span>
-                <span>{selectedTaskTodo.refresh_type}</span>
+              {/* Footer */}
+              <div className="px-2 py-1 bg-gray-50 border-t text-[10px] text-gray-500 flex justify-between items-center">
+                <div className="flex gap-1 items-center">
+                  <button className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
+                    Monthly
+                  </button>
+                </div>
+                <div className="flex gap-0.5 text-black">
+                  <button
+                    onClick={() =>
+                      setTodoView((prev) =>
+                        prev === 'unchecked'
+                          ? 'checked'
+                          : prev === 'checked'
+                            ? 'history'
+                            : 'unchecked'
+                      )
+                    }
+                    className="p-0.5 hover:text-blue-600"
+                    title="Previous view"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span>
+                    {todoView === 'unchecked'
+                      ? 'Pending Tasks'
+                      : todoView === 'checked'
+                        ? 'Completed Tasks'
+                        : 'Task History'}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setTodoView((prev) =>
+                        prev === 'unchecked'
+                          ? 'checked'
+                          : prev === 'checked'
+                            ? 'history'
+                            : 'unchecked'
+                      )
+                    }
+                    className="p-0.5 hover:text-blue-600"
+                    title="Next view"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+                <button onClick={() => setMaximizedTodo(selectedTaskTodo)}>
+                  <Maximize2 className='h-4 w-4 text-gray-700' />
+                </button>
               </div>
             </div>
           </div>
         )}
+
       </div>
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -2162,24 +2216,24 @@ const GoalsPage = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-            <div>
-              <p className="text-xs text-gray-500">Total</p>
-              <p className="font-semibold">{currentMapStats?.total_hours || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Average</p>
-              <p className="font-semibold">{currentMapStats?.average || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Peak</p>
-              <p className="font-semibold">{currentMapStats?.peak || 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Avg. Effort</p>
-              <p className="font-semibold">{currentMapStats?.average || 0}</p>
-            </div>
+        <div className="grid grid-cols-3 gap-4 text-sm text-gray-700">
+          <div>
+            <p className="font-semibold text-xl">{currentMapStats?.total_hours || 0}</p>
+            <p className="text-md text-gray-500">Total</p>
           </div>
+          <div>
+            <p className="font-semibold text-xl">{currentMapStats?.average || 0}</p>
+            <p className="text-md text-gray-500">Average</p>
+          </div>
+          <div>
+            <p className="font-semibold text-xl">{currentMapStats?.peak || 0}</p>
+            <p className="text-md text-gray-500">Peak</p>
+          </div>
+        </div>
+        <div className='inline-flex gap-20'>
+          <p className="text-md text-gray-500">Avg. Effort</p>
+          <p className="font-semibold text-xl text-black">{currentMapStats?.average || 0}</p>
+        </div>
 
         {/* Upcoming Actions Section */}
         <div className="bg-white rounded-lg shadow p-4 h-full overflow-y-auto">
@@ -2595,156 +2649,206 @@ const GoalsPage = () => {
       </AnimatePresence>
 
       {maximizedTodo && (
-        <div className="fixed inset-0 z-50 bg-opacity-10 backdrop-blur-xs flex justify-center items-center">
-          <div className="bg-white p-4 rounded-md shadow-lg max-w-2xl w-full max-h-[80vh] overflow-auto relative">
-            {/* Close and View Switch */}
+        <div className="fixed inset-0 z-50 flex justify-center backdrop-brightness-50 items-center bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[85vh] overflow-auto relative p-5">
+
+            {/* Close & View Switch */}
             <button
-              className="absolute top-2 right-5 text-gray-500 hover:text-black"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
               onClick={() => setMaximizedTodo(null)}
             >
-              ❌
-            </button>
-            <button
-              onClick={() =>
-                setTodoView((prev) =>
-                  prev === "unchecked" ? "checked" : prev === "checked" ? "history" : "unchecked"
-                )
-              }
-              className="absolute top-3 right-16 text-gray-500 hover:text-blue-600"
-              title="Change view"
-            >
-              <Eye className="h-5 w-5" />
+              ✕
             </button>
 
             {/* Title */}
-            <h2 className="text-xl font-bold mb-4 text-black">{maximizedTodo.name}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">To-do List</h2>
+            <p className="text-sm text-gray-500 mb-4">{maximizedTodo.name}</p>
 
             {/* Task List */}
-            {(() => {
-              const items = maximizedTodo.contents ?? [];
-
-              if (todoView === "history") {
-                const grouped = items.reduce((acc: Record<string, TodoContent[]>, item) => {
-                  const date = new Date(item.last_updated || "").toLocaleDateString();
-                  if (!acc[date]) acc[date] = [];
-                  acc[date].push(item);
-                  return acc;
-                }, {});
-
-                return Object.entries(grouped).map(([date, tasks]) => (
-                  <div key={date} className="mb-4">
-                    <div className="text-xs text-gray-500 font-medium mb-1">{date}</div>
-                    {tasks.map((item) => (
-                      <div key={item.tc_id} className="flex items-center gap-2 p-1 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={() => handleToggleCheck(item.tc_id)}
-                          className="h-3 w-3"
-                        />
-                        <span
-                          className={`text-gray-600 ${item.checked ? "line-through text-gray-400" : ""}`}
+            <div className="space-y-2">
+              {(() => {
+                const items = maximizedTodo.contents ?? [];
+                if (todoView === "history") {
+                  const grouped = items.reduce((acc: Record<string, TodoContent[]>, item) => {
+                    const date = new Date(item.last_updated || "").toLocaleDateString();
+                    if (!acc[date]) acc[date] = [];
+                    acc[date].push(item);
+                    return acc;
+                  }, {});
+                  return Object.entries(grouped).map(([date, tasks]) => (
+                    <div key={date}>
+                      <div className="text-[10px] text-gray-500 font-medium mb-0.5">{date}</div>
+                      {tasks.map((task) => (
+                        <div
+                          key={task.tc_id}
+                          className="group flex items-center justify-between px-3 py-2 rounded-md bg-gray-50 hover:bg-gray-100 transition"
                         >
-                          {item.content}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ));
-              } else {
-                return items
-                  .filter((item) => (todoView === "unchecked" ? !item.checked : item.checked))
-                  .map((item) => (
-                    <div key={item.tc_id} className="flex items-center justify-between p-1 text-sm">
-                      <div className="flex items-center gap-2 w-full">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={() => handleToggleCheck(item.tc_id)}
-                          className="h-3 w-3"
-                        />
-                        {editingTaskId === item.tc_id ? (
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={task.checked}
+                              onChange={() => handleToggleCheck(task.tc_id)}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span
+                              className={`text-sm ${task.checked ? "line-through text-gray-400" : "text-gray-700"
+                                }`}
+                            >
+                              {task.content}
+                            </span>
+                          </label>
+                          <button
+                            onClick={() => handleDeleteContent(task.tc_id)}
+                            className="text-gray-400 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 transition"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ));
+                } else {
+                  return items
+                    .filter((item) => (todoView === "unchecked" ? !item.checked : item.checked))
+                    .map((item) => (
+                      <div
+                        key={item.tc_id}
+                        className="group flex items-center justify-between px-3 py-2 rounded-md bg-gray-50 hover:bg-gray-100 transition"
+                      >
+                        <div className="flex items-center gap-2 w-full">
                           <input
-                            type="text"
-                            value={editingTaskContent}
-                            onChange={(e) => setEditingTaskContent(e.target.value)}
-                            onBlur={() => {
-                              if (
-                                editingTaskContent.trim() &&
-                                editingTaskContent !== item.content
-                              ) {
-                                updateCheckStatus({
-                                  ...item,
-                                  content: editingTaskContent,
-                                });
-                              }
-                              setEditingTaskId(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => handleToggleCheck(item.tc_id)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          {editingTaskId === item.tc_id ? (
+                            <input
+                              type="text"
+                              value={editingTaskContent}
+                              onChange={(e) => setEditingTaskContent(e.target.value)}
+                              onBlur={() => {
                                 if (
                                   editingTaskContent.trim() &&
                                   editingTaskContent !== item.content
                                 ) {
-                                  updateCheckStatus({
-                                    ...item,
-                                    content: editingTaskContent,
-                                  });
+                                  updateCheckStatus({ ...item, content: editingTaskContent });
                                 }
                                 setEditingTaskId(null);
-                              } else if (e.key === "Escape") {
-                                setEditingTaskId(null);
-                              }
-                            }}
-                            className="text-sm border-b border-gray-300 focus:outline-none w-full"
-                            autoFocus
-                          />
-                        ) : (
-                          <span
-                            className={`cursor-pointer text-gray-600 ${item.checked ? "line-through text-gray-400" : ""
-                              }`}
-                            onClick={() => {
-                              setEditingTaskId(item.tc_id);
-                              setEditingTaskContent(item.content);
-                            }}
-                          >
-                            {item.content}
-                          </span>
-                        )}
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  if (
+                                    editingTaskContent.trim() &&
+                                    editingTaskContent !== item.content
+                                  ) {
+                                    updateCheckStatus({ ...item, content: editingTaskContent });
+                                  }
+                                  setEditingTaskId(null);
+                                } else if (e.key === "Escape") {
+                                  setEditingTaskId(null);
+                                }
+                              }}
+                              className="text-sm border-b border-gray-300 focus:outline-none w-full"
+                              autoFocus
+                            />
+                          ) : (
+                            <span
+                              className={`cursor-pointer text-sm ${item.checked ? "line-through text-gray-400" : "text-gray-700"
+                                }`}
+                              onClick={() => {
+                                setEditingTaskId(item.tc_id);
+                                setEditingTaskContent(item.content);
+                              }}
+                            >
+                              {item.content}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteContent(item.tc_id)}
+                          className="text-gray-400 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 transition"
+                        >
+                          ×
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleDeleteContent(item.tc_id)}
-                        className="text-red-400 hover:text-red-600 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ));
-              }
-            })()}
+                    ));
+                }
+              })()}
+            </div>
 
-            {/* Add New Task */}
-            {todoView === 'unchecked' && (
-              <div className="mt-6 flex gap-2">
+            {/* Add Task */}
+            {todoView === "unchecked" && (
+              <div className="flex gap-2 mt-4 p-2 bg-gray-100 rounded-md">
                 <input
                   value={newTaskContent}
                   onChange={(e) => setNewTaskContent(e.target.value)}
-                  className="border px-2 py-1 w-full rounded text-gray-800"
-                  placeholder="Add a new task"
+                  placeholder="Add Task"
+                  className="flex-1 border text-black rounded-md px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-200"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAddTask();
                     else if (e.key === "Escape") setNewTaskContent("");
                   }}
                 />
-
+                <button
+                  onClick={handleAddTask}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
+                >
+                  Add
+                </button>
               </div>
             )}
 
-
             {/* Footer */}
-            <div className="flex justify-between text-xs text-gray-500 mt-4 border-t pt-2">
-              <span>{todoView} view</span>
-              <span>{maximizedTodo.refresh_type}</span>
+            <div className="flex justify-between items-center mt-5 text-xs text-gray-500 border-t pt-3">
+              <div className="flex gap-1 items-center">
+                <button className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
+                  {maximizedTodo.refresh_type}
+                </button>
+              </div>
+              <div className="flex gap-0.5 text-black">
+                <button
+                  onClick={() =>
+                    setTodoView((prev) =>
+                      prev === 'unchecked'
+                        ? 'checked'
+                        : prev === 'checked'
+                          ? 'history'
+                          : 'unchecked'
+                    )
+                  }
+                  className="p-0.5 hover:text-blue-600"
+                  title="Previous view"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span>
+                  {todoView === 'unchecked'
+                    ? 'Pending Tasks'
+                    : todoView === 'checked'
+                      ? 'Completed Tasks'
+                      : 'Task History'}
+                </span>
+                <button
+                  onClick={() =>
+                    setTodoView((prev) =>
+                      prev === 'unchecked'
+                        ? 'checked'
+                        : prev === 'checked'
+                          ? 'history'
+                          : 'unchecked'
+                    )
+                  }
+                  className="p-0.5 hover:text-blue-600"
+                  title="Next view"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
