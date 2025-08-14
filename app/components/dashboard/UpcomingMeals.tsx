@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/ui/card';
-import { Badge } from '../ui/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { Clock, Utensils } from 'lucide-react';
 
 const upcomingMeals = [

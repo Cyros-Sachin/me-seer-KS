@@ -1,6 +1,5 @@
 import axios from "axios";
 // ✅ Import from the actual Redux slice
-import type { Event as CalendarEvent } from '@/app/features/calendar/calendarSlice';
 
 const BASE_URL = "https://meseer.com";
 

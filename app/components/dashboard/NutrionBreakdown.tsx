@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Flame } from 'lucide-react';
 

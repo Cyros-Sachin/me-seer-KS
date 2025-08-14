@@ -12,11 +12,9 @@ import {
   TrendingUp,
   ArrowLeft
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/ui/tabs';
-import { Progress } from '../components/ui/ui/progress';
-import { Button } from '../components/ui/ui/button';
-import { Badge } from '../components/ui/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Progress } from '../components/ui/progress';
 import NutritionChart from '../components/dashboard/NutrionChart';
 import WeeklyMeals from '../components/dashboard/WeeklyMeals';
 import NutrientBreakdown from '../components/dashboard/NutrionBreakdown';
