@@ -30,6 +30,7 @@
     "@tiptap/react": "^2.14.0",
     "@tiptap/starter-kit": "^2.14.0",
     "axios": "^1.9.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "debounce": "^2.2.0",
@@ -41,6 +42,7 @@
     "lucide-react": "^0.513.0",
     "next": "15.3.3",
     "next-auth": "^4.24.11",
+    "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-calendar": "^6.0.0",
     "react-datepicker": "^8.4.0",
@@ -51,6 +53,7 @@
     "react-router-dom": "^7.6.2",
     "react-speech-recognition": "^4.0.1",
     "react-toastify": "^11.0.5",
+    "recharts": "^3.1.2",
     "zod": "^3.25.67"
   },
   "devDependencies": {
