@@ -26,6 +26,8 @@ import {
 } from "../lib/api"; // Adjust path if needed
 import { Calendar as ReactCalendar } from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; // still needed
+import { Action } from '@reduxjs/toolkit';
+import React from 'react';
 
 type ViewMode = 'day' | 'week' | 'month';
 type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
@@ -62,6 +64,8 @@ interface TaskAction {
   cat_qty_id4?: any[];
   cat_qty_id5?: any[];
   cat_qty_id6?: any[];
+  start?: string;
+  end?: string;
 }
 
 export interface Task {
@@ -113,6 +117,24 @@ interface MapStats {
   total_hours: number;
   weekly_breakdown: any; // or define a type if needed
 }
+// at the top of the component
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  color: string;
+  repeat?: string;
+  allDay: boolean;
+  goalId?: string | number;
+  taskId?: string;
+  ua_id?: string | number;
+  action_id?: string | number;
+  isaction_log?: boolean;
+  action_log_id?: string | number;
+};
+
+
 const GoalsPage = () => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -158,6 +180,118 @@ const GoalsPage = () => {
     weekly_breakdown: null,
   });
   const [currentViewName, setCurrentViewName] = useState<string>("All Goals");
+  const [draggedAction, setDraggedAction] = useState<Event | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ day: Date; time: Date } | null>(null);
+  const [showSavePopup, setShowSavePopup] = useState(false);
+  const [draggingActionId, setDraggingActionId] = React.useState<string | null>(null);
+
+  // Handle drop
+  const handleActionDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+    day: Date,
+    time: Date
+  ) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("application/x-calendar-action");
+    if (!data) return;
+
+    const draggedEvent = JSON.parse(data) as CalendarEvent;
+
+    // ✅ Snap start to nearest slot
+    const snappedStart = new Date(day);
+    snappedStart.setHours(time.getHours(), time.getMinutes(), 0, 0);
+
+    // ✅ Keep same duration
+    const duration =
+      (new Date(draggedEvent.end).getTime() -
+        new Date(draggedEvent.start).getTime()) /
+      60000;
+    const snappedEnd = new Date(snappedStart);
+    snappedEnd.setMinutes(snappedEnd.getMinutes() + duration);
+
+    // 🐞 Log full updated payload
+    const updatedPayload: Event = {
+      id: draggedEvent.id,
+      title: draggedEvent.title,
+      start: toLocalDateTimeInputValue(snappedStart.toISOString()),
+      end: toLocalDateTimeInputValue(snappedEnd.toISOString()),
+      color: draggedEvent.color,
+      repeat: draggedEvent.repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'once' | undefined,
+      allDay: false,
+      goalId: draggedEvent.goalId ? draggedEvent.goalId.toString() : undefined,
+      taskId: draggedEvent.taskId ? draggedEvent.taskId.toString() : undefined,
+      ua_id: draggedEvent.ua_id ? draggedEvent.ua_id.toString() : undefined,
+      action_id: draggedEvent.action_id ? Number(draggedEvent.action_id) : undefined,
+      isaction_log: draggedEvent.isaction_log,
+      action_log_id: draggedEvent.action_log_id ? Number(draggedEvent.action_log_id) : undefined
+    };
+    setCurrentEvent(updatedPayload);
+    // console.log(updatedPayload);
+    handleEventSave();
+    setShowSavePopup(true);
+  };
+
+  // Confirm save
+  const confirmDragSave = () => {
+    if (!draggedAction || !dropTarget) return;
+
+    const start = new Date(dropTarget.day);
+    start.setHours(dropTarget.time.getHours(), dropTarget.time.getMinutes());
+    const end = new Date(start);
+    const duration = (new Date(draggedAction.end || "").getTime() - new Date(draggedAction.start || "").getTime()) / 60000;
+    end.setMinutes(end.getMinutes() + duration);
+
+    console.log(draggedAction, start.toISOString(), end.toISOString());
+
+    handleEventSave(); // your existing update function
+    setDraggedAction(null);
+    setDropTarget(null);
+    setShowSavePopup(false);
+  };
+
+  // Cancel move
+  const cancelDragSave = () => {
+    setDraggedAction(null);
+    setDropTarget(null);
+    setShowSavePopup(false);
+  };
+
+  const handleActionDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    actionEvent: CalendarEvent
+  ) => {
+    setDraggingActionId(actionEvent.id);
+
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/x-calendar-action", JSON.stringify(actionEvent));
+
+    // ✅ Create ghost element
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+    ghost.style.position = "absolute";
+    ghost.style.top = `${e.currentTarget.getBoundingClientRect().top}px`;
+    ghost.style.left = `${e.currentTarget.getBoundingClientRect().left}px`;
+    ghost.style.width = `${e.currentTarget.offsetWidth}px`;
+    ghost.style.height = `${e.currentTarget.offsetHeight}px`;
+    ghost.style.pointerEvents = "none";
+    ghost.style.opacity = "0.8";
+    ghost.style.transform = "scale(1.02)";
+    ghost.style.zIndex = "9999";
+
+    document.body.appendChild(ghost);
+
+    // Force browser to use this ghost instead of default
+    e.dataTransfer.setDragImage(ghost, e.currentTarget.offsetWidth / 2, e.currentTarget.offsetHeight / 2);
+
+    // Remove the ghost after snapshot (instant remove but browser still uses cached image)
+    setTimeout(() => {
+      try { document.body.removeChild(ghost); } catch { }
+    }, 0);
+  };
+
+  const handleActionDragEnd = () => {
+    setDraggingActionId(null);
+  };
+
 
   const fetchTaskProgress = async (goalId: string) => {
     try {
@@ -840,7 +974,7 @@ const GoalsPage = () => {
 
     if (isUpdate || currentEvent.isaction_log) {
       payload.action = "UPDATE";
-      payload.ua_id = currentEvent.ua_id;
+      payload.ua_id = Number(currentEvent.ua_id);
     }
     if (currentEvent.isaction_log) {
       payload.cat_qty_id1 = currentEvent.action_log_id;
@@ -935,6 +1069,8 @@ const GoalsPage = () => {
         },
         body: JSON.stringify(payload),
       });
+      console.log(payload);
+      console.log(endpoint);
 
       setShowEventModal(false);
       await reload();
@@ -970,7 +1106,7 @@ const GoalsPage = () => {
         },
         body: JSON.stringify(payload),
       });
-
+      await reload();
       setShowEventModal(false);
       setCurrentEvent(null);
     } catch (err) {
@@ -1748,6 +1884,7 @@ const GoalsPage = () => {
                           className="h-12 border-b relative"
                           onClick={() => handleTimeSlotClick(time, day)}
                           onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => handleActionDrop(e, day, time)}
                         >
                           {slotEvents.filter(event => !event.allDay).map((event) => (
                             <motion.div
@@ -1795,15 +1932,36 @@ const GoalsPage = () => {
                       return (
                         <motion.div
                           key={`action-${index}-${day.toISOString()}`}
-                          className={`
-    absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden
+                          draggable
+                          onDragStartCapture={(e: React.DragEvent<HTMLDivElement>) => {
+                            const evt: CalendarEvent = {
+                              id: `event-${index}-${day.toISOString()}`,
+                              title: action.title,
+                              start: startDate.toISOString(),
+                              end: endDate.toISOString(),
+                              color: action.color,
+                              repeat: action.repeatType,
+                              allDay: false,
+                              goalId: action.goal.id,
+                              taskId: action?.task?.todo_id?.toString(),
+                              ua_id: action.ua_id,
+                              action_id: action.action_id,
+                              isaction_log: action.isaction_log,
+                              action_log_id: action.action_log_id,
+                            };
+                            handleActionDragStart(e, evt);
+                          }}
+                          onDragEnd={handleActionDragEnd}
+                          className={`absolute left-0 right-0 mx-1 p-1 rounded text-xs text-white font-medium overflow-hidden select-none
     ${hoveredTaskId === action.task.id ? 'animate-hoverPulse' : ''}
+    ${draggingActionId === `event-${index}` ? 'opacity-50 scale-[.98] cursor-grabbing' : 'cursor-grab'}
   `}
                           style={{
                             top: `${topOffset}%`,
                             height: `${heightPercent}%`,
                             backgroundColor: action.color,
                             zIndex: 6,
+                            transition: 'transform 120ms ease, opacity 120ms ease',
                           }}
                           onClick={() => {
                             // Convert action data to Event format
@@ -1812,7 +1970,6 @@ const GoalsPage = () => {
                             startDate.setHours(hh, mm, 0, 0);
                             const endDate = new Date(startDate);
                             endDate.setMinutes(startDate.getMinutes() + action.durationMinutes);
-
                             setCurrentEvent({
                               id: `event-${index}`, // or use action.a_id if available
                               title: action.title,

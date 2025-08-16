@@ -31,7 +31,7 @@ export const fetchGoalsAndTasks = async (userId: string, token: string): Promise
           id: task.task_id.toString(),                // Required as string
           collective_id: task.collective_id.toString(),                // Required as string
           title: task.task_name,
-          todo_id : task?.todo_id,
+          todo_id: task?.todo_id,
           goalId: task.goal_id.toString(),            // Required as string
           completed: false,                           // Default value since not in API
           color: getRandomColor(),                    // Generate or inherit from goal
@@ -122,10 +122,21 @@ export const fetchActionsForTasks = async (
         );
 
         if (Array.isArray(res.data)) {
-          allActions.push(...res.data);
+          // Check validity ONLY when the key exists
+          const filtered = res.data.filter(action => {
+            if (action.validity_flag && action.validity_flag === "expired") {
+              return false;
+            }
+            return true;
+          });
+          console.log(filtered);
+          allActions.push(...filtered);
         }
       } catch (err) {
-        console.error(`Failed to fetch actions for task ${taskId} with a_id ${aid}`, err);
+        console.error(
+          `Failed to fetch actions for task ${taskId} with a_id ${aid}`,
+          err
+        );
       }
     }
 
