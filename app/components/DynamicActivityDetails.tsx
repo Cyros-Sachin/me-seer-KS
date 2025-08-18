@@ -420,22 +420,36 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           ...payload,
           flag: getFlagByAID(item.a_id),
           cat_qty_id1: item.cat_qty_id1 ?? null,
-          cat_qty_id2: Array.isArray(item.cat_qty_id2)
-            ? item.cat_qty_id2.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
-            : item.cat_qty_id2 ?? null,
+          cat_qty_id2:
+            Number(editedValues.unit2) ||
+            (Array.isArray(item.cat_qty_id2)
+              ? item.cat_qty_id2.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+              : item.cat_qty_id2 ?? null),
+
           cat_qty_id3:
-            item.a_id === 9
-              ? Number(editedValues.unit3) || item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id || null
-              : item.cat_qty_id3?.find((u) => u?.Selected)?.unit_id ?? null,
-          cat_qty_id4: Array.isArray(item.cat_qty_id4)
-            ? item.cat_qty_id4.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
-            : item.cat_qty_id4 ?? null,
-          cat_qty_id5: Array.isArray(item.cat_qty_id5)
-            ? item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
-            : item.cat_qty_id5 ?? null,
-          cat_qty_id6: Array.isArray(item.cat_qty_id6)
-            ? item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
-            : item.cat_qty_id6 ?? null,
+            Number(editedValues.unit3) ||
+            (Array.isArray(item.cat_qty_id3)
+              ? item.cat_qty_id3.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+              : item.cat_qty_id3 ?? null),
+
+          cat_qty_id4:
+            Number(editedValues.unit4) ||
+            (Array.isArray(item.cat_qty_id4)
+              ? item.cat_qty_id4.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+              : item.cat_qty_id4 ?? null),
+
+          cat_qty_id5:
+            Number(editedValues.unit5) ||
+            (Array.isArray(item.cat_qty_id5)
+              ? item.cat_qty_id5.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+              : item.cat_qty_id5 ?? null),
+
+          cat_qty_id6:
+            Number(editedValues.unit6) ||
+            (Array.isArray(item.cat_qty_id6)
+              ? item.cat_qty_id6.find((u: any) => u?.Selected || u?.flag === "selected")?.unit_id ?? null
+              : item.cat_qty_id6 ?? null),
+
           value1: editedValues.value1 ?? item.value1 ?? "",
           value2: editedValues.value2 ?? item.value2 ?? "",
           value3: editedValues.value3 ?? item.value3 ?? "",
@@ -577,6 +591,7 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           }
         }
       }
+      // console.log(payload);
       await updatePrimaryMWBData(payload);
       setEditingItemId(null);
       await fetchAll();

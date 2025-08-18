@@ -2423,7 +2423,7 @@ const GoalsPage = () => {
                               <div className="font-medium text-gray-900">{action.name}</div>
                               <div className="text-xs text-gray-500">{dateStr}</div>
                               <div className="text-xs text-gray-400">
-                                {action.duration_value} min
+                                {action.duration_value} hour
                               </div>
                             </div>
                             <span className="px-2 py-0.5 text-xs rounded-full font-medium bg-green-100 text-green-800">
