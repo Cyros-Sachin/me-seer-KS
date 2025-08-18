@@ -184,7 +184,7 @@ const GoalsPage = () => {
   const [dropTarget, setDropTarget] = useState<{ day: Date; time: Date } | null>(null);
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [draggingActionId, setDraggingActionId] = React.useState<string | null>(null);
-
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   // Handle drop
   const handleActionDrop = (
     e: React.DragEvent<HTMLDivElement>,
@@ -810,10 +810,12 @@ const GoalsPage = () => {
   const handleTimeSlotClick = (time: Date, day: Date) => {
     const startDate = new Date(day);
     startDate.setHours(time.getHours(), time.getMinutes());
-
+    const selectedGoalObj = goals.find(g => g.id === selectedGoalId);
     const endDate = new Date(startDate);
     endDate.setHours(startDate.getHours() + 1);
     setCurrentEvent({
+      goalId: selectedGoalId || goals[0]?.id || '',
+      taskId: selectedTaskId || selectedGoalObj?.id,
       id: '',
       title: '',
       start: startDate.toISOString(), // ✅ convert to string
@@ -1390,6 +1392,7 @@ const GoalsPage = () => {
                       );
                       setCurrentViewName(goal.title);
                       fetchTaskProgress(goal.id);
+                      setSelectedGoalId(goal.id);
                     }
                     }
                   >
@@ -1799,7 +1802,7 @@ const GoalsPage = () => {
                     const eventDate = new Date(event.start).toDateString();
                     return event.allDay && eventDate === dayStr;
                   });
-
+                  const selectedGoalObj = goals.find(g => g.id === selectedGoalId);
                   return (
                     <div
                       key={dayStr}
@@ -1815,8 +1818,8 @@ const GoalsPage = () => {
 
                         setNewEventData({
                           id: '',
-                          goalId: goals[0]?.id || '',
-                          taskId: goals[0]?.tasks?.[0]?.collective_id || '',
+                          goalId: selectedGoalId || goals[0]?.id || '',
+                          taskId: selectedTaskId || selectedGoalObj?.id || goals[0]?.tasks?.[0]?.collective_id || '',
                           title: '',
                           start: toLocalDateTimeInputValue(dayStart.toISOString()),
                           end: dayEnd.toISOString(),
