@@ -349,36 +349,105 @@ const DynamicActivityItemForm = ({
     setLoading(true);
     const invalidFields: string[] = [];
 
-    for (const index of renderedIndexes) {
+    // Create a map of rendered fields and their metadata
+    const renderedFields = renderedIndexes.map(index => {
       const itemList = template[`item_id${index}`];
-      if (!itemList || itemList.length === 0) continue;
+      if (!itemList || itemList.length === 0) return null;
 
       const meta = itemList[0];
-      const label =
-        meta.item_description || meta.item_name || `Field ${index}`;
-      const type = meta.item_type?.toLowerCase() || "";
+      return {
+        index,
+        label: meta.item_description || meta.item_name || `Field ${index}`,
+        type: meta.item_type?.toLowerCase() || "",
+        isRequired: !meta.item_name?.toLowerCase().includes("optional"),
+        isUnit: meta.item_type?.toLowerCase()?.includes("unit"),
+        isSearch: meta.item_type?.toLowerCase()?.includes("search"),
+        isCategory: meta.item_type?.toLowerCase()?.includes("category"),
+        isSubspace: meta.item_name?.toLowerCase().includes("subspace"),
+        isDate: meta.item_name?.toLowerCase().includes("date"),
+        isTime: meta.item_name?.toLowerCase().includes("time"),
+        unitOptions: itemList.filter((x: any) => x.unit_id)
+      };
+    }).filter(Boolean);
 
-      // Skip known optional types
-      if (type.includes("date") || type.includes("time")) continue;
+    // Validate each rendered field
+    renderedFields.forEach((field) => {
+      if (!field) return;
+      const { index, label, type, isRequired, isUnit, isSearch, isCategory, isSubspace, unitOptions } = field;
+      const value = values[index];
+      const quantity = quantities[index];
 
-      const valueFilled = values[index];
-      const quantityFilled = quantities[index];
+      // Skip validation for optional fields
+      if (!isRequired) return;
 
-      if (type.includes("unit") && !valueFilled && !quantityFilled) {
-        invalidFields.push(label);
-      } else if (
-        (type.includes("search") ||
-          type.includes("text") ||
-          type.includes("category")) &&
-        !valueFilled
-      ) {
-        invalidFields.push(label);
+      // Special case for subspace
+      if (isSubspace) {
+        if (!selectedSubspace || !selectedSubspace.subspace_id) {
+          invalidFields.push("Subspace");
+          return;
+        }
       }
-    }
+
+      // Handle unit fields
+      if (isUnit) {
+        const isDateField = unitOptions.some((u: any) =>
+          /date|mm\/dd\/yyyy|dd\/mm\/yyyy/i.test(u.name || u.description || "")
+        );
+        const isTimeField = unitOptions.some((u: any) =>
+          /^hh:mm$/i.test(u.name || u.description || "")
+        );
+        const isDateTimeField = unitOptions.some((u: any) =>
+          /hh:mm|date time|datetime/i.test(u.name || u.description || "")
+        );
+        const isTextUnit = unitOptions.length === 1 &&
+          unitOptions[0].name?.toLowerCase() === "text";
+
+        const isQuantityEmpty = quantity === "" || quantity === undefined || isNaN(Number(quantity));
+
+        if (isDateField || isTimeField || isDateTimeField) {
+          if (!value) invalidFields.push(label);
+        } else if (isTextUnit) {
+          if (!value) invalidFields.push(label);
+        } else {
+          if (unitOptions.length > 1) {
+            // need BOTH quantity and unit selection
+            if (isQuantityEmpty || !value) {
+              invalidFields.push(label);
+            }
+          } else if (unitOptions.length === 1) {
+            // need just quantity
+            if (isQuantityEmpty) {
+              invalidFields.push(label);
+            }
+          }
+        }
+        return;
+      }
+
+      if (isSearch && !selectedSearchItem) {
+        invalidFields.push(label);
+        return;
+      }
+
+      // Handle category fields
+      if (isCategory && !value) {
+        invalidFields.push(label);
+        return;
+      }
+
+      // // Default case for other required fields
+      if (!value && !quantities[index]) {
+        if (!(label.toLowerCase().includes("subspace"))) {
+          invalidFields.push(label);
+        }
+      }
+
+
+    });
 
     if (invalidFields.length > 0) {
       toast.error(
-        `Please fill all fields`,
+        `Please fill all required fields: ${invalidFields.join(", ")}`,
         { duration: 4000 }
       );
       setLoading(false);
@@ -613,16 +682,17 @@ const DynamicActivityItemForm = ({
       if (!isSpecial) {
         endpoint = "https://meseer.com/dog/user_activity_insert";
       }
-      await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-      onClose();
-      onSuccess?.();
+      console.log(payload);
+      // await fetch(endpoint, {
+      //   method: "POST",
+      //   headers: {
+      //     Authorization: `Bearer ${token}`,
+      //     "Content-Type": "application/json",
+      //   },
+      //   body: JSON.stringify(payload),
+      // });
+      // onClose();
+      // onSuccess?.();
     } catch (err) {
       console.error("Submission failed", err);
     } finally {
