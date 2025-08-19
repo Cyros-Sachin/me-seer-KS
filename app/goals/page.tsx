@@ -363,8 +363,8 @@ const GoalsPage = () => {
           },
           body: JSON.stringify({
             flag: 4,
-            goal_id: 0,
-            task_id: 0
+            goal_id: null,
+            task_id: null
           })
         });
 
@@ -1378,6 +1378,7 @@ const GoalsPage = () => {
               const timeSpent = progressData.time_spent ?? 0;
               const timeAllotted = progressData.time_allotted ?? 0;
               const progressPercent = progressData.progress ?? 0;
+              const goalUnit = progressData.goal_unit ?? 0;
 
               return (
                 <div key={goal.id} className="mb-3">
@@ -1402,6 +1403,9 @@ const GoalsPage = () => {
                         <span>{timeSpent}h / {timeAllotted}h</span>
                         <span>•</span>
                         <span>{progressPercent}%</span>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800`}>
+                          {goalUnit}
+                        </span>
                       </div>
                     </div>
                     <motion.div
@@ -1436,6 +1440,7 @@ const GoalsPage = () => {
                             const timeSpent = taskStats.time_spent ?? 0;
                             const timeAllotted = taskStats.time_allotted ?? 0;
                             const progressPercent = taskStats.progress ?? 0;
+                            const taskUnit = taskStats.task_unit ?? 0;
 
                             let priorityLabel = "Low";
                             let priorityColor = "bg-green-100 text-green-800";
@@ -1464,6 +1469,9 @@ const GoalsPage = () => {
                                     <span>{timeSpent}h / {timeAllotted}h</span>
                                     <span>•</span>
                                     <span>{progressPercent}%</span>
+                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800`}>
+                                      {taskUnit}
+                                    </span>
                                   </div>
                                 </div>
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${priorityColor}`}>
