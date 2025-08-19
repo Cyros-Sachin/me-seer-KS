@@ -8,6 +8,8 @@ import React from "react";
 import SideBar from "../components/SideBar";
 import DynamicActivityDetails from "../components/DynamicActivityDetails";
 import DynamicActivityItemForm from "../components/DynamicActivityItemForm";
+import toast from "react-hot-toast";
+
 // API Base URL
 const API_BASE_URL = 'https://meseer.com/dog';
 type ExtendedActivityItem = ActivityItem & {
@@ -1296,9 +1298,20 @@ function ActivityPage() {
                 )}
             </div>
 
+
             {showMealDialog && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!newMealName.trim()) {
+                                toast.error("Meal name is required");
+                                return;
+                            }
+                            handleCreateMeal();
+                        }}
+                        className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4"
+                    >
                         <h2 className="text-xl font-semibold">Create New Meal</h2>
                         <input
                             type="text"
@@ -1309,25 +1322,36 @@ function ActivityPage() {
                         />
                         <div className="flex justify-end gap-2 mt-4">
                             <button
+                                type="button"
                                 onClick={() => setShowMealDialog(false)}
                                 className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleCreateMeal}
+                                type="submit"
                                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Create
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             )}
 
             {showWorkoutDialog && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!newWorkoutName.trim()) {
+                                toast.error("Workout name is required");
+                                return;
+                            }
+                            handleCreateWorkout();
+                        }}
+                        className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4"
+                    >
                         <h2 className="text-xl font-semibold">Create New Workout</h2>
                         <input
                             type="text"
@@ -1338,25 +1362,52 @@ function ActivityPage() {
                         />
                         <div className="flex justify-end gap-2 mt-4">
                             <button
+                                type="button"
                                 onClick={() => setShowWorkoutDialog(false)}
                                 className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleCreateWorkout}
+                                type="submit"
                                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Create
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             )}
 
             {showGoalDialog && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center">
-                    <div className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 space-y-4">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!goalForm.value2.trim()) {
+                                toast.error("Goal name is required");
+                                return;
+                            }
+                            if (!goalForm.value3) {
+                                toast.error("Date is required");
+                                return;
+                            }
+                            if (!goalForm.value4 || isNaN(Number(goalForm.value4))) {
+                                toast.error("Effort is required");
+                                return;
+                            }
+                            if (!goalForm.cat_qty_id4) {
+                                toast.error("Please select a time unit");
+                                return;
+                            }
+                            if (!goalForm.value5 || isNaN(Number(goalForm.value5))) {
+                                toast.error("Percentage complete is required");
+                                return;
+                            }
+                            handleSubmitGoal();
+                        }}
+                        className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 space-y-4"
+                    >
                         <h2 className="text-2xl font-semibold text-gray-800">Create Goal</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1374,19 +1425,18 @@ function ActivityPage() {
                                 value={goalForm.value3
                                     ? (() => {
                                         const [dd, mm, yyyy] = goalForm.value3.split("/");
-                                        return `${yyyy}-${mm}-${dd}`; // Convert DD/MM/YYYY -> YYYY-MM-DD for <input>
+                                        return `${yyyy}-${mm}-${dd}`;
                                     })()
                                     : ""}
                                 onChange={(e) => {
                                     const raw = e.target.value; // YYYY-MM-DD
                                     const [yyyy, mm, dd] = raw.split("-");
-                                    const formatted = `${dd}/${mm}/${yyyy}`; // convert to DD/MM/YYYY
+                                    const formatted = `${dd}/${mm}/${yyyy}`;
                                     setGoalForm({ ...goalForm, value3: formatted });
                                 }}
                                 title="Add a date"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
-
 
                             <input
                                 type="number"
@@ -1399,13 +1449,15 @@ function ActivityPage() {
 
                             <select
                                 value={goalForm.cat_qty_id4}
-                                onChange={(e) => setGoalForm({ ...goalForm, cat_qty_id4: parseInt(e.target.value) })}
+                                onChange={(e) =>
+                                    setGoalForm({ ...goalForm, cat_qty_id4: parseInt(e.target.value) })
+                                }
                                 title="Choose the time unit for effort (e.g., hpd, hpw, hpm)"
                                 className="w-32 border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value={53} title="hour per day">hpd</option>
-                                <option value={54} title="hour per week">hpw</option>
-                                <option value={55} title="hour per month">hpm</option>
+                                <option value={53}>hpd</option>
+                                <option value={54}>hpw</option>
+                                <option value={55}>hpm</option>
                             </select>
 
                             <input
@@ -1420,25 +1472,36 @@ function ActivityPage() {
 
                         <div className="flex justify-end gap-2 mt-6">
                             <button
+                                type="button"
                                 onClick={() => setShowGoalDialog(false)}
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleSubmitGoal}
+                                type="submit"
                                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Submit
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             )}
 
             {showTaskDialog && (
                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!taskForm.value3.trim()) {
+                                toast.error("Task name is required");
+                                return;
+                            }
+                            handleSubmitTask();
+                        }}
+                        className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4"
+                    >
                         <h2 className="text-2xl font-semibold text-gray-800">Create Task</h2>
                         <div className="space-y-2">
                             <label className="text-sm text-gray-600">Task Name</label>
@@ -1450,25 +1513,26 @@ function ActivityPage() {
                                 title="name of the task to be completed"
                                 className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
                             />
-
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
                             <button
+                                type="button"
                                 onClick={() => setShowTaskDialog(false)}
                                 className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleSubmitTask}
+                                type="submit"
                                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                             >
                                 Submit
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             )}
+
 
             <AnimatePresence>
                 {activeActivity && (
