@@ -625,8 +625,8 @@ const DynamicActivityItemForm = ({
         const selectedDay = Number(quantities[4]); // day of month from unit input
         const selectedTime = values[5]; // time input (HH:mm)
 
-        console.log("📅 Monthly selectedDay:", selectedDay);
-        console.log("🕒 Monthly selectedTime:", selectedTime);
+        // console.log("📅 Monthly selectedDay:", selectedDay);
+        // console.log("🕒 Monthly selectedTime:", selectedTime);
 
         if (selectedDay && selectedTime && /^\d{2}:\d{2}$/.test(selectedTime)) {
           const now = new Date();
@@ -682,17 +682,17 @@ const DynamicActivityItemForm = ({
       if (!isSpecial) {
         endpoint = "https://meseer.com/dog/user_activity_insert";
       }
-      console.log(payload);
-      // await fetch(endpoint, {
-      //   method: "POST",
-      //   headers: {
-      //     Authorization: `Bearer ${token}`,
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(payload),
-      // });
-      // onClose();
-      // onSuccess?.();
+      // console.log(payload);
+      await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      onClose();
+      onSuccess?.();
     } catch (err) {
       console.error("Submission failed", err);
     } finally {

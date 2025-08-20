@@ -557,7 +557,6 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
           payload.cat_qty_id3 = 23;
           const selectedDay = Number(values[3]); // day of month
           const selectedTime = values[4];
-          console.log(selectedDay, selectedTime);
 
           if (selectedDay && /^\d{2}:\d{2}$/.test(selectedTime)) {
             const now = new Date();
@@ -880,7 +879,6 @@ export default function DynamicActivityDetails({ userId, realCollectiveId, colle
                                   if (type === "datetime-local") {
                                     const [date, time] = val.split("T");
                                     const [yyyy, mm, dd] = date.split("-");
-                                    console.log(`${yyyy}-${mm}-${dd}T${time}`)
                                     return `${yyyy}-${mm}-${dd}T${time}`;
                                   }
 

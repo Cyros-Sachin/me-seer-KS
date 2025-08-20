@@ -488,7 +488,6 @@ function ActivityPage() {
             const res = await fetch(`https://meseer.com/dog/get_all_goals_tasks/${userId}`);
             const data = await res.json();
             setGoalTasksData(data);
-            console.log("Set");
         } catch (err) {
             console.error("Failed to fetch goals/tasks", err);
         }
@@ -726,13 +725,13 @@ function ActivityPage() {
                 setShowWorkoutDialog(true);
                 break;
             case 'create budget':
-                console.log('Launch budget module');
+                // console.log('Launch budget module');
                 break;
             case 'create goal':
                 setShowGoalDialog(true);
                 break;
             default:
-                console.log('No action mapped yet');
+                // console.log('No action mapped yet');
                 break;
         }
     };
@@ -1611,12 +1610,12 @@ function ActivityPage() {
 
                             if (updatedTask) {
                                 setSelectedTaskDetails(updatedTask); // ✅ Triggers re-render
-                                console.log("✅ Task details updated and re-selected:", updatedTask);
+                                // console.log("✅ Task details updated and re-selected:", updatedTask);
                             } else {
                                 console.warn("⚠️ Could not find updated task after hardfetch.");
                             }
                         } else {
-                            console.log("other")
+                            // console.log("other")
                             fetchUserActivities();
                         }
                     }}

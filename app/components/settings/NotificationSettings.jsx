@@ -56,7 +56,7 @@ export default function NotificationSettings() {
             <span className="text-gray-700">{item.label}</span>
             <ToggleSwitch 
               defaultChecked={item.enabled} 
-              onChange={(enabled) => console.log(`${item.label}: ${enabled}`)}
+              // onChange={(enabled) => console.log(`${item.label}: ${enabled}`)}
             />
           </motion.div>
         ))}

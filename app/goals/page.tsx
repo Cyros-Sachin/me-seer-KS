@@ -241,7 +241,7 @@ const GoalsPage = () => {
     const duration = (new Date(draggedAction.end || "").getTime() - new Date(draggedAction.start || "").getTime()) / 60000;
     end.setMinutes(end.getMinutes() + duration);
 
-    console.log(draggedAction, start.toISOString(), end.toISOString());
+    // console.log(draggedAction, start.toISOString(), end.toISOString());
 
     handleEventSave(); // your existing update function
     setDraggedAction(null);
@@ -549,7 +549,7 @@ const GoalsPage = () => {
   };
 
   const handleAddTask = async () => {
-    console.log("recieved")
+    // console.log("recieved")
     const userId = getUserId();
     const token = getUserToken();
     const now = new Date().toISOString();
@@ -949,7 +949,7 @@ const GoalsPage = () => {
 
     const event_time = new Date().toISOString().slice(0, 19);
     const isUpdate = id?.startsWith("event-") && id.length > 6;
-
+    // console.log(isUpdate);
     const payload: any = {
       a_id: aid,
       at_id: 302,
@@ -1071,9 +1071,8 @@ const GoalsPage = () => {
         },
         body: JSON.stringify(payload),
       });
-      console.log(payload);
-      console.log(endpoint);
-
+      // console.log(payload);
+      // console.log(endpoint);
       setShowEventModal(false);
       await reload();
       setCurrentEvent(null);
@@ -1178,19 +1177,12 @@ const GoalsPage = () => {
     }[] = [];
 
     const parseToLiteral = (dateStr: string): Date => {
-
-      // If it's a GMT string, remove the 'GMT' so JS doesn't shift it to local time
       if (dateStr.includes("GMT")) {
         const noGmt = dateStr.replace("GMT", "").trim();
-        const parts = new Date(noGmt);
-
-        return parts;
+        return new Date(noGmt);
       }
-
-      // If it's already ISO format or non-GMT, just parse normally
       return new Date(dateStr);
     };
-
 
     const isSameDay = (d1: Date, d2: Date) =>
       d1.getFullYear() === d2.getFullYear() &&
@@ -1215,6 +1207,9 @@ const GoalsPage = () => {
       82: "Sunday",
     };
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     for (const goal of goals) {
       for (const task of goal.tasks) {
         const taskActions = allActions[task.id?.toString()] || [];
@@ -1222,13 +1217,20 @@ const GoalsPage = () => {
         for (const action of taskActions) {
           const actionDate = parseToLiteral(action.by_datetime_value);
           if (isNaN(actionDate.getTime())) continue;
-          const isaction_log = typeof action.action_log_id === 'number' && !Number.isNaN(action.action_log_id);
+
+          const isaction_log =
+            typeof action.action_log_id === "number" &&
+            !Number.isNaN(action.action_log_id);
           const action_log_id = action.action_log_id;
           const ua_id = action.ua_id;
           const action_id = action.action_id;
           const isRepeating = action.repeat_status === "128";
+          const canRepeatFuture = action.repeat_status === "129";
+
           let shouldRender = false;
-          const weekdayName = day.toLocaleDateString("en-US", { weekday: "long" });
+          const weekdayName = day.toLocaleDateString("en-US", {
+            weekday: "long",
+          });
 
           if (isRepeating) {
             const dayWeekName = dayWeekMap[action.day_week];
@@ -1237,18 +1239,32 @@ const GoalsPage = () => {
             const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
             const isDaily = !isWeekly && !isMonthly;
 
-            if (isWeekly && dayWeekName === weekdayName && isAfterOrSameDay(day, actionDate)) {
-              shouldRender = true;
-            } else if (isMonthly && day.getDate() === dayMonth && isAfterOrSameDay(day, actionDate)) {
-              shouldRender = true;
-            } else if (isDaily && isAfterOrSameDay(day, actionDate)) {
-              shouldRender = true;
+            // ✅ If it's an action log, restrict future repetition unless repeat_status === 129
+            if (isaction_log && !canRepeatFuture && day > today) {
+              shouldRender = false;
+            } else {
+              if (
+                isWeekly &&
+                dayWeekName === weekdayName &&
+                isAfterOrSameDay(day, actionDate)
+              ) {
+                shouldRender = true;
+              } else if (
+                isMonthly &&
+                day.getDate() === dayMonth &&
+                isAfterOrSameDay(day, actionDate)
+              ) {
+                shouldRender = true;
+              } else if (isDaily && isAfterOrSameDay(day, actionDate)) {
+                shouldRender = true;
+              }
             }
           } else {
             shouldRender = isSameDay(day, actionDate);
           }
 
           if (!shouldRender) continue;
+
           const title = action.name || "Untitled Action";
           const color = task.color || "#3b82f6";
 
@@ -1268,24 +1284,26 @@ const GoalsPage = () => {
           const unit = durationUnitMap[action.duration_unit];
           if (unit === "hours") duration *= 60;
           if (isNaN(duration)) duration = 30;
+
           actions.push({
             action_log_id,
             isaction_log,
             title,
             goal,
-            task, // include task reference
+            task,
             color,
             ua_id,
             action_id,
             time: timeStr,
             durationMinutes: duration,
             repeatType: isRepeating
-              ? action.day_week ? 'weekly'
-                : action.day_month ? 'monthly'
-                  : 'daily'
-              : 'once',
+              ? action.day_week
+                ? "weekly"
+                : action.day_month
+                  ? "monthly"
+                  : "daily"
+              : "once",
           });
-
         }
       }
     }
