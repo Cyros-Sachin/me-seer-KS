@@ -1480,6 +1480,12 @@ const GoalsPage = () => {
                                   setCurrentViewName(task.title);
                                   handleTaskClick(task.id);
                                 }}
+                                onMouseEnter={() => {
+                                  setHoveredTaskId(task.id);
+                                }}
+                                onMouseLeave={()=>{
+                                  setHoveredTaskId(null);
+                                }}
                               >
                                 <div>
                                   <div className="text-sm font-medium text-gray-800">{task.title}</div>
@@ -1709,7 +1715,7 @@ const GoalsPage = () => {
 
       </div>
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden custom-scrollbar">
         {/* Calendar Header */}
         <div className="border-b bg-white p-4">
           <div className="flex justify-between items-center">
@@ -2370,7 +2376,7 @@ const GoalsPage = () => {
         </div>
       </div>
       {/* Right Content */}
-      <div className="w-80 border-l bg-white p-6 overflow-y-auto space-y-8 shadow-inner">
+      <div className="w-80 border-l bg-white p-6 overflow-y-auto space-y-8 shadow-inner custom-scrollbar">
         {/* 🟦 Header */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Progress Analytics</h2>
