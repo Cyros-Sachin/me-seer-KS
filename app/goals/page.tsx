@@ -1483,7 +1483,7 @@ const GoalsPage = () => {
                                 onMouseEnter={() => {
                                   setHoveredTaskId(task.id);
                                 }}
-                                onMouseLeave={()=>{
+                                onMouseLeave={() => {
                                   setHoveredTaskId(null);
                                 }}
                               >
@@ -2057,13 +2057,12 @@ const GoalsPage = () => {
           {/* Day view (simplified for example) */}
           {viewMode === 'day' && (
             <div className="h-full flex flex-col">
-
               {/* Date Header */}
               <div className="border-b p-4 text-center font-medium text-black">
                 {formatDate(selectedDate)}
               </div>
 
-              {/* All-day row */}
+              {/* All-day Row */}
               <div className="border-b grid grid-cols-12 bg-gray-50 text-xs">
                 <div className="col-span-1 text-right pr-2 py-2 text-gray-600 font-semibold">
                   All-day
@@ -2100,7 +2099,7 @@ const GoalsPage = () => {
                           ev.allDay &&
                           new Date(ev.start).toDateString() === selectedDate.toDateString()
                         )
-                        .map(ev => [ev.id, ev]) // use ev.id as unique key
+                        .map(ev => [ev.id, ev])
                     ).values()
                   ).map(ev => (
                     <div
@@ -2116,14 +2115,11 @@ const GoalsPage = () => {
                       {ev.title}
                     </div>
                   ))}
-
                 </div>
               </div>
 
-
               {/* Time Grid */}
               <div className="flex-1 overflow-auto relative" ref={timeGridRef}>
-                {/* 💡 Add a relative wrapper to hold both time grid and actions */}
                 <div className="relative">
                   {timeSlots.map((time) => (
                     <div
@@ -2140,32 +2136,44 @@ const GoalsPage = () => {
                       <div className="flex-1 h-full relative">
                         {getEventsForSlot(selectedDate, time)
                           .filter(event => !event.allDay)
-                          .map((event) => (
-                            <motion.div
-                              key={event.id}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="absolute left-1 right-1 top-1 bottom-1 px-2 py-1 rounded text-xs text-white font-medium overflow-hidden"
-                              style={{
-                                backgroundColor: event.color || '#3b82f6',
-                                zIndex: 10
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCurrentEvent(event);
-                                setShowEventModal(true);
-                              }}
-                            >
-                              <div className="truncate">{event.title}</div>
-                              <div className="text-xs opacity-80">
-                                {formatTime(new Date(event.start))} - {formatTime(new Date(event.end))}
-                              </div>
-                            </motion.div>
-                          ))}
+                          .map((event) => {
+                            const start = new Date(event.start);
+                            const end = new Date(event.end);
+                            const startMinutes = start.getHours() * 60 + start.getMinutes();
+                            const endMinutes = end.getHours() * 60 + end.getMinutes();
+                            const top = (startMinutes / (24 * 60)) * 100;
+                            const height = ((endMinutes - startMinutes) / (24 * 60)) * 100;
+
+                            return (
+                              <motion.div
+                                key={event.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="absolute left-1 right-1 rounded px-2 py-1 text-xs text-white font-medium overflow-hidden cursor-pointer hover:opacity-90 transition"
+                                style={{
+                                  backgroundColor: event.color || '#3b82f6',
+                                  top: `${top}%`,
+                                  height: `${height}%`,
+                                  zIndex: 10,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCurrentEvent(event);
+                                  setShowEventModal(true);
+                                }}
+                              >
+                                <div className="truncate">{event.title}</div>
+                                <div className="text-xs opacity-80">
+                                  {formatTime(start)} - {formatTime(end)}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
                       </div>
                     </div>
                   ))}
-                  {/* 🔴 Now line for Day View */}
+
+                  {/* 🔴 Now Line */}
                   {selectedDate.toDateString() === new Date().toDateString() && (() => {
                     const now = new Date();
                     const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
@@ -2180,7 +2188,8 @@ const GoalsPage = () => {
                       </div>
                     );
                   })()}
-                  {/* ✅ Render all actions once per day — positioned accurately */}
+
+                  {/* ✅ Actions */}
                   {getActionsForDay(selectedDate, allActions, goals).map((action, index) => {
                     const [hh, mm] = action.time.split(':').map(Number);
                     const startMins = hh * 60 + mm;
@@ -2191,10 +2200,9 @@ const GoalsPage = () => {
                       <motion.div
                         key={`action-${index}-${selectedDate.toISOString()}`}
                         className={`
-  absolute left-[80px] right-2 p-1 rounded text-xs text-white font-semibold overflow-hidden
-  ${hoveredTaskId === action.task.id ? 'animate-hoverPulse' : ''}
-`}
-
+                absolute left-[80px] right-2 p-1 rounded text-xs text-white font-semibold overflow-hidden
+                ${hoveredTaskId === action.task.id ? 'animate-hoverPulse' : ''}
+              `}
                         style={{
                           top: `${topOffset}%`,
                           height: `${heightPercent}%`,
@@ -2202,15 +2210,13 @@ const GoalsPage = () => {
                           zIndex: 6,
                         }}
                         onClick={() => {
-                          // Convert action data to Event format
                           const startDate = new Date(selectedDate);
-                          const [hh, mm] = action.time.split(':').map(Number);
                           startDate.setHours(hh, mm, 0, 0);
                           const endDate = new Date(startDate);
                           endDate.setMinutes(startDate.getMinutes() + action.durationMinutes);
 
                           setCurrentEvent({
-                            id: `event-${index}`, // or use action.a_id if available
+                            id: `event-${index}`,
                             title: action.title,
                             start: startDate.toISOString(),
                             end: endDate.toISOString(),
@@ -2222,7 +2228,7 @@ const GoalsPage = () => {
                             ua_id: action.ua_id,
                             action_id: action.action_id,
                             isaction_log: action.isaction_log,
-                            action_log_id: action.action_log_id
+                            action_log_id: action.action_log_id,
                           });
 
                           setShowEventModal(true);
@@ -2230,10 +2236,28 @@ const GoalsPage = () => {
                       >
                         <div className="truncate">{action.title}</div>
                         <div className="text-[10px] opacity-80">
-                          {action.time} — {formatTime(
-                            addMinutes(new Date(selectedDate.setHours(hh, mm, 0, 0)), action.durationMinutes)
+                          {formatTime(
+                            new Date(
+                              selectedDate.getFullYear(),
+                              selectedDate.getMonth(),
+                              selectedDate.getDate(),
+                              hh,
+                              mm
+                            )
+                          )} — {formatTime(
+                            addMinutes(
+                              new Date(
+                                selectedDate.getFullYear(),
+                                selectedDate.getMonth(),
+                                selectedDate.getDate(),
+                                hh,
+                                mm
+                              ),
+                              action.durationMinutes
+                            )
                           )}
                         </div>
+
                       </motion.div>
                     );
                   })}
@@ -2241,6 +2265,7 @@ const GoalsPage = () => {
               </div>
             </div>
           )}
+
 
           {/* Month view (simplified for example) */}
           {viewMode === 'month' && (
@@ -2358,13 +2383,6 @@ const GoalsPage = () => {
                             {act.title.slice(0, 25)}
                           </div>
                         ))}
-
-                        {/* Overflow indicator */}
-                        {(dayEvents.length + actionsForDate.length) > 2 && (
-                          <div className="text-xs text-gray-500 text-center">
-                            +{(dayEvents.length + actionsForDate.length) - 2} more
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
