@@ -8,6 +8,8 @@ export interface Task {
   todo_id?: number | null; // ✅ optional, matches API
   collective_id: string;
   actions?: TaskAction[]; 
+  effort?: string;
+  effort_unit?: string;
 }
 export interface TaskAction {
   a_id: number;

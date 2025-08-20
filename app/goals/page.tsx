@@ -1456,9 +1456,9 @@ const GoalsPage = () => {
                           {goal.tasks.map(task => {
                             const taskStats = taskProgressMap[goal.id]?.[task.id] || {};
                             const timeSpent = taskStats.time_spent ?? 0;
-                            const timeAllotted = taskStats.time_allotted ?? 0;
+                            const timeAllotted = taskStats.time_allotted ?? task.effort ?? 0;
                             const progressPercent = taskStats.progress ?? 0;
-                            const taskUnit = taskStats.task_unit ?? 0;
+                            const taskUnit = taskStats.task_unit ?? task.effort_unit ?? 0;
 
                             let priorityLabel = "Low";
                             let priorityColor = "bg-green-100 text-green-800";

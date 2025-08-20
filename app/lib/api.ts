@@ -32,7 +32,9 @@ export const fetchGoalsAndTasks = async (userId: string, token: string): Promise
           todo_id: task?.todo_id,
           goalId: task.goal_id.toString(),            // Required as string
           completed: false,                           // Default value since not in API
-          color: getRandomColor(),                    // Generate or inherit from goal
+          color: getRandomColor(), 
+          effort: task.effort,
+          effort_unit : task.effort_unit                 // Generate or inherit from goal
         }));
 
 
