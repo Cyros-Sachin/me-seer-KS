@@ -1394,9 +1394,9 @@ const GoalsPage = () => {
               const isExpanded = expandedGoalIds.includes(goal.id);
               const progressData = goalProgress[goal.id] || {};
               const timeSpent = progressData.time_spent ?? 0;
-              const timeAllotted = progressData.time_allotted ?? 0;
+              const timeAllotted = progressData.time_allotted ?? goal.effort ?? 0;
               const progressPercent = progressData.progress ?? 0;
-              const goalUnit = progressData.goal_unit ?? 0;
+              const goalUnit = progressData.goal_unit ?? goal.effort_unit ?? 0;
 
               return (
                 <div key={goal.id} className="mb-3">

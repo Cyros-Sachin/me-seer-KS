@@ -23,10 +23,8 @@ export const fetchGoalsAndTasks = async (userId: string, token: string): Promise
     .map(([key, taskArray]) => {
       try {
         const cleanKey = key.replace(/^\[|\]$/g, "");
-        const [idStr, ...titleParts] = cleanKey.split(",");
+        const [idStr, title,effort,effort_unit] = cleanKey.split(",");
         const goalId = idStr.trim();
-        const title = titleParts.join(",").trim();
-
         const tasks: Task[] = (taskArray as any[]).map(task => ({
           id: task.task_id.toString(),                // Required as string
           collective_id: task.collective_id.toString(),                // Required as string
@@ -41,6 +39,8 @@ export const fetchGoalsAndTasks = async (userId: string, token: string): Promise
         return {
           id: goalId,
           title,
+          effort,
+          effort_unit,
           color: getRandomColor(),
           tasks,
         };

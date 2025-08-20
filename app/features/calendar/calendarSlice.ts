@@ -32,6 +32,8 @@ export interface Goal {
   title: string;
   color: string;
   tasks: Task[];
+  effort: string;
+  effort_unit: string;
 }
 
 export type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
