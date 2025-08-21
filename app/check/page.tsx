@@ -1493,76 +1493,6 @@ const GoalsPage = () => {
         );
     };
 
-    const renderCalendar = () => {
-        return (
-            <div className="h-full flex flex-col">
-                <FullCalendar
-                    ref={calendarRef}
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-                    initialView={viewMode === 'day' ? 'timeGridDay' : viewMode === 'week' ? 'timeGridWeek' : 'dayGridMonth'}
-                    initialDate={selectedDate}
-                    headerToolbar={false}
-                    events={(fetchInfo, successCallback) => {
-                        const regularEvents = formatEventsForCalendar();
-                        const actionEvents = fetchEventsForVisibleRange(fetchInfo.start, fetchInfo.end);
-
-                        const seen = new Set();
-                        const uniqueEvents = [...regularEvents, ...actionEvents].filter(evt => {
-                            const key = `${evt.title}-${evt.start}`;
-                            if (seen.has(key)) return false;
-                            seen.add(key);
-                            return true;
-                        });
-
-                        successCallback(uniqueEvents);
-                    }}
-
-                    nowIndicator={true}
-                    editable={true}
-                    droppable={true}
-                    selectable={true}
-                    selectMirror={true}
-                    contentHeight="auto"
-                    expandRows={true}
-                    dayMaxEvents={3}
-                    eventDisplay="block"
-                    eventTimeFormat={{
-                        hour: "numeric",
-                        minute: "2-digit",
-                        meridiem: "short",
-                    }}
-                    weekends={true}
-                    eventClick={handleEventClick}
-                    dateClick={handleDateClick}
-                    eventDrop={handleEventChange}
-                    eventResize={handleEventChange}
-                    allDaySlot={true}
-                    slotMinTime="00:00:00"
-                    slotMaxTime="23:59:00"
-                    height="100%"
-                    eventContent={renderEventContent}
-                    datesSet={(arg) => {
-                        if (arg.view.type === 'dayGridMonth') {
-                            dispatch(setViewMode('month'));
-                        } else if (arg.view.type === 'timeGridWeek') {
-                            dispatch(setViewMode('week'));
-                        } else if (arg.view.type === 'timeGridDay') {
-                            dispatch(setViewMode('day'));
-                        }
-
-                        dispatch(setSelectedDate(arg.view.currentStart.toISOString()));
-                    }}
-                    eventDidMount={(arg) => {
-                        arg.el.setAttribute('data-event-id', arg.event.id);
-                        if (arg.event.extendedProps.type === 'action') {
-                            arg.el.classList.add('action-event');
-                        }
-                    }}
-                />
-            </div>
-        );
-    };
-
     // Effects
     useEffect(() => {
         const fetchProgress = async () => {
@@ -2139,8 +2069,69 @@ const GoalsPage = () => {
                 </div>
 
                 {/* Calendar Grid */}
-                <div className="flex-1 overflow-auto">
-                    {renderCalendar()}
+                <div className="flex-1 overflow-hidden">
+                    <FullCalendar
+                        ref={calendarRef}
+                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                        initialView={viewMode === 'day' ? 'timeGridDay' : viewMode === 'week' ? 'timeGridWeek' : 'dayGridMonth'}
+                        initialDate={selectedDate}
+                        headerToolbar={false}
+                        events={(fetchInfo, successCallback) => {
+                            const regularEvents = formatEventsForCalendar();
+                            const actionEvents = fetchEventsForVisibleRange(fetchInfo.start, fetchInfo.end);
+
+                            const seen = new Set();
+                            const uniqueEvents = [...regularEvents, ...actionEvents].filter(evt => {
+                                const key = `${evt.title}-${evt.start}`;
+                                if (seen.has(key)) return false;
+                                seen.add(key);
+                                return true;
+                            });
+
+                            successCallback(uniqueEvents);
+                        }}
+                        nowIndicator={true}
+                        editable={true}
+                        droppable={true}
+                        selectable={true}
+                        selectMirror={true}
+                        height="calc(100vh - 150px)"   // 👈 fixed viewport height
+                        expandRows={false}             // 👈 don’t stretch all rows
+                        scrollTime="06:00:00"          // 👈 auto-scroll to 6 AM
+                        slotMinTime="00:00:00"
+                        slotMaxTime="23:59:00"
+                        dayMaxEvents={3}
+                        eventDisplay="block"
+                        eventTimeFormat={{
+                            hour: "numeric",
+                            minute: "2-digit",
+                            meridiem: "short",
+                        }}
+                        weekends={true}
+                        eventClick={handleEventClick}
+                        dateClick={handleDateClick}
+                        eventDrop={handleEventChange}
+                        eventResize={handleEventChange}
+                        allDaySlot={true}
+                        eventContent={renderEventContent}
+                        datesSet={(arg) => {
+                            if (arg.view.type === 'dayGridMonth') {
+                                dispatch(setViewMode('month'));
+                            } else if (arg.view.type === 'timeGridWeek') {
+                                dispatch(setViewMode('week'));
+                            } else if (arg.view.type === 'timeGridDay') {
+                                dispatch(setViewMode('day'));
+                            }
+
+                            dispatch(setSelectedDate(arg.view.currentStart.toISOString()));
+                        }}
+                        eventDidMount={(arg) => {
+                            arg.el.setAttribute('data-event-id', arg.event.id);
+                            if (arg.event.extendedProps.type === 'action') {
+                                arg.el.classList.add('action-event');
+                            }
+                        }}
+                    />
                 </div>
             </div>
             {/* Right Content */}
