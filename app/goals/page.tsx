@@ -1536,9 +1536,29 @@ const GoalsPage = () => {
 
                   if (todoView === 'history') {
                     const grouped = items.reduce((acc: Record<string, TodoContent[]>, item: TodoContent) => {
-                      const date = new Date(item.last_updated || '').toLocaleDateString();
-                      if (!acc[date]) acc[date] = [];
-                      acc[date].push(item);
+                      const dateObj = new Date(item.last_updated || '');
+                      let groupKey = '';
+
+                      if (selectedTaskTodo.refresh_type === 'monthly') {
+                        // Example: "August 2025"
+                        groupKey = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+                      }
+                      else if (selectedTaskTodo.refresh_type === 'weekly') {
+                        // Calculate week number
+                        const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
+                        const days = Math.floor((dateObj.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+                        const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+
+                        groupKey = `Week ${weekNum}, ${dateObj.getFullYear()}`;
+                      }
+                      else {
+                        // Default: Daily
+                        groupKey = dateObj.toLocaleDateString();
+                      }
+
+                      if (!acc[groupKey]) acc[groupKey] = [];
+                      acc[groupKey].push(item);
+
                       return acc;
                     }, {});
 
@@ -1659,7 +1679,7 @@ const GoalsPage = () => {
               <div className="px-2 py-1 bg-gray-50 border-t text-[10px] text-gray-500 flex justify-between items-center">
                 <div className="flex gap-1 items-center">
                   <button className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
-                    Monthly
+                    {selectedTaskTodo.refresh_type}
                   </button>
                 </div>
                 <div className="flex gap-0.5 text-black">
@@ -2879,12 +2899,33 @@ const GoalsPage = () => {
               {(() => {
                 const items = maximizedTodo.contents ?? [];
                 if (todoView === "history") {
-                  const grouped = items.reduce((acc: Record<string, TodoContent[]>, item) => {
-                    const date = new Date(item.last_updated || "").toLocaleDateString();
-                    if (!acc[date]) acc[date] = [];
-                    acc[date].push(item);
+                  const grouped = items.reduce((acc: Record<string, TodoContent[]>, item: TodoContent) => {
+                    const dateObj = new Date(item.last_updated || '');
+                    let groupKey = '';
+
+                    if (maximizedTodo.refresh_type === 'monthly') {
+                      // Example: "August 2025"
+                      groupKey = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    }
+                    else if (maximizedTodo.refresh_type === 'weekly') {
+                      // Calculate week number
+                      const startOfYear = new Date(dateObj.getFullYear(), 0, 1);
+                      const days = Math.floor((dateObj.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+                      const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+
+                      groupKey = `Week ${weekNum}, ${dateObj.getFullYear()}`;
+                    }
+                    else {
+                      // Default: Daily
+                      groupKey = dateObj.toLocaleDateString();
+                    }
+
+                    if (!acc[groupKey]) acc[groupKey] = [];
+                    acc[groupKey].push(item);
+
                     return acc;
                   }, {});
+
                   return Object.entries(grouped).map(([date, tasks]) => (
                     <div key={date}>
                       <div className="text-[10px] text-gray-500 font-medium mb-0.5">{date}</div>
