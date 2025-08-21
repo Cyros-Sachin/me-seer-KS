@@ -1367,28 +1367,29 @@ const GoalsPage = () => {
     };
 
 
-    const formatEventsForCalendar = useMemo(() => {
-        const formattedEvents: any[] = [];
+    const formatEventsForCalendar = () => {
+        return events.map(event => {
+            const startDate = new Date(event.start);
+            const isAllDay = startDate.getHours() === 0 && startDate.getMinutes() === 0;
 
-        events.forEach(event => {
-            formattedEvents.push({
+            return {
                 id: event.id,
-                title: event.title,
+                title: event.title || "Untitled Event",
                 start: event.start,
-                end: event.end,
-                color: event.color,
+                allDay: isAllDay,   // ✅ Mark all-day events properly
+                color: "#3b82f6",
                 extendedProps: {
-                    type: 'event',
+                    type: "event",
                     goalId: event.goalId,
                     taskId: event.taskId,
                     ua_id: event.ua_id,
-                    allDay: event.allDay || false
+                    start: event.start,
+                    end: event.end
                 }
-            });
+            };
         });
+    };
 
-        return formattedEvents;
-    }, [events, allActions, goals]);
 
     const fetchEventsForVisibleRange = useCallback((start: Date, end: Date) => {
         const actionEvents = generateActionEvents(start, end, allActions, goals);
@@ -1398,7 +1399,6 @@ const GoalsPage = () => {
     const handleEventClick = (arg: any) => {
         const event = arg.event;
         const extendedProps = event.extendedProps;
-
         if (extendedProps.type === 'action') {
             setCurrentEvent({
                 id: event.id,
@@ -1415,25 +1415,23 @@ const GoalsPage = () => {
                 repeat: extendedProps.repeatType || 'once',
                 allDay: false
             });
+            setShowEventModal(true);
+
         } else {
-            setCurrentEvent({
+            setNewEventData({
                 id: event.id,
                 title: event.title,
-                start: event.start.toISOString(),
-                end: event.end.toISOString(),
+                start: extendedProps.start,
+                end: extendedProps.end,
                 color: event.backgroundColor,
                 goalId: extendedProps.goalId,
                 taskId: extendedProps.taskId,
                 ua_id: extendedProps.ua_id,
-                action_id: extendedProps.action_id,
-                isaction_log: extendedProps.isaction_log,
-                action_log_id: extendedProps.action_log_id,
-                repeat: extendedProps.repeat || 'once',
-                allDay: extendedProps.allDay || false
+                allDay: true
             });
+            setShowEventOnlyModal(true);
         }
 
-        setShowEventModal(true);
     };
 
     const handleEventChange = async (arg: any) => {
@@ -1468,7 +1466,7 @@ const GoalsPage = () => {
         const endDate = new Date(startDate);
         endDate.setHours(startDate.getHours() + 1);
 
-        setCurrentEvent({
+        setNewEventData({
             goalId: selectedGoalId || goals[0]?.id || '',
             taskId: selectedTaskId || selectedGoalObj?.id,
             id: '',
@@ -1479,7 +1477,7 @@ const GoalsPage = () => {
             repeat: "once"
         });
 
-        setShowEventModal(true);
+        setShowEventOnlyModal(true);
     };
 
     const renderEventContent = (eventInfo: any) => {
@@ -1504,12 +1502,21 @@ const GoalsPage = () => {
                     initialView={viewMode === 'day' ? 'timeGridDay' : viewMode === 'week' ? 'timeGridWeek' : 'dayGridMonth'}
                     initialDate={selectedDate}
                     headerToolbar={false}
-                    events={(fetchInfo, successCallback, failureCallback) => {
-                        const regularEvents = formatEventsForCalendar;
+                    events={(fetchInfo, successCallback) => {
+                        const regularEvents = formatEventsForCalendar();
                         const actionEvents = fetchEventsForVisibleRange(fetchInfo.start, fetchInfo.end);
-                        const allEvents = [...regularEvents, ...actionEvents];
-                        successCallback(allEvents);
+
+                        const seen = new Set();
+                        const uniqueEvents = [...regularEvents, ...actionEvents].filter(evt => {
+                            const key = `${evt.title}-${evt.start}`;
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                        });
+
+                        successCallback(uniqueEvents);
                     }}
+
                     nowIndicator={true}
                     editable={true}
                     droppable={true}
