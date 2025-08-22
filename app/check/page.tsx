@@ -9,7 +9,7 @@ import { ChevronLeft, Dot, ChevronRight, Plus, X, Settings, List, Grid, Edit, Tr
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
-import { resetGoals } from '../features/calendar/calendarSlice';
+import { resetEvents, resetGoals } from '../features/calendar/calendarSlice';
 import {
     setSelectedDate,
     setViewMode,
@@ -676,6 +676,7 @@ const GoalsPage = () => {
                         const eventsData = await fetchEvents(userId, collectiveId);
 
                         if (Array.isArray(eventsData)) {
+                            dispatch(resetEvents());
                             const transformedEvents = eventsData.map((item) => {
                                 const startDate = new Date(item.value4);
                                 const endDate = new Date(startDate);
@@ -753,78 +754,10 @@ const GoalsPage = () => {
         once: 30,
     };
 
-    const handleTimeSlotClick = (time: Date, day: Date) => {
-        const startDate = new Date(day);
-        startDate.setHours(time.getHours(), time.getMinutes());
-        const selectedGoalObj = goals.find(g => g.id === selectedGoalId);
-        const endDate = new Date(startDate);
-        endDate.setHours(startDate.getHours() + 1);
-        setCurrentEvent({
-            goalId: selectedGoalId || goals[0]?.id || '',
-            taskId: selectedTaskId || selectedGoalObj?.id,
-            id: '',
-            title: '',
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            color: '#3b82f6',
-            repeat: "once"
-        });
-
-        setTimeSlotClicked({ time, day });
-        setShowEventModal(true);
-    };
-
-    const handleTaskDragStart = (task: Task) => {
-        setDraggedTask(task);
-    };
-
-    const handleCalendarDrop = (time: Date, day: Date) => {
-        if (!draggedTask) return;
-
-        const start = new Date(day);
-        start.setHours(time.getHours(), time.getMinutes());
-
-        const end = new Date(start);
-        end.setHours(start.getHours() + 1);
-
-        setCurrentEvent({
-            id: '',
-            title: draggedTask.title,
-            start: start.toISOString(),
-            end: end.toISOString(),
-            goalId: draggedTask.goalId,
-            taskId: draggedTask.id,
-            color: draggedTask.color
-        });
-
-        setShowEventModal(true);
-        setDraggedTask(null);
-    };
-
-    const getEventsForSlot = (day: Date, time: Date) => {
-        return events.filter(event => {
-            const eventStart = new Date(event.start);
-            const eventEnd = new Date(event.end);
-
-            const slotStart = new Date(day);
-            slotStart.setHours(time.getHours(), time.getMinutes());
-
-            const slotEnd = new Date(slotStart);
-            slotEnd.setHours(slotStart.getHours(), slotStart.getMinutes() + 30);
-
-            return (
-                (eventStart >= slotStart && eventStart < slotEnd) ||
-                (eventEnd > slotStart && eventEnd <= slotEnd) ||
-                (eventStart <= slotStart && eventEnd >= slotEnd)
-            );
-        });
-    };
-
     const handleEventSave = async () => {
         if (!currentEvent) return;
-
         const { start, end, title, taskId, repeat, id } = currentEvent;
-
+        console.log(currentEvent);
         const dayToCatIdMap: Record<
             "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday",
             number
@@ -972,6 +905,8 @@ const GoalsPage = () => {
                 },
                 body: JSON.stringify(payload),
             });
+            console.log(payload);
+            console.log(endpoint);
             setShowEventModal(false);
             await reload();
             setCurrentEvent(null);
@@ -1011,251 +946,6 @@ const GoalsPage = () => {
         } catch (err) {
             console.error("Failed to delete item", err);
         }
-    };
-
-    // Action handling functions
-    const handleActionDrop = (
-        e: React.DragEvent<HTMLDivElement>,
-        day: Date,
-        time: Date
-    ) => {
-        e.preventDefault();
-        const data = e.dataTransfer.getData("application/x-calendar-action");
-        if (!data) return;
-
-        const draggedEvent = JSON.parse(data) as CalendarEvent;
-
-        const snappedStart = new Date(day);
-        snappedStart.setHours(time.getHours(), time.getMinutes(), 0, 0);
-
-        const duration =
-            (new Date(draggedEvent.end).getTime() -
-                new Date(draggedEvent.start).getTime()) /
-            60000;
-        const snappedEnd = new Date(snappedStart);
-        snappedEnd.setMinutes(snappedEnd.getMinutes() + duration);
-
-        const updatedPayload: Event = {
-            id: draggedEvent.id,
-            title: draggedEvent.title,
-            start: toLocalDateTimeInputValue(snappedStart.toISOString()),
-            end: toLocalDateTimeInputValue(snappedEnd.toISOString()),
-            color: draggedEvent.color,
-            repeat: draggedEvent.repeat as 'none' | 'daily' | 'weekly' | 'monthly' | 'once' | undefined,
-            allDay: false,
-            goalId: draggedEvent.goalId ? draggedEvent.goalId.toString() : undefined,
-            taskId: draggedEvent.taskId ? draggedEvent.taskId.toString() : undefined,
-            ua_id: draggedEvent.ua_id ? draggedEvent.ua_id.toString() : undefined,
-            action_id: draggedEvent.action_id ? Number(draggedEvent.action_id) : undefined,
-            isaction_log: draggedEvent.isaction_log,
-            action_log_id: draggedEvent.action_log_id ? Number(draggedEvent.action_log_id) : undefined
-        };
-        setCurrentEvent(updatedPayload);
-        handleEventSave();
-        setShowSavePopup(true);
-    };
-
-    const confirmDragSave = () => {
-        if (!draggedAction || !dropTarget) return;
-
-        const start = new Date(dropTarget.day);
-        start.setHours(dropTarget.time.getHours(), dropTarget.time.getMinutes());
-        const end = new Date(start);
-        const duration = (new Date(draggedAction.end || "").getTime() - new Date(draggedAction.start || "").getTime()) / 60000;
-        end.setMinutes(end.getMinutes() + duration);
-
-        handleEventSave();
-        setDraggedAction(null);
-        setDropTarget(null);
-        setShowSavePopup(false);
-    };
-
-    const cancelDragSave = () => {
-        setDraggedAction(null);
-        setDropTarget(null);
-        setShowSavePopup(false);
-    };
-
-    const handleActionDragStart = (
-        e: React.DragEvent<HTMLDivElement>,
-        actionEvent: CalendarEvent
-    ) => {
-        setDraggingActionId(actionEvent.id);
-
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("application/x-calendar-action", JSON.stringify(actionEvent));
-
-        const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-        ghost.style.position = "absolute";
-        ghost.style.top = `${e.currentTarget.getBoundingClientRect().top}px`;
-        ghost.style.left = `${e.currentTarget.getBoundingClientRect().left}px`;
-        ghost.style.width = `${e.currentTarget.offsetWidth}px`;
-        ghost.style.height = `${e.currentTarget.offsetHeight}px`;
-        ghost.style.pointerEvents = "none";
-        ghost.style.opacity = "0.8";
-        ghost.style.transform = "scale(1.02)";
-        ghost.style.zIndex = "9999";
-
-        document.body.appendChild(ghost);
-
-        e.dataTransfer.setDragImage(ghost, e.currentTarget.offsetWidth / 2, e.currentTarget.offsetHeight / 2);
-
-        setTimeout(() => {
-            try { document.body.removeChild(ghost); } catch { }
-        }, 0);
-    };
-
-    const handleActionDragEnd = () => {
-        setDraggingActionId(null);
-    };
-
-    const getActionsForDay = (
-        day: Date,
-        allActions: Record<string, any[]>,
-        goals: Goal[]
-    ): {
-        isaction_log: boolean;
-        title: string;
-        color: string;
-        action_log_id: number;
-        time: string;
-        durationMinutes: number;
-        action_id: number;
-        goal: Goal;
-        ua_id: string;
-        task: Task;
-        repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
-    }[] => {
-        const actions: {
-            isaction_log: boolean;
-            title: string;
-            color: string;
-            time: string;
-            ua_id: string;
-            durationMinutes: number;
-            action_id: number;
-            action_log_id: number;
-            goal: Goal;
-            task: Task;
-            repeatType: 'once' | 'daily' | 'weekly' | 'monthly';
-        }[] = [];
-
-        const durationUnitMap: Record<number, string> = {
-            57: "hours",
-            56: "minutes",
-        };
-
-        const dayWeekMap: Record<number, string> = {
-            76: "Monday",
-            77: "Tuesday",
-            78: "Wednesday",
-            79: "Thursday",
-            80: "Friday",
-            81: "Saturday",
-            82: "Sunday",
-        };
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        for (const goal of goals) {
-            for (const task of goal.tasks) {
-                const taskActions = allActions[task.id?.toString()] || [];
-
-                for (const action of taskActions) {
-                    const actionDate = parseToLiteral(action.by_datetime_value);
-                    if (isNaN(actionDate.getTime())) continue;
-
-                    const isaction_log =
-                        typeof action.action_log_id === "number" &&
-                        !Number.isNaN(action.action_log_id);
-                    const action_log_id = action.action_log_id;
-                    const ua_id = action.ua_id;
-                    const action_id = action.action_id;
-                    const isRepeating = action.repeat_status === "128";
-                    const canRepeatFuture = action.repeat_status === "129";
-
-                    let shouldRender = false;
-                    const weekdayName = day.toLocaleDateString("en-US", {
-                        weekday: "long",
-                    });
-
-                    if (isRepeating) {
-                        const dayWeekName = dayWeekMap[action.day_week];
-                        const isWeekly = !!dayWeekName;
-                        const dayMonth = Number(action.day_month);
-                        const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
-                        const isDaily = !isWeekly && !isMonthly;
-
-                        if (isaction_log && !canRepeatFuture && day > today) {
-                            shouldRender = false;
-                        } else {
-                            if (
-                                isWeekly &&
-                                dayWeekName === weekdayName &&
-                                isAfterOrSameDay(day, actionDate)
-                            ) {
-                                shouldRender = true;
-                            } else if (
-                                isMonthly &&
-                                day.getDate() === dayMonth &&
-                                isAfterOrSameDay(day, actionDate)
-                            ) {
-                                shouldRender = true;
-                            } else if (isDaily && isAfterOrSameDay(day, actionDate)) {
-                                shouldRender = true;
-                            }
-                        }
-                    } else {
-                        shouldRender = isSameDay(day, actionDate);
-                    }
-
-                    if (!shouldRender) continue;
-
-                    const title = action.name || "Untitled Action";
-                    const color = task.color || "#3b82f6";
-
-                    let timeStr: string;
-                    if (action.time_of_day_value) {
-                        timeStr = action.time_of_day_value.trim();
-                    } else if (action.by_datetime_value) {
-                        const dateObj = parseToLiteral(action.by_datetime_value);
-                        const hh = dateObj.getHours().toString().padStart(2, "0");
-                        const mm = dateObj.getMinutes().toString().padStart(2, "0");
-                        timeStr = `${hh}:${mm}`;
-                    } else {
-                        timeStr = "00:00";
-                    }
-
-                    let duration = parseInt(action.duration_value || "30", 10);
-                    const unit = durationUnitMap[action.duration_unit];
-                    if (unit === "hours") duration *= 60;
-                    if (isNaN(duration)) duration = 30;
-
-                    actions.push({
-                        action_log_id,
-                        isaction_log,
-                        title,
-                        goal,
-                        task,
-                        color,
-                        ua_id,
-                        action_id,
-                        time: timeStr,
-                        durationMinutes: duration,
-                        repeatType: isRepeating
-                            ? action.day_week
-                                ? "weekly"
-                                : action.day_month
-                                    ? "monthly"
-                                    : "daily"
-                            : "once",
-                    });
-                }
-            }
-        }
-
-        return actions;
     };
 
     // FullCalendar integration
@@ -1401,7 +1091,7 @@ const GoalsPage = () => {
         const extendedProps = event.extendedProps;
         if (extendedProps.type === 'action') {
             setCurrentEvent({
-                id: event.id,
+                id: `event-${event.id}`,
                 title: event.title,
                 start: event.start.toISOString(),
                 end: event.end.toISOString(),
@@ -1419,7 +1109,7 @@ const GoalsPage = () => {
 
         } else {
             setNewEventData({
-                id: event.id,
+                id: `event-${event.id}`,
                 title: event.title,
                 start: extendedProps.start,
                 end: extendedProps.end,
@@ -1439,7 +1129,7 @@ const GoalsPage = () => {
         const extendedProps = event.extendedProps;
 
         const updatedEvent = {
-            id: event.id,
+            id: `event-${event.id}`,
             title: event.title,
             start: event.start.toISOString(),
             end: event.end.toISOString(),
@@ -1466,7 +1156,7 @@ const GoalsPage = () => {
         const endDate = new Date(startDate);
         endDate.setHours(startDate.getHours() + 1);
 
-        setNewEventData({
+        setCurrentEvent({
             goalId: selectedGoalId || goals[0]?.id || '',
             taskId: selectedTaskId || selectedGoalObj?.id,
             id: '',
@@ -1477,7 +1167,7 @@ const GoalsPage = () => {
             repeat: "once"
         });
 
-        setShowEventOnlyModal(true);
+        setShowEventModal(true);
     };
 
     const renderEventContent = (eventInfo: any) => {
@@ -2082,12 +1772,10 @@ const GoalsPage = () => {
 
                             const seen = new Set();
                             const uniqueEvents = [...regularEvents, ...actionEvents].filter(evt => {
-                                const key = `${evt.title}-${evt.start}`;
-                                if (seen.has(key)) return false;
-                                seen.add(key);
+                                if (seen.has(evt.id)) return false;
+                                seen.add(evt.id);
                                 return true;
                             });
-
                             successCallback(uniqueEvents);
                         }}
                         nowIndicator={true}
@@ -2095,7 +1783,7 @@ const GoalsPage = () => {
                         droppable={true}
                         selectable={true}
                         selectMirror={true}
-                        height="calc(100vh - 150px)"   // 👈 fixed viewport height
+                        height="100%"   // 👈 fixed viewport height
                         expandRows={false}             // 👈 don’t stretch all rows
                         scrollTime="06:00:00"          // 👈 auto-scroll to 6 AM
                         slotMinTime="00:00:00"

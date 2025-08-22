@@ -7,7 +7,7 @@ export interface Task {
   color: string;
   todo_id?: number | null; // ✅ optional, matches API
   collective_id: string;
-  actions?: TaskAction[]; 
+  actions?: TaskAction[];
   effort?: string;
   effort_unit?: string;
 }
@@ -127,6 +127,10 @@ const calendarSlice = createSlice({
     resetGoals: (state) => {
       state.goals = [];
     },
+    resetEvents: (state) => {
+      state.events = [];
+    },
+
   },
 });
 
@@ -142,7 +146,7 @@ export const {
   addTask,
   updateTask,
   deleteTask,
-  selectGoal, resetGoals,
+  selectGoal, resetGoals,resetEvents
 } = calendarSlice.actions;
 
 export default calendarSlice.reducer;
