@@ -609,17 +609,13 @@ const GoalsPage = () => {
 
                     try {
                         const eventsData = await fetchEvents(userId, collectiveId);
-
                         if (Array.isArray(eventsData)) {
                             const transformedEvents: Event[] = eventsData.map((item) => {
-                                const startDate = new Date(item.value4);
-                                const endDate = new Date(startDate);
-
                                 return {
-                                    id: `event-${item.a_id}`,
+                                    id: `event-${item.ua_id}`,
                                     title: item.value3 || "Untitled Event",
-                                    start: startDate.toISOString(),
-                                    end: endDate.toISOString(),
+                                    start: item.value4,
+                                    end: item.value4,
                                     ua_id: item.ua_id,
                                     goalId: goal.id,
                                     taskId: task.collective_id,
@@ -908,6 +904,50 @@ const GoalsPage = () => {
         }
     };
 
+    const handleEventUpdateDrag = async (data: any) => {
+        const token = getUserToken();
+
+        const payload: any = {
+            a_id: 33,
+            at_id: 302,
+            flag: "PT",
+            trigger: "Event",
+            is_active: "Y",
+            user_id: getUserId(),
+            event_time: new Date().toISOString().slice(0, 19),
+            description: "Event",
+            cat_qty_id1: Number(data.taskId),
+            value1: "",
+            value2: "",
+            value3: data.title,
+            value4: data.start,
+            value5: "",
+            value6: "",
+            cat_qty_id2: 0,
+            cat_qty_id3: 23,
+            cat_qty_id4: 58,
+            cat_qty_id5: 0,
+            cat_qty_id6: 0,
+            ua_id: data.ua_id,
+            action: "UPDATE"
+        };
+
+        try {
+            const endpoint = 'https://meseer.com/dog/update-delete-data/primary-mwb'
+            await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+            await reload();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const handleEventDelete = async () => {
         try {
             const isActionLog = !!currentEvent?.action_log_id;
@@ -1193,22 +1233,20 @@ const GoalsPage = () => {
 
     const formatEventsForCalendar = () => {
         return events.map(event => {
-            const startDate = new Date(event.start);
-            const isAllDay = startDate.getHours() === 0 && startDate.getMinutes() === 0;
-
             return {
-                id: event.id,
+                id: `event-${event.ua_id}`,
                 title: event.title || "Untitled Event",
-                start: event.start,
-                allDay: isAllDay,   // ✅ Mark all-day events properly
-                color: "#3b82f6",
+                start: event.start,  // FullCalendar all-day wants date-only string
+                end: event.end, // exclusive end
+                allDay: true,
+                color: event.color || "#3b82f6",
                 extendedProps: {
                     type: "event",
                     goalId: event.goalId,
                     taskId: event.taskId,
                     ua_id: event.ua_id,
-                    start: event.start,
-                    end: event.end
+                    startString: event.start,
+                    endString: event.end
                 }
             };
         });
@@ -1245,8 +1283,8 @@ const GoalsPage = () => {
             setNewEventData({
                 id: `event-${event.id}`,
                 title: event.title,
-                start: extendedProps.start,
-                end: extendedProps.end,
+                start: event.start,
+                end: event.end,
                 color: event.backgroundColor,
                 goalId: extendedProps.goalId,
                 taskId: extendedProps.taskId,
@@ -1261,46 +1299,72 @@ const GoalsPage = () => {
     const handleEventChange = async (arg: any) => {
         const event = arg.event;
         const extendedProps = event.extendedProps;
-        const updatedEvent = {
-            id: `event-${event.id}`,
-            title: event.title,
-            start: event.start,
-            end: event.end,
-            color: event.backgroundColor,
-            goalId: extendedProps.goalId,
-            taskId: extendedProps.taskId,
-            ua_id: extendedProps.ua_id,
-            action_id: extendedProps.action_id,
-            isaction_log: extendedProps.isaction_log,
-            action_log_id: extendedProps.action_log_id,
-            repeat: extendedProps.repeatType || extendedProps.repeat || 'once',
-            allDay: event.allDay
-        };
-        // console.log(updatedEvent);
-        setCurrentEvent(updatedEvent);
-        await handleEventSave();
+        if (event.allDay) {
+            const data = {
+                title: event.title,
+                start: toLocalDateTimeInputValue(event.start),
+                taskId: extendedProps.taskId,
+                ua_id: extendedProps.ua_id,
+            };
+            await handleEventUpdateDrag(data);
+        } else {
+            const updatedEvent = {
+                id: `event-${event.id}`,
+                title: event.title,
+                start: event.start,
+                end: event.end,
+                color: event.backgroundColor,
+                goalId: extendedProps.goalId,
+                taskId: extendedProps.taskId,
+                ua_id: extendedProps.ua_id,
+                action_id: extendedProps.action_id,
+                isaction_log: extendedProps.isaction_log,
+                action_log_id: extendedProps.action_log_id,
+                repeat: extendedProps.repeatType || extendedProps.repeat || 'once',
+                allDay: event.allDay
+            };
+            // console.log(updatedEvent);
+            setCurrentEvent(updatedEvent);
+            await handleEventSave();
+        }
     };
 
     const handleDateClick = (arg: any) => {
         const clickedDate = arg.date;
         const selectedGoalObj = goals.find(g => g.id === selectedGoalId);
-
+        const selectedTaskObj = selectedGoalObj?.tasks?.find(
+            (t) => t.id === selectedTaskId
+        );
         const startDate = new Date(clickedDate);
         const endDate = new Date(startDate);
         endDate.setHours(startDate.getHours() + 1);
+        if (arg.allDay) {
+            const payload = {
+                id: ``,
+                goalId: selectedGoalId || goals[0]?.id || '',
+                taskId: selectedTaskId || selectedTaskObj?.collective_id || selectedGoalObj?.tasks?.[0]?.collective_id,
+                title: "",
+                start: arg.date.toISOString(),
+                end: arg.date.toISOString(),
+                allDay: true,
+            };
+            setNewEventData(payload);
+            setShowEventOnlyModal(true);
+        } else {
 
-        setCurrentEvent({
-            goalId: selectedGoalId || goals[0]?.id || '',
-            taskId: selectedTaskId || selectedGoalObj?.id,
-            id: '',
-            title: '',
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            color: '#3b82f6',
-            repeat: "once"
-        });
+            setCurrentEvent({
+                goalId: selectedGoalId || goals[0]?.id || '',
+                taskId: selectedTaskId || selectedGoalObj?.id,
+                id: '',
+                title: '',
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                color: '#3b82f6',
+                repeat: "once"
+            });
 
-        setShowEventModal(true);
+            setShowEventModal(true);
+        }
     };
 
     const renderEventContent = (eventInfo: any) => {
