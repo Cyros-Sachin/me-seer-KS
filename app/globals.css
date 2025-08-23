@@ -203,9 +203,19 @@
   background: linear-gradient(to right, #4f46e5, #10b981);
 }
 
-.animate-hoverPulse {
-  filter: brightness(1.3);
+@keyframes hoverPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.3);
+  }
 }
+
+.animate-hoverPulse {
+  animation: hoverPulse 1s infinite;
+}
+
 /* ==============================
    FullCalendar Clean Sleek Styles
 ============================== */

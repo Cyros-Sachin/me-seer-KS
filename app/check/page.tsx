@@ -1368,17 +1368,21 @@ const GoalsPage = () => {
     };
 
     const renderEventContent = (eventInfo: any) => {
+        const isHovered = hoveredTaskId === eventInfo.event.extendedProps.taskId;
+
         return (
-            <div className="fc-event-content">
+            <div
+                className={`fc-event-content transition-all duration-300 ${isHovered ? "animate-hoverPulse" : ""
+                    }`}
+            >
                 <div className="fc-event-title">{eventInfo.event.title}</div>
                 {!eventInfo.event.allDay && (
-                    <div className="fc-event-time">
-                        {eventInfo.timeText}
-                    </div>
+                    <div className="fc-event-time">{eventInfo.timeText}</div>
                 )}
             </div>
         );
     };
+
 
     // Effects
     useEffect(() => {
@@ -2011,9 +2015,11 @@ const GoalsPage = () => {
                             dispatch(setSelectedDate(arg.view.currentStart.toISOString()));
                         }}
                         eventDidMount={(arg) => {
-                            arg.el.setAttribute('data-event-id', arg.event.id);
-                            if (arg.event.extendedProps.type === 'action') {
-                                arg.el.classList.add('action-event');
+                            const taskId = arg.event.extendedProps.taskId;
+                            if (hoveredTaskId === taskId) {
+                                arg.el.classList.add("animate-hoverPulse");
+                            } else {
+                                arg.el.classList.remove("animate-hoverPulse");
                             }
                         }}
                     />
