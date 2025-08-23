@@ -207,154 +207,104 @@
   filter: brightness(1.3);
 }
 /* ==============================
-   FullCalendar Modern Styles
+   FullCalendar Clean Sleek Styles
 ============================== */
 
 /* Calendar container */
 .fc {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 14px;
-  padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
+  padding: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
-/* Toolbar (month/week/day switch + arrows) */
+/* Toolbar */
 .fc .fc-toolbar {
-  margin-bottom: 20px;
-  padding: 0 8px;
+  margin-bottom: 16px;
 }
 .fc .fc-toolbar-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #111827;
-  letter-spacing: -0.01em;
 }
 .fc .fc-button {
   background: transparent !important;
   border: none !important;
   color: #6b7280 !important;
-  padding: 8px 16px !important;
+  padding: 6px 12px !important;
   font-size: 13px;
   font-weight: 500;
-  border-radius: 10px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  border-radius: 8px !important;
 }
 .fc .fc-button:hover {
-  background: #f8fafc !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f3f4f6 !important;
 }
 .fc .fc-button-primary:not(:disabled).fc-button-active {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  background: #2563eb !important;
   color: white !important;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
 }
 
 /* Header cells */
 .fc .fc-col-header-cell {
-  padding: 12px 0;
-  border-bottom: 2px solid #f1f5f9;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 .fc .fc-col-header-cell-cushion {
-  color: #64748b;
+  color: #6b7280;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-/* Scrollable area */
-.fc .fc-scroller {
-  overflow-y: auto !important;
-  max-height: calc(100vh - 180px) !important;
-  border-radius: 12px;
-}
-
-/* ==============================
-   Day Cells
-============================== */
+/* Day Cells */
 .fc-daygrid-day {
   border: 1px solid #f1f5f9 !important;
-  transition: all 0.3s ease;
   background: #ffffff;
 }
-.fc-daygrid-day:hover {
-  background: #f8fafc !important;
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  z-index: 2;
-}
-
-/* Today highlight */
 .fc-day-today {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
-  border: 2px solid #3b82f6 !important;
-  position: relative;
+  background: #eff6ff !important;
+  border: 1px solid #2563eb !important;
 }
-.fc-day-today::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  background: #3b82f6;
-  border-radius: 50%;
-}
-
-/* Weekend background */
 .fc-day-sat, .fc-day-sun {
   background-color: #fafafa !important;
 }
-
-/* Day number */
 .fc .fc-daygrid-day-number {
   color: #374151;
   font-weight: 600;
-  padding: 8px 8px 0 0;
-  font-size: 13px;
+  padding: 6px 6px 0 0;
+  font-size: 12px;
 }
 
-/* ==============================
-   Events
-============================== */
+/* Events */
 .fc-daygrid-event {
-  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  background: #3b82f6 !important;
   color: #fff !important;
-  border-radius: 8px !important;
-  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
   font-weight: 500;
   font-size: 12px;
   margin: 2px 4px;
   border: none !important;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
 .fc-timegrid-event {
-  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  background: #ef4444 !important;
   color: #fff !important;
-  border-radius: 8px !important;
-  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
   font-weight: 500;
   font-size: 12px;
   border: none !important;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
-/* Event hover effects */
+/* Remove heavy hover animations */
 .fc-event:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease-in-out;
+  opacity: 0.9;
 }
 
-/* Event dots */
+/* Remove event dots */
 .fc .fc-daygrid-event-dot {
   display: none;
 }
@@ -362,128 +312,76 @@
 /* More events link */
 .fc .fc-daygrid-more-link {
   color: #6b7280 !important;
-  font-weight: 500;
   font-size: 11px;
   padding: 2px 6px;
-  background: #f8fafc;
-  border-radius: 6px;
+  background: #f3f4f6;
+  border-radius: 4px;
   margin-top: 4px;
 }
+/* Show scrollbar only when actively scrolling */
+.fc .fc-scroller {
+  overflow-y: auto !important;
+  scrollbar-gutter: stable overlay; /* makes scrollbar overlay instead of shifting */
+  scrollbar-color: transparent transparent;
+}
 
-/* ==============================
-   Scrollbar styling
-============================== */
+/* WebKit browsers */
 .fc .fc-scroller::-webkit-scrollbar {
   width: 8px;
 }
 .fc .fc-scroller::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  background: transparent;
   border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+}
+.fc .fc-scroller:hover::-webkit-scrollbar-thumb,
+.fc .fc-scroller:active::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* visible only when hovered or scrolling */
 }
 .fc .fc-scroller::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 6px;
-  margin: 4px 0;
+  background: transparent;
 }
 
-/* ==============================
-   Time Grid
-============================== */
+
+
+
+/* Time Grid */
 .fc .fc-timegrid-slot {
   border-color: #f1f5f9 !important;
 }
 .fc .fc-timegrid-axis {
-  background: #f8fafc;
+  background: #f9fafb;
   border-color: #f1f5f9;
 }
 
-/* ==============================
-   Dark Mode
-============================== */
+/* Dark Mode */
 .dark .fc {
   background: #1f2937;
   color: #e5e7eb;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
-
 .dark .fc-daygrid-day {
   border: 1px solid #374151 !important;
   background: #111827;
 }
-
 .dark .fc-day-sat, .dark .fc-day-sun {
   background-color: #0f172a !important;
 }
-
 .dark .fc-day-today {
-  background: linear-gradient(135deg, #1e3a8a, #1e40af) !important;
-  border: 2px solid #2563eb !important;
+  background: #1e3a8a !important;
+  border: 1px solid #2563eb !important;
 }
-
 .dark .fc-daygrid-event {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  background: #2563eb !important;
 }
-
 .dark .fc-timegrid-event {
-  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+  background: #dc2626 !important;
 }
-
 .dark .fc .fc-col-header-cell {
-  border-bottom: 2px solid #374151;
+  border-bottom: 1px solid #374151;
 }
-
 .dark .fc .fc-col-header-cell-cushion {
   color: #94a3b8;
 }
-
 .dark .fc .fc-daygrid-day-number {
   color: #e5e7eb;
-}
-
-.dark .fc .fc-button:hover {
-  background: #374151 !important;
-}
-
-.dark .fc .fc-scroller::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #475569, #334155);
-}
-
-.dark .fc .fc-scroller::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
-/* Animation keyframes */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.fc .fc-view {
-  animation: fadeIn 0.6s ease-out;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .fc {
-    padding: 12px;
-    border-radius: 12px;
-  }
-  
-  .fc .fc-toolbar {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .fc .fc-toolbar-title {
-    font-size: 16px;
-  }
-  
-  .fc .fc-button {
-    padding: 6px 12px !important;
-    font-size: 12px;
-  }
 }
