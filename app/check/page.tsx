@@ -46,7 +46,7 @@ interface Event {
     goalId?: string;
     taskId?: string;
     color?: string;
-    repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once';
+    repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'once' | 'log';
     allDay?: boolean;
     ua_id?: string;
     action_id?: number;
@@ -243,14 +243,6 @@ const GoalsPage = () => {
             ...data,
             daily_breakdown: past7Days
         };
-    };
-
-    const parseToLiteral = (dateStr: string): Date => {
-        if (dateStr.includes("GMT")) {
-            const noGmt = dateStr.replace("GMT", "").trim();
-            return new Date(noGmt);
-        }
-        return new Date(dateStr);
     };
 
     const isSameDay = (d1: Date, d2: Date) =>
@@ -752,12 +744,13 @@ const GoalsPage = () => {
         weekly: 31,
         monthly: 32,
         once: 30,
+        log: 30
     };
 
     const handleEventSave = async () => {
         if (!currentEvent) return;
-        const { start, end, title, taskId, repeat, id } = currentEvent;
         console.log(currentEvent);
+        const { start, end, title, taskId, repeat, id } = currentEvent;
         const dayToCatIdMap: Record<
             "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday",
             number
@@ -800,7 +793,7 @@ const GoalsPage = () => {
             value4: "",
             value5: "",
             value6: "",
-            cat_qty_id2: repeat === "once" ? 129 : 128,
+            cat_qty_id2: repeat === "once" || repeat === "log" ? 129 : 128,
             cat_qty_id3: 23,
             cat_qty_id4: 0,
             cat_qty_id5: 0,
@@ -948,7 +941,44 @@ const GoalsPage = () => {
         }
     };
 
-    // FullCalendar integration
+    const parseToLiteral = (dateStr: string): Date => {
+        if (!dateStr) return new Date(NaN);
+
+        // Case 1: GMT-style string (e.g. "Fri, 22 Aug 2025 22:00:00 GMT")
+        if (dateStr.includes("GMT")) {
+            const parts = dateStr.replace(",", "").split(" ");
+            // ["Fri", "22", "Aug", "2025", "22:00:00", "GMT"]
+
+            if (parts.length >= 5) {
+                const day = parseInt(parts[1], 10);
+                const monthStr = parts[2];
+                const year = parseInt(parts[3], 10);
+                const [hour, minute, second] = parts[4].split(":").map(Number);
+
+                const monthMap: Record<string, number> = {
+                    Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+                    Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+                };
+
+                const month = monthMap[monthStr] ?? 0;
+
+                // 👇 Create a "literal" local Date (no timezone shift)
+                return new Date(year, month, day, hour, minute, second || 0);
+            }
+        }
+
+        // Case 2: ISO-like without timezone (e.g. "2025-08-22T17:00:00")
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
+            const [datePart, timePart] = dateStr.split("T");
+            const [year, month, day] = datePart.split("-").map(Number);
+            const [hour, minute, second = "0"] = timePart.split(":");
+            return new Date(year, month - 1, day, parseInt(hour), parseInt(minute), parseInt(second));
+        }
+
+        // Fallback
+        return new Date(dateStr);
+    };
+
     const generateActionEvents = (
         start: Date,
         end: Date,
@@ -956,7 +986,7 @@ const GoalsPage = () => {
         goals: Goal[]
     ) => {
         const events: any[] = [];
-        const seenEvents = new Set<string>();
+        const seen = new Set<string>();
 
         const durationUnitMap: Record<number, string> = { 57: "hours", 56: "minutes" };
         const dayWeekMap: Record<number, string> = {
@@ -964,70 +994,172 @@ const GoalsPage = () => {
             79: "Thursday", 80: "Friday", 81: "Saturday", 82: "Sunday",
         };
 
-        const current = new Date(start);
+        // ---- helpers ----
+        const startOfLocalDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const sameLocalDay = (a: Date, b: Date) =>
+            a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+        const onOrAfterLocalDay = (a: Date, b: Date) =>
+            startOfLocalDay(a).getTime() >= startOfLocalDay(b).getTime();
 
-        while (current <= end) {
+        // 🔑 Parse backend timestamps safely (GMT → local literal)
+        const parseActionDate = (v: string) => {
+            if (!v) return new Date(NaN);
+
+            // ISO without timezone → treat as local
+            const isoLocalNoTZ =
+                /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !/[zZ]|GMT/.test(v);
+            if (isoLocalNoTZ) {
+                const [d, t] = v.split("T");
+                const [Y, M, D] = d.split("-").map(Number);
+                const [hh, mm, ss = "0"] = t.split(":");
+                return new Date(Y, M - 1, D, Number(hh), Number(mm), Number(ss));
+            }
+
+            // RFC1123 like "Fri, 22 Aug 2025 22:00:00 GMT"
+            const rfcMatch = v.match(
+                /(\d{1,2}) (\w{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2})/
+            );
+            if (rfcMatch) {
+                const [, dd, mon, yyyy, hh, mm, ss] = rfcMatch;
+                const monthNames = [
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ];
+                const month = monthNames.indexOf(mon);
+                return new Date(
+                    Number(yyyy),
+                    month,
+                    Number(dd),
+                    Number(hh),
+                    Number(mm),
+                    Number(ss)
+                );
+            }
+
+            // fallback
+            return new Date(v);
+        };
+
+        // normalize loop bounds
+        let current = startOfLocalDay(start);
+        const endLocal = startOfLocalDay(end);
+        const today = startOfLocalDay(new Date());
+
+        while (current <= endLocal) {
+            const weekdayName = current.toLocaleDateString("en-US", { weekday: "long" });
+
             for (const goal of goals) {
                 for (const task of goal.tasks) {
                     const taskActions = allActions[task.id?.toString()] || [];
 
                     for (const action of taskActions) {
-                        // ✅ Always rely on backend's by_datetime_value for correct start date
-                        const actionDate = new Date(action.by_datetime_value);
-                        if (isNaN(actionDate.getTime())) continue;
+                        const parsed = parseActionDate(action.by_datetime_value);
+                        if (isNaN(parsed.getTime())) continue;
 
+                        const actionDayLocal = startOfLocalDay(parsed);
                         const isRepeating = action.repeat_status === "128";
-                        const weekdayName = current.toLocaleDateString("en-US", { weekday: "long" });
+                        const isActionLog = !!action.action_log_id;
 
                         let shouldRender = false;
 
-                        // ✅ Handle recurring events
-                        if (isRepeating) {
+                        if (isActionLog) {
+                            if (action.validity_flag !== "valid") continue;
+
+                            if (current < actionDayLocal) {
+                                // future logs never shown
+                                shouldRender = false;
+                            } else if (sameLocalDay(current, actionDayLocal)) {
+                                if (isRepeating) {
+                                    // repeating log: skip if today
+                                    shouldRender = !sameLocalDay(actionDayLocal, today);
+                                } else {
+                                    // non-repeating log: always show its original day
+                                    shouldRender = true;
+                                }
+                            } else if (current < today) {
+                                // past logs repeat until yesterday following pattern
+                                if (isRepeating) {
+                                    const dayWeekName = dayWeekMap[action.day_week];
+                                    const isWeekly = !!dayWeekName;
+                                    const dayMonth = Number(action.day_month);
+                                    const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
+                                    const isDaily = !isWeekly && !isMonthly;
+
+                                    if (
+                                        isWeekly && dayWeekName === weekdayName && onOrAfterLocalDay(current, actionDayLocal)
+                                    ) {
+                                        shouldRender = true;
+                                    } else if (
+                                        isMonthly && current.getDate() === dayMonth && onOrAfterLocalDay(current, actionDayLocal)
+                                    ) {
+                                        shouldRender = true;
+                                    } else if (isDaily && onOrAfterLocalDay(current, actionDayLocal)) {
+                                        shouldRender = true;
+                                    }
+                                }
+                            } else if (sameLocalDay(current, today)) {
+                                // today only if log was created today
+                                shouldRender = sameLocalDay(actionDayLocal, today);
+                            }
+                        } else if (isRepeating) {
+                            // normal repeating templates (future allowed)
                             const dayWeekName = dayWeekMap[action.day_week];
                             const isWeekly = !!dayWeekName;
                             const dayMonth = Number(action.day_month);
                             const isMonthly = !isWeekly && dayMonth >= 1 && dayMonth <= 31;
                             const isDaily = !isWeekly && !isMonthly;
 
-                            if (isWeekly && dayWeekName === weekdayName && isAfterOrSameDay(current, actionDate)) {
+                            if (
+                                isWeekly && dayWeekName === weekdayName && onOrAfterLocalDay(current, actionDayLocal)
+                            ) {
                                 shouldRender = true;
-                            } else if (isMonthly && current.getDate() === dayMonth && isAfterOrSameDay(current, actionDate)) {
+                            } else if (
+                                isMonthly && current.getDate() === dayMonth && onOrAfterLocalDay(current, actionDayLocal)
+                            ) {
                                 shouldRender = true;
-                            } else if (isDaily && isAfterOrSameDay(current, actionDate)) {
+                            } else if (isDaily && onOrAfterLocalDay(current, actionDayLocal)) {
                                 shouldRender = true;
                             }
                         } else {
-                            // ✅ Non-repeating events
-                            shouldRender = isSameDay(current, actionDate);
+                            // one-time non-repeating
+                            shouldRender = sameLocalDay(current, actionDayLocal);
                         }
 
                         if (!shouldRender) continue;
 
-                        // ✅ Make each event unique per day
-                        const uniqueId = `${action.ua_id || action.a_id}-${current.toISOString()}`;
-                        if (seenEvents.has(uniqueId)) continue;
-                        seenEvents.add(uniqueId);
+                        // unique ID — logs need special uniqueness
+                        const uniqueId = isActionLog
+                            ? `log-${action.action_log_id}`
+                            : `${action.ua_id ?? action.action_id}-${current.getFullYear()}-${current.getMonth() + 1}-${current.getDate()}`;
 
-                        // ✅ Duration calculation
+                        if (seen.has(uniqueId)) continue;
+                        seen.add(uniqueId);
+
+                        // duration
                         let duration = parseInt(action.duration_value || "30", 10);
                         const unit = durationUnitMap[action.duration_unit];
                         if (unit === "hours") duration *= 60;
 
-                        // ✅ Use backend start time if possible
-                        let eventStart = new Date(action.by_datetime_value);
-                        eventStart.setFullYear(current.getFullYear(), current.getMonth(), current.getDate());
-
-                        // ✅ Calculate event end
+                        // event start: current day + parsed time
+                        const eventStart = new Date(
+                            current.getFullYear(),
+                            current.getMonth(),
+                            current.getDate(),
+                            parsed.getHours(),
+                            parsed.getMinutes(),
+                            parsed.getSeconds() || 0,
+                            0
+                        );
                         const eventEnd = new Date(eventStart);
                         eventEnd.setMinutes(eventStart.getMinutes() + duration);
-
-                        // ✅ Push event
                         events.push({
                             id: uniqueId,
                             title: action.name || "Untitled Action",
-                            start: eventStart.toISOString(),
-                            end: eventEnd.toISOString(),
-                            allDay: false, // ✅ Prevents bunching at midnight
+                            start: eventStart,
+                            end: eventEnd,
+                            allDay: false,
                             color: task.color || "#3b82f6",
                             extendedProps: {
                                 type: "action",
@@ -1035,7 +1167,7 @@ const GoalsPage = () => {
                                 taskId: task.id,
                                 ua_id: action.ua_id,
                                 action_id: action.action_id,
-                                isaction_log: !!action.action_log_id,
+                                isaction_log: isActionLog,
                                 action_log_id: action.action_log_id,
                                 repeatType: isRepeating
                                     ? action.day_week
@@ -1043,19 +1175,21 @@ const GoalsPage = () => {
                                         : action.day_month
                                             ? "monthly"
                                             : "daily"
-                                    : "once",
-                                durationMinutes: duration
-                            }
+                                    : isActionLog
+                                        ? "log"
+                                        : "once",
+                                durationMinutes: duration,
+                            },
                         });
                     }
                 }
             }
+
             current.setDate(current.getDate() + 1);
         }
 
         return events;
     };
-
 
     const formatEventsForCalendar = () => {
         return events.map(event => {
@@ -1102,7 +1236,7 @@ const GoalsPage = () => {
                 action_id: extendedProps.action_id,
                 isaction_log: extendedProps.isaction_log,
                 action_log_id: extendedProps.action_log_id,
-                repeat: extendedProps.repeatType || 'once',
+                repeat: extendedProps.repeatType === 'log' ? 'once' : (extendedProps.repeatType || 'once'),
                 allDay: false
             });
             setShowEventModal(true);
@@ -1127,12 +1261,11 @@ const GoalsPage = () => {
     const handleEventChange = async (arg: any) => {
         const event = arg.event;
         const extendedProps = event.extendedProps;
-
         const updatedEvent = {
             id: `event-${event.id}`,
             title: event.title,
-            start: event.start.toISOString(),
-            end: event.end.toISOString(),
+            start: event.start,
+            end: event.end,
             color: event.backgroundColor,
             goalId: extendedProps.goalId,
             taskId: extendedProps.taskId,
@@ -1143,7 +1276,7 @@ const GoalsPage = () => {
             repeat: extendedProps.repeatType || extendedProps.repeat || 'once',
             allDay: event.allDay
         };
-
+        // console.log(updatedEvent);
         setCurrentEvent(updatedEvent);
         await handleEventSave();
     };
@@ -1783,9 +1916,9 @@ const GoalsPage = () => {
                         droppable={true}
                         selectable={true}
                         selectMirror={true}
-                        height="100%"   // 👈 fixed viewport height
-                        expandRows={false}             // 👈 don’t stretch all rows
-                        scrollTime="06:00:00"          // 👈 auto-scroll to 6 AM
+                        height="100%"
+                        expandRows={false}
+                        scrollTime="06:00:00"
                         slotMinTime="00:00:00"
                         slotMaxTime="23:59:00"
                         dayMaxEvents={3}
