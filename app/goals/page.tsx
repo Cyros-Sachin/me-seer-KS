@@ -33,6 +33,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import toast from "react-hot-toast";
 
 type ViewMode = 'day' | 'week' | 'month';
 type EventCategory = 'exercise' | 'eating' | 'work' | 'relax' | 'family' | 'social';
@@ -193,7 +194,22 @@ const GoalsPage = () => {
     const timeGridRef = useRef<HTMLDivElement>(null);
     const calendarButtonRef = useRef<HTMLButtonElement>(null);
     const calendarRef = useRef<any>(null);
-
+    const [showGoalDialog, setShowGoalDialog] = useState(false);
+    const [goalForm, setGoalForm] = useState({
+        value2: '',     // Name
+        value3: '',     // By date
+        value4: '',     // Effort
+        value5: '',     // Completed
+        value6: '',     // optional
+        cat_qty_id2: 23,
+        cat_qty_id3: 47,
+        cat_qty_id4: 54,
+        cat_qty_id5: 2,
+    });
+    const [showTaskDialog, setShowTaskDialog] = useState(false);
+    const [taskForm, setTaskForm] = useState({
+        value3: '', // task name/title
+    });
     // Helper functions
     const toLocalDateTimeInputValue = (dateStr: string): string => {
         const d = new Date(dateStr);
@@ -1520,6 +1536,105 @@ const GoalsPage = () => {
         return date;
     });
 
+    const handleSubmitGoal = async () => {
+        try {
+            const userId = getUserId();
+            const now = new Date().toISOString().slice(0, 19);
+
+            const payload = {
+                user_id: userId,
+                flag: "P",
+                at_id: 301,
+                a_id: 24,
+                cat_qty_id1: 0,
+                cat_qty_id2: goalForm.cat_qty_id2,
+                cat_qty_id3: goalForm.cat_qty_id3,
+                cat_qty_id4: goalForm.cat_qty_id4,
+                cat_qty_id5: goalForm.cat_qty_id5,
+                cat_qty_id6: 0,
+                value1: "",
+                value2: goalForm.value2,
+                value3: goalForm.value3,
+                value4: goalForm.value4,
+                value5: goalForm.value5,
+                value6: "",
+                cat_qty_undefined: 0,
+                valueundefined: "",
+                trigger: "goal",
+                is_active: true,
+                description: `Goal is added at ${now}`,
+                event_time: now
+            };
+            // console.log(payload);
+            const res = await fetch('https://meseer.com/dog/add-data/primary-mwb/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getUserToken()}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error("Failed to create goal");
+
+            setShowGoalDialog(false);
+            await reload();
+        } catch (err) {
+            console.error("Goal creation failed", err);
+            alert("Error creating goal");
+        }
+    };
+
+    const handleSubmitTask = async () => {
+        try {
+            const userId = getUserId();
+            const now = new Date().toISOString().slice(0, 19);
+
+            const payload = {
+                user_id: userId,
+                flag: "PP",
+                at_id: 301,
+                a_id: 27,
+                cat_qty_id1: 0,
+                cat_qty_id2: selectedGoalId,
+                cat_qty_id3: 23,
+                cat_qty_id4: 0,
+                cat_qty_id5: 0,
+                cat_qty_id6: 0,
+                value1: "0",
+                value2: "",
+                value3: taskForm.value3,
+                value4: "",
+                value5: "",
+                value6: "",
+                cat_qty_undefined: 0,
+                valueundefined: "",
+                trigger: "task",
+                is_active: "Y",
+                description: `Task is added at ${now}`,
+                event_time: now
+            };
+            console.log(payload);
+            // const res = await fetch('https://meseer.com/dog/add-data/primary-mwb/', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Authorization': `Bearer ${getUserToken()}`
+            //     },
+            //     body: JSON.stringify(payload),
+            // });
+
+            // if (!res.ok) throw new Error("Failed to create task");
+            // 
+            // setSelectedGoalId('');
+            // setShowTaskDialog(false);
+            // await reload();
+        } catch (err) {
+            console.error("Task creation failed", err);
+            alert("Error creating task");
+        }
+    };
+    
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Sidebar */}
@@ -1529,7 +1644,18 @@ const GoalsPage = () => {
                     <h2 className="text-xl font-bold text-gray-800">Goals</h2>
                 </div>
                 <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">My Goals</h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-800">My Goals</h2>
+                        <button
+                            onClick={() => {
+                                setShowGoalDialog(true);
+                            }}
+                            className="flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                        >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Create Goal
+                        </button>
+                    </div>
                     <div className="space-y-1">
                         {goals.map(goal => {
                             const isExpanded = expandedGoalIds.includes(goal.id);
@@ -1645,6 +1771,16 @@ const GoalsPage = () => {
                                                             </div>
                                                         );
                                                     })}
+                                                    <button
+                                                        onClick={() => {
+                                                            console.log("Add Task clicked for goal:", goal.id);
+                                                            setShowTaskDialog(true);
+                                                        }}
+                                                        className="flex items-center text-sm text-blue-600 hover:underline mt-2"
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-1" />
+                                                        Add Task
+                                                    </button>
                                                 </div>
                                             </motion.div>
                                         )}
@@ -2711,6 +2847,160 @@ const GoalsPage = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {showGoalDialog && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-5000 flex items-center justify-center">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!goalForm.value2.trim()) {
+                                toast.error("Goal name is required");
+                                return;
+                            }
+                            if (!goalForm.value3) {
+                                toast.error("Date is required");
+                                return;
+                            }
+                            if (!goalForm.value4 || isNaN(Number(goalForm.value4))) {
+                                toast.error("Effort is required");
+                                return;
+                            }
+                            if (!goalForm.cat_qty_id4) {
+                                toast.error("Please select a time unit");
+                                return;
+                            }
+                            if (!goalForm.value5 || isNaN(Number(goalForm.value5))) {
+                                toast.error("Percentage complete is required");
+                                return;
+                            }
+                            handleSubmitGoal();
+                        }}
+                        className="bg-white rounded-xl shadow-lg max-w-3xl w-full p-6 space-y-4"
+                    >
+                        <h2 className="text-2xl font-semibold text-gray-800">Create Goal</h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input
+                                type="text"
+                                placeholder="Name (e.g., SEM 3)"
+                                value={goalForm.value2}
+                                onChange={(e) => setGoalForm({ ...goalForm, value2: e.target.value })}
+                                title="Name or title for a given entity"
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+
+                            <input
+                                type="date"
+                                value={goalForm.value3
+                                    ? (() => {
+                                        const [dd, mm, yyyy] = goalForm.value3.split("/");
+                                        return `${yyyy}-${mm}-${dd}`;
+                                    })()
+                                    : ""}
+                                onChange={(e) => {
+                                    const raw = e.target.value; // YYYY-MM-DD
+                                    const [yyyy, mm, dd] = raw.split("-");
+                                    const formatted = `${dd}/${mm}/${yyyy}`;
+                                    setGoalForm({ ...goalForm, value3: formatted });
+                                }}
+                                title="Add a date"
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+
+                            <input
+                                type="number"
+                                placeholder="Effort"
+                                value={goalForm.value4}
+                                onChange={(e) => setGoalForm({ ...goalForm, value4: e.target.value })}
+                                title="Effort needed to achieve the goal"
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+
+                            <select
+                                value={goalForm.cat_qty_id4}
+                                onChange={(e) =>
+                                    setGoalForm({ ...goalForm, cat_qty_id4: parseInt(e.target.value) })
+                                }
+                                title="Choose the time unit for effort (e.g., hpd, hpw, hpm)"
+                                className="w-32 border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={53}>hpd</option>
+                                <option value={54}>hpw</option>
+                                <option value={55}>hpm</option>
+                            </select>
+
+                            <input
+                                type="number"
+                                placeholder="Completed (%)"
+                                value={goalForm.value5}
+                                onChange={(e) => setGoalForm({ ...goalForm, value5: e.target.value })}
+                                title="Percentage complete"
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                type="button"
+                                onClick={() => setShowGoalDialog(false)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Submit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {showTaskDialog && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!taskForm.value3.trim()) {
+                                toast.error("Task name is required");
+                                return;
+                            }
+                            handleSubmitTask();
+                        }}
+                        className="bg-white rounded-xl p-6 w-full max-w-md shadow-lg space-y-4"
+                    >
+                        <h2 className="text-2xl font-semibold text-gray-800">Create Task</h2>
+                        <div className="space-y-2">
+                            <label className="text-sm text-gray-600">Task Name</label>
+                            <input
+                                type="text"
+                                placeholder="e.g., Make notes"
+                                value={taskForm.value3}
+                                onChange={(e) => setTaskForm({ ...taskForm, value3: e.target.value })}
+                                title="name of the task to be completed"
+                                className="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowTaskDialog(false)}
+                                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Submit
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>
